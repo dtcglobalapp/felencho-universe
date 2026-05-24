@@ -1,7 +1,29 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+
+type Card = {
+  tag: string;
+  title: string;
+  text: string;
+  href: string;
+};
+
+type LanguageContent = {
+  flag: string;
+  name: string;
+  title: string;
+  subtitle: string;
+  enter: string;
+  videos: string;
+  podcast: string;
+  soundOff: string;
+  soundOn: string;
+  universe: string;
+  cards: Card[];
+};
 
 const languages = {
   ES: {
@@ -17,28 +39,33 @@ const languages = {
     soundOn: "Sonido activo",
     universe: "Universe Experience",
     cards: [
-      [
-        "Álbum 01",
-        "Yo Soy Felencho",
-        "Bachatón urbano futurista con energía cyberpunk caribeña.",
-      ],
-      [
-        "Álbum 02",
-        "Freedom Island",
-        "Reggae atmosférico con vibras tropicales y libertad espiritual.",
-      ],
-      [
-        "Podcast",
-        "Felencho Mundial",
-        "IA, música, cultura, tecnología y despertar humano.",
-      ],
-      [
-        "Historia",
-        "Museo IA",
-        "Alan Turing, evolución tecnológica, personajes y memoria digital.",
-      ],
+      {
+        tag: "Canción",
+        title: "Tinta Triste",
+        text: "Una canción sobre escribir aunque el mundo no escuche.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "Canción",
+        title: "Oh Wow!",
+        text: "Energía urbana para los guerreros que nunca se quitan.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "Canción",
+        title: "Historia de Amor",
+        text: "Lluvia, Nueva York, nostalgia y una historia íntima.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "Podcast",
+        title: "Felencho Mundial",
+        text: "IA, música, cultura, tecnología y despertar humano.",
+        href: "/song/tinta-triste",
+      },
     ],
   },
+
   EN: {
     flag: "🇺🇸",
     name: "English",
@@ -52,28 +79,33 @@ const languages = {
     soundOn: "Sound On",
     universe: "Universe Experience",
     cards: [
-      [
-        "Album 01",
-        "I Am Felencho",
-        "Futuristic urban bachatón with Caribbean cyberpunk energy.",
-      ],
-      [
-        "Album 02",
-        "Freedom Island",
-        "Atmospheric reggae with tropical vibes and spiritual freedom.",
-      ],
-      [
-        "Podcast",
-        "Felencho Worldwide",
-        "AI, music, culture, technology, and human awakening.",
-      ],
-      [
-        "History",
-        "AI Museum",
-        "Alan Turing, technological evolution, characters, and digital memory.",
-      ],
+      {
+        tag: "Song",
+        title: "Sad Ink",
+        text: "A song about writing even when the world does not listen.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "Song",
+        title: "Oh Wow!",
+        text: "Urban energy for warriors who never give up.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "Song",
+        title: "Love Story",
+        text: "Rain, New York, nostalgia, and an intimate story.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "Podcast",
+        title: "Felencho Worldwide",
+        text: "AI, music, culture, technology, and human awakening.",
+        href: "/song/tinta-triste",
+      },
     ],
   },
+
   ZH: {
     flag: "🇨🇳",
     name: "中文",
@@ -86,12 +118,33 @@ const languages = {
     soundOn: "声音开启",
     universe: "宇宙体验",
     cards: [
-      ["专辑 01", "我是 Felencho", "充满加勒比赛博朋克能量的未来都市Bachatón。"],
-      ["专辑 02", "自由岛", "带有热带氛围与精神自由感的氛围雷鬼。"],
-      ["播客", "Felencho 世界", "人工智能、音乐、文化、技术与人类觉醒。"],
-      ["历史", "人工智能博物馆", "艾伦·图灵、技术进化、人物与数字记忆。"],
+      {
+        tag: "歌曲",
+        title: "悲伤的墨水",
+        text: "即使世界不聆听，也继续书写的歌曲。",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "歌曲",
+        title: "Oh Wow!",
+        text: "献给永不放弃的战士的城市能量。",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "歌曲",
+        title: "爱情故事",
+        text: "雨、纽约、怀旧与亲密的故事。",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "播客",
+        title: "Felencho 世界",
+        text: "人工智能、音乐、文化、技术与人类觉醒。",
+        href: "/song/tinta-triste",
+      },
     ],
   },
+
   FR: {
     flag: "🇫🇷",
     name: "Français",
@@ -105,28 +158,33 @@ const languages = {
     soundOn: "Son activé",
     universe: "Expérience Univers",
     cards: [
-      [
-        "Album 01",
-        "Je Suis Felencho",
-        "Bachatón urbain futuriste avec énergie cyberpunk caribéenne.",
-      ],
-      [
-        "Album 02",
-        "Freedom Island",
-        "Reggae atmosphérique aux vibrations tropicales et liberté spirituelle.",
-      ],
-      [
-        "Podcast",
-        "Felencho Mondial",
-        "IA, musique, culture, technologie et éveil humain.",
-      ],
-      [
-        "Histoire",
-        "Musée IA",
-        "Alan Turing, évolution technologique, personnages et mémoire numérique.",
-      ],
+      {
+        tag: "Chanson",
+        title: "Encre Triste",
+        text: "Une chanson sur l’écriture même quand le monde n’écoute pas.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "Chanson",
+        title: "Oh Wow!",
+        text: "Énergie urbaine pour les guerriers qui n’abandonnent jamais.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "Chanson",
+        title: "Histoire d’Amour",
+        text: "Pluie, New York, nostalgie et une histoire intime.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "Podcast",
+        title: "Felencho Mondial",
+        text: "IA, musique, culture, technologie et éveil humain.",
+        href: "/song/tinta-triste",
+      },
     ],
   },
+
   PT: {
     flag: "🇧🇷",
     name: "Português",
@@ -140,28 +198,33 @@ const languages = {
     soundOn: "Som ativo",
     universe: "Experiência Universo",
     cards: [
-      [
-        "Álbum 01",
-        "Eu Sou Felencho",
-        "Bachatón urbano futurista com energia cyberpunk caribenha.",
-      ],
-      [
-        "Álbum 02",
-        "Freedom Island",
-        "Reggae atmosférico com vibrações tropicais e liberdade espiritual.",
-      ],
-      [
-        "Podcast",
-        "Felencho Mundial",
-        "IA, música, cultura, tecnologia e despertar humano.",
-      ],
-      [
-        "História",
-        "Museu IA",
-        "Alan Turing, evolução tecnológica, personagens e memória digital.",
-      ],
+      {
+        tag: "Canção",
+        title: "Tinta Triste",
+        text: "Uma canção sobre escrever mesmo quando o mundo não escuta.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "Canção",
+        title: "Oh Wow!",
+        text: "Energia urbana para guerreiros que nunca desistem.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "Canção",
+        title: "História de Amor",
+        text: "Chuva, Nova York, nostalgia e uma história íntima.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "Podcast",
+        title: "Felencho Mundial",
+        text: "IA, música, cultura, tecnologia e despertar humano.",
+        href: "/song/tinta-triste",
+      },
     ],
   },
+
   JA: {
     flag: "🇯🇵",
     name: "日本語",
@@ -174,20 +237,33 @@ const languages = {
     soundOn: "音声オン",
     universe: "宇宙体験",
     cards: [
-      [
-        "アルバム 01",
-        "私は Felencho",
-        "カリブのサイバーパンクエネルギーを持つ未来的な都市型バチャトン。",
-      ],
-      ["アルバム 02", "Freedom Island", "南国の雰囲気と精神的自由を持つレゲエ。"],
-      ["ポッドキャスト", "Felencho ワールド", "AI、音楽、文化、技術、人間の目覚め。"],
-      [
-        "歴史",
-        "AI ミュージアム",
-        "アラン・チューリング、技術進化、登場人物、デジタル記憶。",
-      ],
+      {
+        tag: "曲",
+        title: "悲しいインク",
+        text: "世界が聞いてくれなくても書き続ける歌。",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "曲",
+        title: "Oh Wow!",
+        text: "決して諦めない戦士たちへの都会的なエネルギー。",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "曲",
+        title: "愛の物語",
+        text: "雨、ニューヨーク、郷愁、そして親密な物語。",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "ポッドキャスト",
+        title: "Felencho ワールド",
+        text: "AI、音楽、文化、技術、人間の目覚め。",
+        href: "/song/tinta-triste",
+      },
     ],
   },
+
   HI: {
     flag: "🇮🇳",
     name: "हिन्दी",
@@ -201,24 +277,33 @@ const languages = {
     soundOn: "ध्वनि चालू",
     universe: "यूनिवर्स अनुभव",
     cards: [
-      [
-        "एल्बम 01",
-        "मैं हूँ Felencho",
-        "कैरेबियन साइबरपंक ऊर्जा वाला भविष्यवादी अर्बन बाचातोन।",
-      ],
-      [
-        "एल्बम 02",
-        "Freedom Island",
-        "उष्णकटिबंधीय वाइब्स और आध्यात्मिक स्वतंत्रता वाला रेगे।",
-      ],
-      ["पॉडकास्ट", "Felencho Mundial", "AI, संगीत, संस्कृति, तकनीक और मानव जागरण।"],
-      [
-        "इतिहास",
-        "AI संग्रहालय",
-        "Alan Turing, तकनीकी विकास, पात्र और डिजिटल स्मृति।",
-      ],
+      {
+        tag: "गीत",
+        title: "उदास स्याही",
+        text: "दुनिया न सुने फिर भी लिखते रहने की कहानी।",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "गीत",
+        title: "Oh Wow!",
+        text: "उन योद्धाओं के लिए ऊर्जा जो कभी हार नहीं मानते।",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "गीत",
+        title: "प्रेम कहानी",
+        text: "बारिश, न्यूयॉर्क, यादें और एक गहरी कहानी।",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "पॉडकास्ट",
+        title: "Felencho Mundial",
+        text: "AI, संगीत, संस्कृति, तकनीक और मानव जागरण।",
+        href: "/song/tinta-triste",
+      },
     ],
   },
+
   AR: {
     flag: "🇸🇦",
     name: "العربية",
@@ -231,18 +316,39 @@ const languages = {
     soundOn: "الصوت مفعل",
     universe: "تجربة الكون",
     cards: [
-      ["الألبوم 01", "أنا Felencho", "باتشاتون حضري مستقبلي بطاقة كاريبية سايبربانك."],
-      ["الألبوم 02", "Freedom Island", "ريغي جوي بنبضات استوائية وحرية روحية."],
-      ["بودكاست", "Felencho العالمي", "ذكاء اصطناعي، موسيقى، ثقافة، تقنية ويقظة إنسانية."],
-      ["تاريخ", "متحف الذكاء الاصطناعي", "آلان تورنغ، تطور التكنولوجيا، الشخصيات والذاكرة الرقمية."],
+      {
+        tag: "أغنية",
+        title: "حبر حزين",
+        text: "أغنية عن الكتابة حتى عندما لا يصغي العالم.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "أغنية",
+        title: "Oh Wow!",
+        text: "طاقة حضرية للمحاربين الذين لا يستسلمون.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "أغنية",
+        title: "قصة حب",
+        text: "مطر، نيويورك، حنين وقصة حميمة.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "بودكاست",
+        title: "Felencho العالمي",
+        text: "ذكاء اصطناعي، موسيقى، ثقافة، تقنية ويقظة إنسانية.",
+        href: "/song/tinta-triste",
+      },
     ],
   },
-};
+} satisfies Record<string, LanguageContent>;
 
 type LanguageKey = keyof typeof languages;
 
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
+
   const [soundOn, setSoundOn] = useState(false);
   const [language, setLanguage] = useState<LanguageKey>("ES");
   const [videoReady, setVideoReady] = useState(false);
@@ -372,24 +478,36 @@ export default function Home() {
           transition={{ delay: 1.1 }}
           className="mt-8 flex flex-wrap items-center justify-center gap-3"
         >
-          {[t.enter, t.videos, t.podcast].map((item) => (
-            <button
-              key={item}
-              className="rounded-full border border-cyan-400/45 bg-black/35 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:px-8 sm:py-3 sm:text-xs md:px-10"
-            >
-              {item}
-            </button>
-          ))}
+          <Link
+            href="/song/tinta-triste"
+            className="rounded-full border border-cyan-400/45 bg-black/35 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:px-8 sm:py-3 sm:text-xs md:px-10"
+          >
+            {t.enter}
+          </Link>
+
+          <Link
+            href="/song/oh-wow"
+            className="rounded-full border border-cyan-400/45 bg-black/35 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:px-8 sm:py-3 sm:text-xs md:px-10"
+          >
+            {t.videos}
+          </Link>
+
+          <Link
+            href="/song/historia-de-amor"
+            className="rounded-full border border-cyan-400/45 bg-black/35 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:px-8 sm:py-3 sm:text-xs md:px-10"
+          >
+            {t.podcast}
+          </Link>
         </motion.div>
       </section>
 
       <section className="absolute bottom-0 left-0 z-30 w-full pb-5">
         <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:grid md:grid-cols-4 md:gap-4 md:px-6">
           {t.cards.map((card, index) => (
-            <motion.div
-              key={card[1]}
-              whileHover={{ scale: 1.02 }}
-              className="min-w-[235px] snap-center rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-xl md:min-w-0 md:rounded-3xl md:p-5"
+            <Link
+              key={`${card.title}-${index}`}
+              href={card.href}
+              className="min-w-[235px] snap-center rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-xl transition hover:scale-[1.02] hover:border-cyan-400 md:min-w-0 md:rounded-3xl md:p-5"
             >
               <p
                 className={`text-[10px] uppercase tracking-[0.35em] ${
@@ -402,17 +520,17 @@ export default function Home() {
                     : "text-yellow-300"
                 }`}
               >
-                {card[0]}
+                {card.tag}
               </p>
 
               <h3 className="mt-2 text-xl font-black leading-tight md:text-2xl">
-                {card[1]}
+                {card.title}
               </h3>
 
               <p className="mt-2 text-xs leading-relaxed text-gray-300 md:text-sm">
-                {card[2]}
+                {card.text}
               </p>
-            </motion.div>
+            </Link>
           ))}
         </div>
       </section>
