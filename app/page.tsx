@@ -1,65 +1,293 @@
-import Image from "next/image";
+"use client";
+
+import { useRef, useState } from "react";
+import { motion } from "framer-motion";
+
+const languages = {
+  ES: {
+    flag: "🇪🇸",
+    name: "Español",
+    title: "Yo Soy",
+    subtitle: "Música. Podcast. Historia. Inteligencia Artificial. Caribe. Futuro.",
+    enter: "Entrar",
+    videos: "Videos",
+    podcast: "Podcast",
+    soundOff: "Activar Sonido",
+    soundOn: "Sonido Activo",
+    universe: "Universe Experience",
+    cards: [
+      ["Álbum 01", "Yo Soy Felencho", "Bachatón urbano futurista con energía cyberpunk caribeña."],
+      ["Álbum 02", "Freedom Island", "Reggae atmosférico con vibras tropicales y libertad espiritual."],
+      ["Podcast", "Felencho Mundial", "IA, música, cultura, tecnología, filosofía y despertar humano."],
+      ["Historia", "Museo IA", "Alan Turing, evolución tecnológica, personajes y memoria digital."],
+    ],
+  },
+  EN: {
+    flag: "🇺🇸",
+    name: "English",
+    title: "I Am",
+    subtitle: "Music. Podcast. History. Artificial Intelligence. Caribbean. Future.",
+    enter: "Enter",
+    videos: "Videos",
+    podcast: "Podcast",
+    soundOff: "Enable Sound",
+    soundOn: "Sound On",
+    universe: "Universe Experience",
+    cards: [
+      ["Album 01", "I Am Felencho", "Futuristic urban bachatón with Caribbean cyberpunk energy."],
+      ["Album 02", "Freedom Island", "Atmospheric reggae with tropical vibes and spiritual freedom."],
+      ["Podcast", "Felencho Worldwide", "AI, music, culture, technology, philosophy, and human awakening."],
+      ["History", "AI Museum", "Alan Turing, technological evolution, characters, and digital memory."],
+    ],
+  },
+  ZH: {
+    flag: "🇨🇳",
+    name: "中文",
+    title: "我是",
+    subtitle: "音乐。播客。历史。人工智能。加勒比。未来。",
+    enter: "进入",
+    videos: "视频",
+    podcast: "播客",
+    soundOff: "开启声音",
+    soundOn: "声音开启",
+    universe: "宇宙体验",
+    cards: [
+      ["专辑 01", "我是 Felencho", "充满加勒比赛博朋克能量的未来都市Bachatón。"],
+      ["专辑 02", "自由岛", "带有热带氛围与精神自由感的氛围雷鬼。"],
+      ["播客", "Felencho 世界", "人工智能、音乐、文化、技术、哲学与人类觉醒。"],
+      ["历史", "人工智能博物馆", "艾伦·图灵、技术进化、人物与数字记忆。"],
+    ],
+  },
+  FR: {
+    flag: "🇫🇷",
+    name: "Français",
+    title: "Je Suis",
+    subtitle: "Musique. Podcast. Histoire. Intelligence artificielle. Caraïbes. Futur.",
+    enter: "Entrer",
+    videos: "Vidéos",
+    podcast: "Podcast",
+    soundOff: "Activer le son",
+    soundOn: "Son activé",
+    universe: "Expérience Univers",
+    cards: [
+      ["Album 01", "Je Suis Felencho", "Bachatón urbain futuriste avec énergie cyberpunk caribéenne."],
+      ["Album 02", "Freedom Island", "Reggae atmosphérique aux vibrations tropicales et liberté spirituelle."],
+      ["Podcast", "Felencho Mondial", "IA, musique, culture, technologie, philosophie et éveil humain."],
+      ["Histoire", "Musée IA", "Alan Turing, évolution technologique, personnages et mémoire numérique."],
+    ],
+  },
+  PT: {
+    flag: "🇧🇷",
+    name: "Português",
+    title: "Eu Sou",
+    subtitle: "Música. Podcast. História. Inteligência Artificial. Caribe. Futuro.",
+    enter: "Entrar",
+    videos: "Vídeos",
+    podcast: "Podcast",
+    soundOff: "Ativar Som",
+    soundOn: "Som Ativo",
+    universe: "Experiência Universo",
+    cards: [
+      ["Álbum 01", "Eu Sou Felencho", "Bachatón urbano futurista com energia cyberpunk caribenha."],
+      ["Álbum 02", "Freedom Island", "Reggae atmosférico com vibrações tropicais e liberdade espiritual."],
+      ["Podcast", "Felencho Mundial", "IA, música, cultura, tecnologia, filosofia e despertar humano."],
+      ["História", "Museu IA", "Alan Turing, evolução tecnológica, personagens e memória digital."],
+    ],
+  },
+  JA: {
+    flag: "🇯🇵",
+    name: "日本語",
+    title: "私は",
+    subtitle: "音楽。ポッドキャスト。歴史。人工知能。カリブ。未来。",
+    enter: "入る",
+    videos: "動画",
+    podcast: "ポッドキャスト",
+    soundOff: "音をオン",
+    soundOn: "音声オン",
+    universe: "宇宙体験",
+    cards: [
+      ["アルバム 01", "私は Felencho", "カリブのサイバーパンクエネルギーを持つ未来的な都市型バチャトン。"],
+      ["アルバム 02", "Freedom Island", "南国の雰囲気と精神的自由を持つアトモスフェリック・レゲエ。"],
+      ["ポッドキャスト", "Felencho ワールド", "AI、音楽、文化、技術、哲学、人間の目覚め。"],
+      ["歴史", "AI ミュージアム", "アラン・チューリング、技術進化、登場人物、デジタル記憶。"],
+    ],
+  },
+  HI: {
+    flag: "🇮🇳",
+    name: "हिन्दी",
+    title: "मैं हूँ",
+    subtitle: "संगीत। पॉडकास्ट। इतिहास। कृत्रिम बुद्धिमत्ता। कैरेबियन। भविष्य।",
+    enter: "प्रवेश",
+    videos: "वीडियो",
+    podcast: "पॉडकास्ट",
+    soundOff: "ध्वनि चालू करें",
+    soundOn: "ध्वनि चालू",
+    universe: "यूनिवर्स अनुभव",
+    cards: [
+      ["एल्बम 01", "मैं हूँ Felencho", "कैरेबियन साइबरपंक ऊर्जा वाला भविष्यवादी अर्बन बाचातोन।"],
+      ["एल्बम 02", "Freedom Island", "उष्णकटिबंधीय वाइब्स और आध्यात्मिक स्वतंत्रता वाला एटमॉस्फेरिक रेगे।"],
+      ["पॉडकास्ट", "Felencho Mundial", "AI, संगीत, संस्कृति, तकनीक, दर्शन और मानव जागरण।"],
+      ["इतिहास", "AI संग्रहालय", "Alan Turing, तकनीकी विकास, पात्र और डिजिटल स्मृति।"],
+    ],
+  },
+  AR: {
+    flag: "🇸🇦",
+    name: "العربية",
+    title: "أنا",
+    subtitle: "موسيقى. بودكاست. تاريخ. ذكاء اصطناعي. كاريبي. مستقبل.",
+    enter: "دخول",
+    videos: "فيديوهات",
+    podcast: "بودكاست",
+    soundOff: "تشغيل الصوت",
+    soundOn: "الصوت مفعل",
+    universe: "تجربة الكون",
+    cards: [
+      ["الألبوم 01", "أنا Felencho", "باتشاتون حضري مستقبلي بطاقة كاريبية سايبربانك."],
+      ["الألبوم 02", "Freedom Island", "ريغي جوي بنبضات استوائية وحرية روحية."],
+      ["بودكاست", "Felencho العالمي", "ذكاء اصطناعي، موسيقى، ثقافة، تقنية، فلسفة ويقظة إنسانية."],
+      ["تاريخ", "متحف الذكاء الاصطناعي", "آلان تورنغ، تطور التكنولوجيا، الشخصيات والذاكرة الرقمية."],
+    ],
+  },
+};
+
+type LanguageKey = keyof typeof languages;
 
 export default function Home() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [soundOn, setSoundOn] = useState(false);
+  const [language, setLanguage] = useState<LanguageKey>("ES");
+
+  const t = languages[language];
+
+  const toggleSound = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = soundOn;
+    videoRef.current.volume = soundOn ? 0 : 0.6;
+    setSoundOn(!soundOn);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="relative min-h-[100svh] w-full overflow-hidden bg-black text-white">
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 h-full w-full object-cover object-center opacity-55"
+      >
+        <source src="/videos/times-square-rain.mp4" type="video/mp4" />
+      </video>
+
+      <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,255,0.18),transparent_55%)]" />
+      <div className="absolute left-[-140px] top-[20%] h-[360px] w-[360px] rounded-full bg-cyan-500/15 blur-3xl" />
+      <div className="absolute right-[-120px] bottom-[10%] h-[420px] w-[420px] rounded-full bg-purple-500/15 blur-3xl" />
+
+      <header className="absolute left-0 top-0 z-30 flex w-full items-start justify-between gap-4 p-4 sm:p-6 md:p-8">
+        <motion.div initial={{ opacity: 0, y: -25 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="text-xl font-black tracking-[0.32em] text-cyan-400 drop-shadow-[0_0_18px_cyan] sm:text-2xl md:text-3xl">
+            FELENCHO
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-2 text-[10px] uppercase tracking-[0.35em] text-gray-300 sm:text-xs md:text-sm">
+            {t.universe}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        </motion.div>
+
+        <div className="flex flex-col items-end gap-2 sm:flex-row">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as LanguageKey)}
+            className="rounded-full border border-white/20 bg-black/60 px-4 py-2 text-xs font-bold text-white backdrop-blur-xl outline-none"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {Object.entries(languages).map(([key, lang]) => (
+              <option key={key} value={key}>
+                {lang.flag} {key} · {lang.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={toggleSound}
+            className="rounded-full border border-cyan-400/50 bg-black/55 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300 backdrop-blur-xl transition hover:bg-cyan-400 hover:text-black sm:px-5 sm:py-3 sm:text-xs"
           >
-            Documentation
-          </a>
+            {soundOn ? t.soundOn : t.soundOff}
+          </button>
         </div>
-      </main>
-    </div>
+      </header>
+
+      <section className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-5 pb-72 pt-32 text-center sm:pb-64 md:pb-56">
+        <motion.h2
+          initial={{ opacity: 0, y: 70 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.4 }}
+          className="max-w-6xl text-4xl font-black uppercase leading-none sm:text-6xl md:text-8xl"
+        >
+          {t.title}{" "}
+          <span className="text-cyan-400 drop-shadow-[0_0_35px_cyan]">
+            Felencho
+          </span>
+        </motion.h2>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="mt-6 max-w-3xl text-base text-gray-200 sm:text-xl md:text-2xl"
+        >
+          {t.subtitle}
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 35 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.4 }}
+          className="mt-10 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-5"
+        >
+          {[t.enter, t.videos, t.podcast].map((item) => (
+            <button
+              key={item}
+              className="rounded-full border border-white/20 bg-white/10 px-6 py-4 text-xs font-bold uppercase tracking-[0.22em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:text-sm"
+            >
+              {item}
+            </button>
+          ))}
+        </motion.div>
+      </section>
+
+      <section className="absolute bottom-0 left-0 z-30 w-full p-4 sm:p-5 md:p-8">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {t.cards.map((card, index) => (
+            <motion.div
+              key={card[1]}
+              whileHover={{ scale: 1.03 }}
+              className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl"
+            >
+              <p
+                className={`text-xs uppercase tracking-[0.3em] ${
+                  index === 0
+                    ? "text-cyan-400"
+                    : index === 1
+                    ? "text-green-400"
+                    : index === 2
+                    ? "text-purple-400"
+                    : "text-yellow-300"
+                }`}
+              >
+                {card[0]}
+              </p>
+
+              <h3 className="mt-3 text-2xl font-black md:text-3xl">
+                {card[1]}
+              </h3>
+
+              <p className="mt-3 text-sm text-gray-300 md:text-base">
+                {card[2]}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
