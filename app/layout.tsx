@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+
 import "./globals.css";
+
+import Navbar from "./components/Navbar";
 
 export const metadata: Metadata = {
   title: "Felencho Universe",
   description:
-    "Interactive global universe of music, podcast, AI, stories and futuristic Caribbean experiences by Felencho.",
+    "Interactive global universe of music, podcast, stories and futuristic Caribbean experiences by Felencho.",
 };
 
 export default function RootLayout({
@@ -14,7 +17,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+
+      <body className="bg-black text-white">
+
+        {children}
+
+        <Navbar />
+
+      </body>
+
     </html>
   );
 }
