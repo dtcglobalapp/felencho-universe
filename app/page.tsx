@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
 const languages = {
@@ -8,7 +8,8 @@ const languages = {
     flag: "🇪🇸",
     name: "Español",
     title: "Yo Soy",
-    subtitle: "Música. Podcast. Historia. Inteligencia Artificial. Caribe. Futuro.",
+    subtitle:
+      "Música. Podcast. Historia. Inteligencia Artificial. Caribe. Futuro.",
     enter: "Entrar",
     videos: "Videos",
     podcast: "Podcast",
@@ -16,17 +17,34 @@ const languages = {
     soundOn: "Sonido activo",
     universe: "Universe Experience",
     cards: [
-      ["Álbum 01", "Yo Soy Felencho", "Bachatón urbano futurista con energía cyberpunk caribeña."],
-      ["Álbum 02", "Freedom Island", "Reggae atmosférico con vibras tropicales y libertad espiritual."],
-      ["Podcast", "Felencho Mundial", "IA, música, cultura, tecnología y despertar humano."],
-      ["Historia", "Museo IA", "Alan Turing, evolución tecnológica, personajes y memoria digital."],
+      [
+        "Álbum 01",
+        "Yo Soy Felencho",
+        "Bachatón urbano futurista con energía cyberpunk caribeña.",
+      ],
+      [
+        "Álbum 02",
+        "Freedom Island",
+        "Reggae atmosférico con vibras tropicales y libertad espiritual.",
+      ],
+      [
+        "Podcast",
+        "Felencho Mundial",
+        "IA, música, cultura, tecnología y despertar humano.",
+      ],
+      [
+        "Historia",
+        "Museo IA",
+        "Alan Turing, evolución tecnológica, personajes y memoria digital.",
+      ],
     ],
   },
   EN: {
     flag: "🇺🇸",
     name: "English",
     title: "I Am",
-    subtitle: "Music. Podcast. History. Artificial Intelligence. Caribbean. Future.",
+    subtitle:
+      "Music. Podcast. History. Artificial Intelligence. Caribbean. Future.",
     enter: "Enter",
     videos: "Videos",
     podcast: "Podcast",
@@ -34,10 +52,26 @@ const languages = {
     soundOn: "Sound On",
     universe: "Universe Experience",
     cards: [
-      ["Album 01", "I Am Felencho", "Futuristic urban bachatón with Caribbean cyberpunk energy."],
-      ["Album 02", "Freedom Island", "Atmospheric reggae with tropical vibes and spiritual freedom."],
-      ["Podcast", "Felencho Worldwide", "AI, music, culture, technology, and human awakening."],
-      ["History", "AI Museum", "Alan Turing, technological evolution, characters, and digital memory."],
+      [
+        "Album 01",
+        "I Am Felencho",
+        "Futuristic urban bachatón with Caribbean cyberpunk energy.",
+      ],
+      [
+        "Album 02",
+        "Freedom Island",
+        "Atmospheric reggae with tropical vibes and spiritual freedom.",
+      ],
+      [
+        "Podcast",
+        "Felencho Worldwide",
+        "AI, music, culture, technology, and human awakening.",
+      ],
+      [
+        "History",
+        "AI Museum",
+        "Alan Turing, technological evolution, characters, and digital memory.",
+      ],
     ],
   },
   ZH: {
@@ -62,7 +96,8 @@ const languages = {
     flag: "🇫🇷",
     name: "Français",
     title: "Je Suis",
-    subtitle: "Musique. Podcast. Histoire. Intelligence artificielle. Caraïbes. Futur.",
+    subtitle:
+      "Musique. Podcast. Histoire. Intelligence artificielle. Caraïbes. Futur.",
     enter: "Entrer",
     videos: "Vidéos",
     podcast: "Podcast",
@@ -70,17 +105,34 @@ const languages = {
     soundOn: "Son activé",
     universe: "Expérience Univers",
     cards: [
-      ["Album 01", "Je Suis Felencho", "Bachatón urbain futuriste avec énergie cyberpunk caribéenne."],
-      ["Album 02", "Freedom Island", "Reggae atmosphérique aux vibrations tropicales et liberté spirituelle."],
-      ["Podcast", "Felencho Mondial", "IA, musique, culture, technologie et éveil humain."],
-      ["Histoire", "Musée IA", "Alan Turing, évolution technologique, personnages et mémoire numérique."],
+      [
+        "Album 01",
+        "Je Suis Felencho",
+        "Bachatón urbain futuriste avec énergie cyberpunk caribéenne.",
+      ],
+      [
+        "Album 02",
+        "Freedom Island",
+        "Reggae atmosphérique aux vibrations tropicales et liberté spirituelle.",
+      ],
+      [
+        "Podcast",
+        "Felencho Mondial",
+        "IA, musique, culture, technologie et éveil humain.",
+      ],
+      [
+        "Histoire",
+        "Musée IA",
+        "Alan Turing, évolution technologique, personnages et mémoire numérique.",
+      ],
     ],
   },
   PT: {
     flag: "🇧🇷",
     name: "Português",
     title: "Eu Sou",
-    subtitle: "Música. Podcast. História. Inteligência Artificial. Caribe. Futuro.",
+    subtitle:
+      "Música. Podcast. História. Inteligência Artificial. Caribe. Futuro.",
     enter: "Entrar",
     videos: "Vídeos",
     podcast: "Podcast",
@@ -88,10 +140,26 @@ const languages = {
     soundOn: "Som ativo",
     universe: "Experiência Universo",
     cards: [
-      ["Álbum 01", "Eu Sou Felencho", "Bachatón urbano futurista com energia cyberpunk caribenha."],
-      ["Álbum 02", "Freedom Island", "Reggae atmosférico com vibrações tropicais e liberdade espiritual."],
-      ["Podcast", "Felencho Mundial", "IA, música, cultura, tecnologia e despertar humano."],
-      ["História", "Museu IA", "Alan Turing, evolução tecnológica, personagens e memória digital."],
+      [
+        "Álbum 01",
+        "Eu Sou Felencho",
+        "Bachatón urbano futurista com energia cyberpunk caribenha.",
+      ],
+      [
+        "Álbum 02",
+        "Freedom Island",
+        "Reggae atmosférico com vibrações tropicais e liberdade espiritual.",
+      ],
+      [
+        "Podcast",
+        "Felencho Mundial",
+        "IA, música, cultura, tecnologia e despertar humano.",
+      ],
+      [
+        "História",
+        "Museu IA",
+        "Alan Turing, evolução tecnológica, personagens e memória digital.",
+      ],
     ],
   },
   JA: {
@@ -106,17 +174,26 @@ const languages = {
     soundOn: "音声オン",
     universe: "宇宙体験",
     cards: [
-      ["アルバム 01", "私は Felencho", "カリブのサイバーパンクエネルギーを持つ未来的な都市型バチャトン。"],
+      [
+        "アルバム 01",
+        "私は Felencho",
+        "カリブのサイバーパンクエネルギーを持つ未来的な都市型バチャトン。",
+      ],
       ["アルバム 02", "Freedom Island", "南国の雰囲気と精神的自由を持つレゲエ。"],
       ["ポッドキャスト", "Felencho ワールド", "AI、音楽、文化、技術、人間の目覚め。"],
-      ["歴史", "AI ミュージアム", "アラン・チューリング、技術進化、登場人物、デジタル記憶。"],
+      [
+        "歴史",
+        "AI ミュージアム",
+        "アラン・チューリング、技術進化、登場人物、デジタル記憶。",
+      ],
     ],
   },
   HI: {
     flag: "🇮🇳",
     name: "हिन्दी",
     title: "मैं हूँ",
-    subtitle: "संगीत। पॉडकास्ट। इतिहास। कृत्रिम बुद्धिमत्ता। कैरेबियन। भविष्य।",
+    subtitle:
+      "संगीत। पॉडकास्ट। इतिहास। कृत्रिम बुद्धिमत्ता। कैरेबियन। भविष्य।",
     enter: "प्रवेश",
     videos: "वीडियो",
     podcast: "पॉडकास्ट",
@@ -124,10 +201,22 @@ const languages = {
     soundOn: "ध्वनि चालू",
     universe: "यूनिवर्स अनुभव",
     cards: [
-      ["एल्बम 01", "मैं हूँ Felencho", "कैरेबियन साइबरपंक ऊर्जा वाला भविष्यवादी अर्बन बाचातोन।"],
-      ["एल्बम 02", "Freedom Island", "उष्णकटिबंधीय वाइब्स और आध्यात्मिक स्वतंत्रता वाला रेगे।"],
+      [
+        "एल्बम 01",
+        "मैं हूँ Felencho",
+        "कैरेबियन साइबरपंक ऊर्जा वाला भविष्यवादी अर्बन बाचातोन।",
+      ],
+      [
+        "एल्बम 02",
+        "Freedom Island",
+        "उष्णकटिबंधीय वाइब्स और आध्यात्मिक स्वतंत्रता वाला रेगे।",
+      ],
       ["पॉडकास्ट", "Felencho Mundial", "AI, संगीत, संस्कृति, तकनीक और मानव जागरण।"],
-      ["इतिहास", "AI संग्रहालय", "Alan Turing, तकनीकी विकास, पात्र और डिजिटल स्मृति।"],
+      [
+        "इतिहास",
+        "AI संग्रहालय",
+        "Alan Turing, तकनीकी विकास, पात्र और डिजिटल स्मृति।",
+      ],
     ],
   },
   AR: {
@@ -156,25 +245,62 @@ export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [language, setLanguage] = useState<LanguageKey>("ES");
+  const [videoReady, setVideoReady] = useState(false);
 
   const t = languages[language];
 
-  const toggleSound = () => {
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = true;
+    video.playsInline = true;
+
+    const startVideo = async () => {
+      try {
+        await video.play();
+        setVideoReady(true);
+      } catch {
+        setVideoReady(false);
+      }
+    };
+
+    startVideo();
+  }, []);
+
+  const toggleSound = async () => {
     if (!videoRef.current) return;
+
+    try {
+      await videoRef.current.play();
+      setVideoReady(true);
+    } catch {
+      setVideoReady(false);
+    }
+
     videoRef.current.muted = soundOn;
     videoRef.current.volume = soundOn ? 0 : 0.6;
+
     setSoundOn(!soundOn);
   };
 
   return (
     <main className="relative min-h-[100svh] w-full overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 bg-[url('/videos/felencho-poster.jpg')] bg-cover bg-center opacity-70" />
+
       <video
         ref={videoRef}
         autoPlay
         muted
         loop
         playsInline
-        className="absolute inset-0 h-full w-full object-cover object-center opacity-70"
+        preload="auto"
+        poster="/videos/felencho-poster.jpg"
+        onCanPlay={() => setVideoReady(true)}
+        onPlaying={() => setVideoReady(true)}
+        className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${
+          videoReady ? "opacity-70" : "opacity-0"
+        }`}
       >
         <source src="/videos/times-square-rain.mp4" type="video/mp4" />
       </video>
@@ -183,10 +309,14 @@ export default function Home() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,255,0.10),transparent_55%)]" />
 
       <header className="absolute left-0 top-0 z-30 flex w-full items-start justify-between gap-3 p-4 md:p-8">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <h1 className="text-xl font-black tracking-[0.32em] text-cyan-400 drop-shadow-[0_0_18px_cyan] sm:text-2xl md:text-3xl">
             FELENCHO
           </h1>
+
           <p className="mt-2 text-[10px] uppercase tracking-[0.35em] text-gray-200 sm:text-xs md:text-sm">
             {t.universe}
           </p>
