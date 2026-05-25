@@ -278,6 +278,9 @@ export default function Home() {
           ))}
         </div>
       </nav>
+            <div className="fixed bottom-4 left-1/2 z-[9999999] -translate-x-1/2 rounded-full border border-cyan-400 bg-black px-5 py-3 text-white shadow-[0_0_35px_cyan]">
+        MENU TEST
+      </div>
     </main>
   );
 }
