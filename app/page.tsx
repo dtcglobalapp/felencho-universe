@@ -1,285 +1,165 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-
-type Card = {
-  tag: string;
-  title: string;
-  text: string;
-  href: string;
-};
-
-type LanguageContent = {
-  flag: string;
-  name: string;
-  title: string;
-  subtitle: string;
-  enter: string;
-  videos: string;
-  podcast: string;
-  soundOff: string;
-  soundOn: string;
-  universe: string;
-  cards: Card[];
-};
-
-const languages = {
-  ES: {
-    flag: "🇪🇸",
-    name: "Español",
-    title: "Yo Soy",
-    subtitle: "Música. Podcast. Historia. Inteligencia Artificial. Caribe. Futuro.",
-    enter: "Entrar",
-    videos: "Videos",
-    podcast: "Podcast",
-    soundOff: "Sonido",
-    soundOn: "Sonido activo",
-    universe: "Universe Experience",
-    cards: [
-      {
-        tag: "Canción",
-        title: "Tinta Triste",
-        text: "Una canción sobre escribir aunque el mundo no escuche.",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "Canción",
-        title: "Oh Wow!",
-        text: "Energía urbana para los guerreros que nunca se quitan.",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "Canción",
-        title: "Historia de Amor",
-        text: "Lluvia, Nueva York, nostalgia y una historia íntima.",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "Podcast",
-        title: "Felencho Mundial",
-        text: "IA, música, cultura, tecnología y despertar humano.",
-        href: "/podcast",
-      },
-    ],
-  },
-  EN: {
-    flag: "🇺🇸",
-    name: "English",
-    title: "I Am",
-    subtitle: "Music. Podcast. History. Artificial Intelligence. Caribbean. Future.",
-    enter: "Enter",
-    videos: "Videos",
-    podcast: "Podcast",
-    soundOff: "Sound",
-    soundOn: "Sound On",
-    universe: "Universe Experience",
-    cards: [
-      {
-        tag: "Song",
-        title: "Sad Ink",
-        text: "A song about writing even when the world does not listen.",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "Song",
-        title: "Oh Wow!",
-        text: "Urban energy for warriors who never give up.",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "Song",
-        title: "Love Story",
-        text: "Rain, New York, nostalgia, and an intimate story.",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "Podcast",
-        title: "Felencho Worldwide",
-        text: "AI, music, culture, technology, and human awakening.",
-        href: "/podcast",
-      },
-    ],
-  },
-} satisfies Record<string, LanguageContent>;
-
-type LanguageKey = keyof typeof languages;
 
 const navLinks = [
-  { label: "Home", href: "/" },
-  { label: "Songs", href: "/song/tinta-triste" },
-  { label: "Podcast", href: "/podcast" },
-  { label: "Museum", href: "/museum" },
-  { label: "Novels", href: "/novels" },
+  { label: "HOME", href: "/" },
+  { label: "MUSIC", href: "/music" },
+  { label: "PODCAST", href: "/podcast" },
+  { label: "MUSEUM", href: "/museum" },
+  { label: "NOVELS", href: "/novels" },
 ];
 
 export default function Home() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [soundOn, setSoundOn] = useState(false);
-  const [language, setLanguage] = useState<LanguageKey>("ES");
-  const [videoReady, setVideoReady] = useState(false);
-
-  const t = languages[language];
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.muted = true;
-    video.playsInline = true;
-    video.play().then(() => setVideoReady(true)).catch(() => setVideoReady(false));
-  }, []);
-
-  const toggleSound = async () => {
-    if (!videoRef.current) return;
-
-    try {
-      await videoRef.current.play();
-      setVideoReady(true);
-    } catch {
-      setVideoReady(false);
-    }
-
-    videoRef.current.muted = soundOn;
-    videoRef.current.volume = soundOn ? 0 : 0.6;
-    setSoundOn(!soundOn);
-  };
-
   return (
-    <main className="relative min-h-[100svh] w-full overflow-hidden bg-black text-white">
-      <div className="absolute inset-0 bg-[url('/videos/felencho-poster.jpg')] bg-cover bg-center opacity-70" />
-
+    <main className="relative min-h-screen overflow-hidden bg-black text-white">
+      {/* VIDEO BACKGROUND */}
       <video
-        ref={videoRef}
+        className="absolute inset-0 h-full w-full object-cover opacity-40"
         autoPlay
         muted
         loop
         playsInline
-        preload="auto"
-        poster="/videos/felencho-poster.jpg"
-        onCanPlay={() => setVideoReady(true)}
-        onPlaying={() => setVideoReady(true)}
-        className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${
-          videoReady ? "opacity-70" : "opacity-0"
-        }`}
       >
         <source src="/videos/times-square-rain.mp4" type="video/mp4" />
       </video>
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/80" />
+      {/* OVERLAY */}
+      <div className="absolute inset-0 bg-black/40" />
 
-      <header className="absolute left-0 top-0 z-30 flex w-full items-start justify-between gap-3 p-4 md:p-8">
-        <div>
-          <h1 className="text-xl font-black tracking-[0.32em] text-cyan-400 drop-shadow-[0_0_18px_cyan] sm:text-2xl md:text-3xl">
+      {/* TOP LEFT LOGO */}
+      <div className="absolute left-6 top-6 z-20">
+        <h1 className="text-5xl font-black tracking-[0.25em] text-cyan-400">
+          FELENCHO
+        </h1>
+
+        <p className="mt-2 text-sm uppercase tracking-[0.5em] text-white/80">
+          Universe Experience
+        </p>
+      </div>
+
+      {/* TOP RIGHT */}
+      <div className="absolute right-6 top-6 z-20 flex flex-col gap-3">
+        <button className="rounded-full border border-white/20 bg-black/60 px-5 py-2 text-sm font-bold">
+          🇪🇸 ES • Español
+        </button>
+
+        <button className="rounded-full border border-cyan-400 px-5 py-2 text-sm font-bold text-cyan-400">
+          SONIDO
+        </button>
+      </div>
+
+      {/* HERO */}
+      <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <h2 className="max-w-6xl text-5xl font-black uppercase leading-none md:text-8xl">
+          YO SOY{" "}
+          <span className="text-cyan-400">
             FELENCHO
-          </h1>
-          <p className="mt-2 text-[10px] uppercase tracking-[0.35em] text-gray-200 sm:text-xs md:text-sm">
-            {t.universe}
-          </p>
-        </div>
+          </span>
+        </h2>
 
-        <div className="flex flex-col items-end gap-2">
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as LanguageKey)}
-            className="max-w-[180px] rounded-full border border-white/20 bg-black/65 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xl outline-none sm:max-w-none sm:px-4 sm:text-xs"
-          >
-            {Object.entries(languages).map(([key, lang]) => (
-              <option key={key} value={key}>
-                {lang.flag} {key} · {lang.name}
-              </option>
-            ))}
-          </select>
+        <p className="mt-6 max-w-3xl text-lg text-white/90 md:text-2xl">
+          Música. Podcast. Historia. Inteligencia Artificial. Caribe. Futuro.
+        </p>
 
-          <button
-            onClick={toggleSound}
-            className="rounded-full border border-cyan-400/60 bg-black/55 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300 backdrop-blur-xl transition hover:bg-cyan-400 hover:text-black sm:px-5 sm:text-xs"
-          >
-            {soundOn ? t.soundOn : t.soundOff}
+        {/* HERO BUTTONS */}
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <button className="rounded-full border border-cyan-400 bg-black/40 px-8 py-3 text-sm font-bold tracking-[0.25em] text-white transition hover:bg-cyan-400 hover:text-black">
+            ENTRAR
+          </button>
+
+          <button className="rounded-full border border-cyan-400 bg-black/40 px-8 py-3 text-sm font-bold tracking-[0.25em] text-white transition hover:bg-cyan-400 hover:text-black">
+            VIDEOS
+          </button>
+
+          <button className="rounded-full border border-cyan-400 bg-black/40 px-8 py-3 text-sm font-bold tracking-[0.25em] text-white transition hover:bg-cyan-400 hover:text-black">
+            PODCAST
           </button>
         </div>
-      </header>
 
-      <section className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-5 pb-[230px] pt-28 text-center sm:pb-56 md:pb-44">
-        <motion.h2
-          initial={{ opacity: 0, y: 55 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.2 }}
-          className="max-w-6xl text-[48px] font-black uppercase leading-[0.95] sm:text-6xl md:text-8xl"
-        >
-          {t.title}{" "}
-          <span className="text-cyan-400 drop-shadow-[0_0_30px_cyan]">
-            Felencho
-          </span>
-        </motion.h2>
+        {/* CARDS */}
+        <div className="mt-20 grid w-full max-w-7xl gap-5 md:grid-cols-4">
+          <Link
+            href="/song/tinta-triste"
+            className="rounded-3xl border border-white/10 bg-black/70 p-6 backdrop-blur-md transition hover:border-cyan-400"
+          >
+            <p className="text-xs uppercase tracking-[0.35em] text-cyan-400">
+              Canción
+            </p>
 
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mt-5 max-w-3xl text-base leading-relaxed text-gray-100 sm:text-xl md:text-2xl"
-        >
-          {t.subtitle}
-        </motion.p>
+            <h3 className="mt-4 text-4xl font-black">
+              Tinta Triste
+            </h3>
 
-        <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1 }}
-          className="mt-8 flex flex-wrap items-center justify-center gap-3"
-        >
-          <Link href="/song/tinta-triste" className="rounded-full border border-cyan-400/45 bg-black/35 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:px-8 sm:text-xs">
-            {t.enter}
+            <p className="mt-4 text-white/70">
+              Una canción sobre escribir aunque el mundo no escuche.
+            </p>
           </Link>
 
-          <Link href="/song/oh-wow" className="rounded-full border border-cyan-400/45 bg-black/35 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:px-8 sm:text-xs">
-            {t.videos}
+          <Link
+            href="/song/oh-wow"
+            className="rounded-3xl border border-white/10 bg-black/70 p-6 backdrop-blur-md transition hover:border-green-400"
+          >
+            <p className="text-xs uppercase tracking-[0.35em] text-green-400">
+              Canción
+            </p>
+
+            <h3 className="mt-4 text-4xl font-black">
+              Oh Wow!
+            </h3>
+
+            <p className="mt-4 text-white/70">
+              Energía urbana para los guerreros que nunca se quitan.
+            </p>
           </Link>
 
-          <Link href="/podcast" className="rounded-full border border-cyan-400/45 bg-black/35 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur-md transition hover:scale-105 hover:bg-cyan-400 hover:text-black sm:px-8 sm:text-xs">
-            {t.podcast}
-          </Link>
-        </motion.div>
-      </section>
+          <Link
+            href="/song/historia-de-amor"
+            className="rounded-3xl border border-white/10 bg-black/70 p-6 backdrop-blur-md transition hover:border-pink-400"
+          >
+            <p className="text-xs uppercase tracking-[0.35em] text-pink-400">
+              Canción
+            </p>
 
-      <section className="absolute bottom-0 left-0 z-30 w-full pb-24 md:pb-24">
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:grid md:grid-cols-4 md:gap-4 md:px-6">
-          {t.cards.map((card, index) => (
-            <Link
-              key={`${card.title}-${index}`}
-              href={card.href}
-              className="min-w-[235px] snap-center rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-xl transition hover:scale-[1.02] hover:border-cyan-400 md:min-w-0 md:rounded-3xl md:p-5"
-            >
-              <p className="text-[10px] uppercase tracking-[0.35em] text-cyan-400">
-                {card.tag}
-              </p>
-              <h3 className="mt-2 text-xl font-black leading-tight md:text-2xl">
-                {card.title}
-              </h3>
-              <p className="mt-2 text-xs leading-relaxed text-gray-300 md:text-sm">
-                {card.text}
-              </p>
-            </Link>
-          ))}
+            <h3 className="mt-4 text-4xl font-black">
+              Historia de Amor
+            </h3>
+
+            <p className="mt-4 text-white/70">
+              Lluvia, Nueva York, nostalgia y una historia íntima.
+            </p>
+          </Link>
+
+          <Link
+            href="/podcast"
+            className="rounded-3xl border border-white/10 bg-black/70 p-6 backdrop-blur-md transition hover:border-yellow-400"
+          >
+            <p className="text-xs uppercase tracking-[0.35em] text-yellow-400">
+              Podcast
+            </p>
+
+            <h3 className="mt-4 text-4xl font-black">
+              Felencho Mundial
+            </h3>
+
+            <p className="mt-4 text-white/70">
+              IA, música, cultura, tecnología y despertar humano.
+            </p>
+          </Link>
         </div>
       </section>
 
-      <nav className="fixed bottom-4 left-1/2 z-[999999] -translate-x-1/2 rounded-full border border-cyan-400/30 bg-black/90 px-3 py-3 shadow-[0_0_35px_rgba(0,255,255,0.35)] backdrop-blur-2xl">
-        <div className="flex max-w-[92vw] items-center gap-2 overflow-x-auto">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="whitespace-nowrap rounded-full bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-white transition hover:bg-cyan-400 hover:text-black"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
-                 <div className="fixed bottom-4 left-1/2 z-[9999999] -translate-x-1/2 rounded-full border border-cyan-400 bg-red-600 px-6 py-4 text-xl font-black text-white shadow-[0_0_35px_cyan]">
-        MENU TEST
+      {/* FLOATING MENU */}
+      <div className="fixed bottom-5 left-1/2 z-[999999] flex -translate-x-1/2 gap-2 rounded-full border border-cyan-400 bg-black/80 p-2 shadow-[0_0_35px_rgba(0,255,255,0.35)] backdrop-blur-xl">
+        {navLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="whitespace-nowrap rounded-full bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-white transition hover:bg-cyan-400 hover:text-black"
+          >
+            {link.label}
+          </Link>
+        ))}
       </div>
     </main>
   );
