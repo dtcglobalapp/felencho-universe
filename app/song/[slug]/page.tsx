@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { getSongBySlug, LanguageKey } from "../../../data/songs";
+
+const spotifyAlbum =
+  "https://open.spotify.com/album/58lGtOI2InLFGzLVQarQBi";
+
+const spotifyEmbed =
+  "https://open.spotify.com/embed/album/58lGtOI2InLFGzLVQarQBi?utm_source=generator";
 
 const languages: Record<LanguageKey, { flag: string; name: string }> = {
   es: { flag: "🇪🇸", name: "Español" },
@@ -23,9 +29,13 @@ export default function SongPage() {
   const song = getSongBySlug(slug);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lyricTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [language, setLanguage] = useState<LanguageKey>("es");
   const [soundOn, setSoundOn] = useState(false);
   const [activeLine, setActiveLine] = useState(0);
+  const [lyricTime, setLyricTime] = useState(0);
+  const [lyricsRunning, setLyricsRunning] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -37,25 +47,40 @@ export default function SongPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (!videoRef.current || !song) return;
+    if (!song) return;
 
-      const current = videoRef.current.currentTime;
-
-      const lineIndex = song.lyrics.findIndex((line, index) => {
-        const next = song.lyrics[index + 1];
-        return current >= line.time && (!next || current < next.time);
-      });
-
-      if (lineIndex >= 0) {
-        setActiveLine(lineIndex);
+    if (!lyricsRunning) {
+      if (lyricTimerRef.current) {
+        clearInterval(lyricTimerRef.current);
       }
+      return;
+    }
+
+    lyricTimerRef.current = setInterval(() => {
+      setLyricTime((prev) => prev + 0.25);
     }, 250);
 
-    return () => clearInterval(timer);
-  }, [song]);
+    return () => {
+      if (lyricTimerRef.current) {
+        clearInterval(lyricTimerRef.current);
+      }
+    };
+  }, [lyricsRunning, song]);
 
-  const toggleSound = async () => {
+  useEffect(() => {
+    if (!song) return;
+
+    const lineIndex = song.lyrics.findIndex((line, index) => {
+      const next = song.lyrics[index + 1];
+      return lyricTime >= line.time && (!next || lyricTime < next.time);
+    });
+
+    if (lineIndex >= 0) {
+      setActiveLine(lineIndex);
+    }
+  }, [lyricTime, song]);
+
+  const toggleVisualSound = async () => {
     if (!videoRef.current) return;
 
     try {
@@ -63,10 +88,29 @@ export default function SongPage() {
     } catch {}
 
     videoRef.current.muted = soundOn;
-    videoRef.current.volume = soundOn ? 0 : 0.7;
-
+    videoRef.current.volume = soundOn ? 0 : 0.35;
     setSoundOn(!soundOn);
   };
+
+  const toggleLyrics = () => {
+    setLyricsRunning((value) => !value);
+  };
+
+  const resetLyrics = () => {
+    setLyricsRunning(false);
+    setLyricTime(0);
+    setActiveLine(0);
+  };
+
+  const previousLine = song?.lyrics[activeLine - 1];
+  const currentLine = song?.lyrics[activeLine];
+  const nextLine = song?.lyrics[activeLine + 1];
+
+  const progress = useMemo(() => {
+    if (!song || song.lyrics.length === 0) return 0;
+    const lastTime = song.lyrics[song.lyrics.length - 1].time || 1;
+    return Math.min((lyricTime / lastTime) * 100, 100);
+  }, [lyricTime, song]);
 
   if (!song) {
     return (
@@ -80,10 +124,6 @@ export default function SongPage() {
       </main>
     );
   }
-
-  const previousLine = song.lyrics[activeLine - 1];
-  const currentLine = song.lyrics[activeLine];
-  const nextLine = song.lyrics[activeLine + 1];
 
   return (
     <main className="relative min-h-[100svh] w-full overflow-hidden bg-black text-white">
@@ -100,7 +140,7 @@ export default function SongPage() {
         playsInline
         preload="auto"
         poster={song.poster}
-        className="absolute inset-0 h-full w-full object-cover object-center opacity-60"
+        className="absolute inset-0 h-full w-full object-cover object-center opacity-55"
       >
         <source src={song.video} type="video/mp4" />
       </video>
@@ -135,15 +175,15 @@ export default function SongPage() {
           </select>
 
           <button
-            onClick={toggleSound}
+            onClick={toggleVisualSound}
             className="rounded-full border border-cyan-400/60 bg-black/55 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300 backdrop-blur-xl transition hover:bg-cyan-400 hover:text-black"
           >
-            {soundOn ? "Sound On" : "Sound"}
+            {soundOn ? "Loop Sound" : "Visual Sound"}
           </button>
         </div>
       </header>
 
-      <section className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-5 pb-40 pt-36 text-center">
+      <section className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-5 pb-44 pt-36 text-center">
         <motion.p
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
@@ -174,7 +214,50 @@ export default function SongPage() {
           Composer · {song.composer}
         </div>
 
-        <div className="mt-10 w-full max-w-5xl rounded-[2rem] border border-cyan-400/20 bg-black/50 p-5 shadow-[0_0_40px_rgba(0,255,255,0.12)] backdrop-blur-2xl md:p-8">
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={toggleLyrics}
+            className="rounded-full border border-cyan-400/60 bg-cyan-400/15 px-6 py-3 text-[11px] font-black uppercase tracking-[0.25em] text-cyan-200 transition hover:bg-cyan-400 hover:text-black"
+          >
+            {lyricsRunning ? "Pause Lyrics" : "Start Lyrics"}
+          </button>
+
+          <button
+            onClick={resetLyrics}
+            className="rounded-full border border-white/20 bg-black/50 px-6 py-3 text-[11px] font-black uppercase tracking-[0.25em] text-white transition hover:bg-white hover:text-black"
+          >
+            Reset
+          </button>
+
+          <a
+            href={spotifyAlbum}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-green-400/60 bg-green-500/20 px-6 py-3 text-[11px] font-black uppercase tracking-[0.25em] text-green-300 transition hover:bg-green-400 hover:text-black"
+          >
+            Open Spotify
+          </a>
+        </div>
+
+        <div className="mt-6 w-full max-w-3xl overflow-hidden rounded-3xl border border-green-400/20 bg-black/50 p-2 shadow-[0_0_35px_rgba(34,197,94,0.18)] backdrop-blur-xl">
+          <iframe
+            src={spotifyEmbed}
+            width="100%"
+            height="152"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            className="rounded-2xl"
+          />
+        </div>
+
+        <div className="mt-8 w-full max-w-5xl rounded-[2rem] border border-cyan-400/20 bg-black/50 p-5 shadow-[0_0_40px_rgba(0,255,255,0.12)] backdrop-blur-2xl md:p-8">
+          <div className="mb-5 h-1 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full bg-cyan-400 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
           {previousLine && (
             <motion.p
               key={`prev-${activeLine}-${language}`}
