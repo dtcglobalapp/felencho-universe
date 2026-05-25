@@ -11,6 +11,20 @@ type Card = {
   href: string;
 };
 
+type LanguageContent = {
+  flag: string;
+  name: string;
+  title: string;
+  subtitle: string;
+  enter: string;
+  videos: string;
+  podcast: string;
+  soundOff: string;
+  soundOn: string;
+  universe: string;
+  cards: Card[];
+};
+
 const navLinks = [
   { label: "Home", href: "/" },
   { label: "Songs", href: "/song/tinta-triste" },
@@ -56,7 +70,7 @@ const languages = {
         text: "IA, música, cultura, tecnología y despertar humano.",
         href: "/podcast",
       },
-    ] as Card[],
+    ],
   },
 
   EN: {
@@ -95,9 +109,246 @@ const languages = {
         text: "AI, music, culture, technology, and human awakening.",
         href: "/podcast",
       },
-    ] as Card[],
+    ],
   },
-};
+
+  FR: {
+    flag: "🇫🇷",
+    name: "Français",
+    title: "Je Suis",
+    subtitle:
+      "Musique. Podcast. Histoire. Intelligence artificielle. Caraïbes. Futur.",
+    enter: "Entrer",
+    videos: "Vidéos",
+    podcast: "Podcast",
+    soundOff: "Son",
+    soundOn: "Son activé",
+    universe: "Expérience Univers",
+    cards: [
+      {
+        tag: "Chanson",
+        title: "Encre Triste",
+        text: "Une chanson sur l’écriture même quand le monde n’écoute pas.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "Chanson",
+        title: "Oh Wow!",
+        text: "Énergie urbaine pour les guerriers qui n’abandonnent jamais.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "Chanson",
+        title: "Histoire d’Amour",
+        text: "Pluie, New York, nostalgie et une histoire intime.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "Podcast",
+        title: "Felencho Mondial",
+        text: "IA, musique, culture, technologie et éveil humain.",
+        href: "/podcast",
+      },
+    ],
+  },
+
+  PT: {
+    flag: "🇧🇷",
+    name: "Português",
+    title: "Eu Sou",
+    subtitle:
+      "Música. Podcast. História. Inteligência Artificial. Caribe. Futuro.",
+    enter: "Entrar",
+    videos: "Vídeos",
+    podcast: "Podcast",
+    soundOff: "Som",
+    soundOn: "Som ativo",
+    universe: "Experiência Universo",
+    cards: [
+      {
+        tag: "Canção",
+        title: "Tinta Triste",
+        text: "Uma canção sobre escrever mesmo quando o mundo não escuta.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "Canção",
+        title: "Oh Wow!",
+        text: "Energia urbana para guerreiros que nunca desistem.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "Canção",
+        title: "História de Amor",
+        text: "Chuva, Nova York, nostalgia e uma história íntima.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "Podcast",
+        title: "Felencho Mundial",
+        text: "IA, música, cultura, tecnologia e despertar humano.",
+        href: "/podcast",
+      },
+    ],
+  },
+
+  JA: {
+    flag: "🇯🇵",
+    name: "日本語",
+    title: "私は",
+    subtitle: "音楽。ポッドキャスト。歴史。人工知能。カリブ。未来。",
+    enter: "入る",
+    videos: "動画",
+    podcast: "ポッドキャスト",
+    soundOff: "音声",
+    soundOn: "音声オン",
+    universe: "宇宙体験",
+    cards: [
+      {
+        tag: "曲",
+        title: "悲しいインク",
+        text: "世界が聞いてくれなくても書き続ける歌。",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "曲",
+        title: "Oh Wow!",
+        text: "決して諦めない戦士たちへの都会的なエネルギー。",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "曲",
+        title: "愛の物語",
+        text: "雨、ニューヨーク、郷愁、そして親密な物語。",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "ポッドキャスト",
+        title: "Felencho ワールド",
+        text: "AI、音楽、文化、技術、人間の目覚め。",
+        href: "/podcast",
+      },
+    ],
+  },
+
+  ZH: {
+    flag: "🇨🇳",
+    name: "中文",
+    title: "我是",
+    subtitle: "音乐。播客。历史。人工智能。加勒比。未来。",
+    enter: "进入",
+    videos: "视频",
+    podcast: "播客",
+    soundOff: "声音",
+    soundOn: "声音开启",
+    universe: "宇宙体验",
+    cards: [
+      {
+        tag: "歌曲",
+        title: "悲伤的墨水",
+        text: "即使世界不聆听，也继续书写的歌曲。",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "歌曲",
+        title: "Oh Wow!",
+        text: "献给永不放弃的战士的城市能量。",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "歌曲",
+        title: "爱情故事",
+        text: "雨、纽约、怀旧与亲密的故事。",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "播客",
+        title: "Felencho 世界",
+        text: "人工智能、音乐、文化、技术与人类觉醒。",
+        href: "/podcast",
+      },
+    ],
+  },
+
+  HI: {
+    flag: "🇮🇳",
+    name: "हिन्दी",
+    title: "मैं हूँ",
+    subtitle:
+      "संगीत। पॉडकास्ट। इतिहास। कृत्रिम बुद्धिमत्ता। कैरेबियन। भविष्य।",
+    enter: "प्रवेश",
+    videos: "वीडियो",
+    podcast: "पॉडकास्ट",
+    soundOff: "ध्वनि",
+    soundOn: "ध्वनि चालू",
+    universe: "यूनिवर्स अनुभव",
+    cards: [
+      {
+        tag: "गीत",
+        title: "उदास स्याही",
+        text: "दुनिया न सुने फिर भी लिखते रहने की कहानी।",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "गीत",
+        title: "Oh Wow!",
+        text: "उन योद्धाओं के लिए ऊर्जा जो कभी हार नहीं मानते।",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "गीत",
+        title: "प्रेम कहानी",
+        text: "बारिश, न्यूयॉर्क, यादें और एक गहरी कहानी।",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "पॉडकास्ट",
+        title: "Felencho Mundial",
+        text: "AI, संगीत, संस्कृति, तकनीक और मानव जागरण।",
+        href: "/podcast",
+      },
+    ],
+  },
+
+  AR: {
+    flag: "🇸🇦",
+    name: "العربية",
+    title: "أنا",
+    subtitle: "موسيقى. بودكاست. تاريخ. ذكاء اصطناعي. كاريبي. مستقبل.",
+    enter: "دخول",
+    videos: "فيديوهات",
+    podcast: "بودكاست",
+    soundOff: "الصوت",
+    soundOn: "الصوت مفعل",
+    universe: "تجربة الكون",
+    cards: [
+      {
+        tag: "أغنية",
+        title: "حبر حزين",
+        text: "أغنية عن الكتابة حتى عندما لا يصغي العالم.",
+        href: "/song/tinta-triste",
+      },
+      {
+        tag: "أغنية",
+        title: "Oh Wow!",
+        text: "طاقة حضرية للمحاربين الذين لا يستسلمون.",
+        href: "/song/oh-wow",
+      },
+      {
+        tag: "أغنية",
+        title: "قصة حب",
+        text: "مطر، نيويورك، حنين وقصة حميمة.",
+        href: "/song/historia-de-amor",
+      },
+      {
+        tag: "بودكاست",
+        title: "Felencho العالمي",
+        text: "ذكاء اصطناعي، موسيقى، ثقافة، تقنية ويقظة إنسانية.",
+        href: "/podcast",
+      },
+    ],
+  },
+} satisfies Record<string, LanguageContent>;
 
 type LanguageKey = keyof typeof languages;
 
@@ -196,7 +447,7 @@ export default function Home() {
         </div>
       </header>
 
-      <nav className="fixed left-1/2 top-24 z-[999999] flex -translate-x-1/2 gap-2 rounded-full border border-cyan-400/50 bg-black/80 p-2 shadow-[0_0_35px_rgba(0,255,255,0.35)] backdrop-blur-xl">
+      <nav className="fixed left-1/2 top-24 z-[999999] flex max-w-[96vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-full border border-cyan-400/50 bg-black/80 p-2 shadow-[0_0_35px_rgba(0,255,255,0.35)] backdrop-blur-xl">
         {navLinks.map((link) => (
           <Link
             key={link.href}
@@ -208,12 +459,12 @@ export default function Home() {
         ))}
       </nav>
 
-      <section className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-5 pb-[230px] pt-36 text-center sm:pb-56 md:pb-44">
+      <section className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-5 pb-[230px] pt-48 text-center sm:pb-56 md:pb-44 md:pt-36">
         <motion.h2
           initial={{ opacity: 0, y: 55 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.2 }}
-          className="max-w-6xl text-[48px] font-black uppercase leading-[0.95] sm:text-6xl md:text-8xl"
+          className="max-w-6xl text-[38px] font-black uppercase leading-[0.95] sm:text-6xl md:text-8xl"
         >
           {t.title}{" "}
           <span className="text-cyan-400 drop-shadow-[0_0_30px_cyan]">
