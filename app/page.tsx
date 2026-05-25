@@ -19,11 +19,15 @@ type LanguageContent = {
   enter: string;
   videos: string;
   podcast: string;
+  spotify: string;
   soundOff: string;
   soundOn: string;
   universe: string;
   cards: Card[];
 };
+
+const spotifyAlbum =
+  "https://open.spotify.com/album/58lGtOI2InLFGzLVQarQBi";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -38,10 +42,12 @@ const languages = {
     flag: "🇪🇸",
     name: "Español",
     title: "Yo Soy",
-    subtitle: "Música. Podcast. Historia. Inteligencia Artificial. Caribe. Futuro.",
+    subtitle:
+      "Música. Podcast. Historia. Inteligencia Artificial. Caribe. Futuro.",
     enter: "Entrar",
     videos: "Videos",
     podcast: "Podcast",
+    spotify: "Escuchar en Spotify",
     soundOff: "Sonido",
     soundOn: "Sonido activo",
     universe: "Universe Experience",
@@ -77,10 +83,12 @@ const languages = {
     flag: "🇺🇸",
     name: "English",
     title: "I Am",
-    subtitle: "Music. Podcast. History. Artificial Intelligence. Caribbean. Future.",
+    subtitle:
+      "Music. Podcast. History. Artificial Intelligence. Caribbean. Future.",
     enter: "Enter",
     videos: "Videos",
     podcast: "Podcast",
+    spotify: "Listen on Spotify",
     soundOff: "Sound",
     soundOn: "Sound On",
     universe: "Universe Experience",
@@ -111,244 +119,7 @@ const languages = {
       },
     ],
   },
-
-  FR: {
-    flag: "🇫🇷",
-    name: "Français",
-    title: "Je Suis",
-    subtitle:
-      "Musique. Podcast. Histoire. Intelligence artificielle. Caraïbes. Futur.",
-    enter: "Entrer",
-    videos: "Vidéos",
-    podcast: "Podcast",
-    soundOff: "Son",
-    soundOn: "Son activé",
-    universe: "Expérience Univers",
-    cards: [
-      {
-        tag: "Chanson",
-        title: "Encre Triste",
-        text: "Une chanson sur l’écriture même quand le monde n’écoute pas.",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "Chanson",
-        title: "Oh Wow!",
-        text: "Énergie urbaine pour les guerriers qui n’abandonnent jamais.",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "Chanson",
-        title: "Histoire d’Amour",
-        text: "Pluie, New York, nostalgie et une histoire intime.",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "Podcast",
-        title: "Felencho Mondial",
-        text: "IA, musique, culture, technologie et éveil humain.",
-        href: "/podcast",
-      },
-    ],
-  },
-
-  PT: {
-    flag: "🇧🇷",
-    name: "Português",
-    title: "Eu Sou",
-    subtitle:
-      "Música. Podcast. História. Inteligência Artificial. Caribe. Futuro.",
-    enter: "Entrar",
-    videos: "Vídeos",
-    podcast: "Podcast",
-    soundOff: "Som",
-    soundOn: "Som ativo",
-    universe: "Experiência Universo",
-    cards: [
-      {
-        tag: "Canção",
-        title: "Tinta Triste",
-        text: "Uma canção sobre escrever mesmo quando o mundo não escuta.",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "Canção",
-        title: "Oh Wow!",
-        text: "Energia urbana para guerreiros que nunca desistem.",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "Canção",
-        title: "História de Amor",
-        text: "Chuva, Nova York, nostalgia e uma história íntima.",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "Podcast",
-        title: "Felencho Mundial",
-        text: "IA, música, cultura, tecnologia e despertar humano.",
-        href: "/podcast",
-      },
-    ],
-  },
-
-  JA: {
-    flag: "🇯🇵",
-    name: "日本語",
-    title: "私は",
-    subtitle: "音楽。ポッドキャスト。歴史。人工知能。カリブ。未来。",
-    enter: "入る",
-    videos: "動画",
-    podcast: "ポッドキャスト",
-    soundOff: "音声",
-    soundOn: "音声オン",
-    universe: "宇宙体験",
-    cards: [
-      {
-        tag: "曲",
-        title: "悲しいインク",
-        text: "世界が聞いてくれなくても書き続ける歌。",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "曲",
-        title: "Oh Wow!",
-        text: "決して諦めない戦士たちへの都会的なエネルギー。",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "曲",
-        title: "愛の物語",
-        text: "雨、ニューヨーク、郷愁、そして親密な物語。",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "ポッドキャスト",
-        title: "Felencho ワールド",
-        text: "AI、音楽、文化、技術、人間の目覚め。",
-        href: "/podcast",
-      },
-    ],
-  },
-
-  ZH: {
-    flag: "🇨🇳",
-    name: "中文",
-    title: "我是",
-    subtitle: "音乐。播客。历史。人工智能。加勒比。未来。",
-    enter: "进入",
-    videos: "视频",
-    podcast: "播客",
-    soundOff: "声音",
-    soundOn: "声音开启",
-    universe: "宇宙体验",
-    cards: [
-      {
-        tag: "歌曲",
-        title: "悲伤的墨水",
-        text: "即使世界不聆听，也继续书写的歌曲。",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "歌曲",
-        title: "Oh Wow!",
-        text: "献给永不放弃的战士的城市能量。",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "歌曲",
-        title: "爱情故事",
-        text: "雨、纽约、怀旧与亲密的故事。",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "播客",
-        title: "Felencho 世界",
-        text: "人工智能、音乐、文化、技术与人类觉醒。",
-        href: "/podcast",
-      },
-    ],
-  },
-
-  HI: {
-    flag: "🇮🇳",
-    name: "हिन्दी",
-    title: "मैं हूँ",
-    subtitle:
-      "संगीत। पॉडकास्ट। इतिहास। कृत्रिम बुद्धिमत्ता। कैरेबियन। भविष्य।",
-    enter: "प्रवेश",
-    videos: "वीडियो",
-    podcast: "पॉडकास्ट",
-    soundOff: "ध्वनि",
-    soundOn: "ध्वनि चालू",
-    universe: "यूनिवर्स अनुभव",
-    cards: [
-      {
-        tag: "गीत",
-        title: "उदास स्याही",
-        text: "दुनिया न सुने फिर भी लिखते रहने की कहानी।",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "गीत",
-        title: "Oh Wow!",
-        text: "उन योद्धाओं के लिए ऊर्जा जो कभी हार नहीं मानते।",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "गीत",
-        title: "प्रेम कहानी",
-        text: "बारिश, न्यूयॉर्क, यादें और एक गहरी कहानी।",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "पॉडकास्ट",
-        title: "Felencho Mundial",
-        text: "AI, संगीत, संस्कृति, तकनीक और मानव जागरण।",
-        href: "/podcast",
-      },
-    ],
-  },
-
-  AR: {
-    flag: "🇸🇦",
-    name: "العربية",
-    title: "أنا",
-    subtitle: "موسيقى. بودكاست. تاريخ. ذكاء اصطناعي. كاريبي. مستقبل.",
-    enter: "دخول",
-    videos: "فيديوهات",
-    podcast: "بودكاست",
-    soundOff: "الصوت",
-    soundOn: "الصوت مفعل",
-    universe: "تجربة الكون",
-    cards: [
-      {
-        tag: "أغنية",
-        title: "حبر حزين",
-        text: "أغنية عن الكتابة حتى عندما لا يصغي العالم.",
-        href: "/song/tinta-triste",
-      },
-      {
-        tag: "أغنية",
-        title: "Oh Wow!",
-        text: "طاقة حضرية للمحاربين الذين لا يستسلمون.",
-        href: "/song/oh-wow",
-      },
-      {
-        tag: "أغنية",
-        title: "قصة حب",
-        text: "مطر، نيويورك، حنين وقصة حميمة.",
-        href: "/song/historia-de-amor",
-      },
-      {
-        tag: "بودكاست",
-        title: "Felencho العالمي",
-        text: "ذكاء اصطناعي، موسيقى، ثقافة، تقنية ويقظة إنسانية.",
-        href: "/podcast",
-      },
-    ],
-  },
-} satisfies Record<string, LanguageContent>;
+} as const;
 
 type LanguageKey = keyof typeof languages;
 
@@ -363,6 +134,7 @@ export default function Home() {
 
   useEffect(() => {
     const video = videoRef.current;
+
     if (!video) return;
 
     video.muted = true;
@@ -392,6 +164,7 @@ export default function Home() {
 
   return (
     <main className="relative min-h-[100svh] w-full overflow-hidden bg-black text-white">
+      {/* BACKGROUND */}
       <div className="absolute inset-0 bg-[url('/videos/felencho-poster.jpg')] bg-cover bg-center opacity-70" />
 
       <video
@@ -411,9 +184,12 @@ export default function Home() {
         <source src="/videos/times-square-rain.mp4" type="video/mp4" />
       </video>
 
+      {/* OVERLAYS */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/80" />
+
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,255,0.10),transparent_55%)]" />
 
+      {/* HEADER */}
       <header className="absolute left-0 top-0 z-30 flex w-full items-start justify-between gap-3 p-4 md:p-8">
         <div>
           <h1 className="text-xl font-black tracking-[0.32em] text-cyan-400 drop-shadow-[0_0_18px_cyan] sm:text-2xl md:text-3xl">
@@ -447,6 +223,7 @@ export default function Home() {
         </div>
       </header>
 
+      {/* NAVIGATION */}
       <nav className="fixed left-1/2 top-24 z-[999999] flex max-w-[96vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-full border border-cyan-400/50 bg-black/80 p-2 shadow-[0_0_35px_rgba(0,255,255,0.35)] backdrop-blur-xl">
         {navLinks.map((link) => (
           <Link
@@ -459,6 +236,7 @@ export default function Home() {
         ))}
       </nav>
 
+      {/* HERO */}
       <section className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-5 pb-[230px] pt-48 text-center sm:pb-56 md:pb-44 md:pt-36">
         <motion.h2
           initial={{ opacity: 0, y: 55 }}
@@ -481,6 +259,7 @@ export default function Home() {
           {t.subtitle}
         </motion.p>
 
+        {/* BUTTONS */}
         <motion.div
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
@@ -507,9 +286,31 @@ export default function Home() {
           >
             {t.podcast}
           </Link>
+
+          <a
+            href={spotifyAlbum}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-green-400/60 bg-green-500/20 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.25em] text-green-300 backdrop-blur-md transition hover:scale-105 hover:bg-green-400 hover:text-black sm:px-8 sm:text-xs"
+          >
+            {t.spotify}
+          </a>
         </motion.div>
+
+        {/* SPOTIFY PLAYER */}
+        <div className="mt-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-black/40 p-2 backdrop-blur-xl">
+          <iframe
+            src="https://open.spotify.com/embed/album/58lGtOI2InLFGzLVQarQBi?utm_source=generator"
+            width="100%"
+            height="152"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            className="rounded-2xl"
+          />
+        </div>
       </section>
 
+      {/* CARDS */}
       <section className="absolute bottom-0 left-0 z-30 w-full pb-6">
         <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:grid md:grid-cols-4 md:gap-4 md:px-6">
           {t.cards.map((card, index) => (
