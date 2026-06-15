@@ -5,35 +5,29 @@ export const dynamic = "force-dynamic";
 
 type LuminaMessage = {
   id: string;
-  sender_name?: string | null;
-  sender_type?: string | null;
-  target_name?: string | null;
-  target_character?: string | null;
-  character_name?: string | null;
-  content?: string | null;
+  conversation_id?: string | null;
+  speaker?: string | null;
+  target?: string | null;
   message?: string | null;
+  message_type?: string | null;
   created_at?: string | null;
 };
 
 function getMessageText(message: LuminaMessage) {
-  return message.content || message.message || "";
+  return message.message || "";
 }
 
 function getTargetName(message: LuminaMessage, body: any) {
-  return (
-    body?.target_name ||
-    body?.targetName ||
-    message.target_name ||
-    message.target_character ||
-    message.character_name ||
-    "Bob"
-  );
+  return body?.target_name || body?.targetName || message.target || "Bob";
+}
+
+function getSpeakerName(message: LuminaMessage) {
+  return message.speaker || "Felencho Humano";
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-
     const messageId = body?.message_id || body?.messageId || null;
 
     let userMessage: LuminaMessage | null = null;
@@ -68,6 +62,8 @@ export async function POST(req: Request) {
 
     const targetName = getTargetName(userMessage, body);
     const userText = getMessageText(userMessage);
+    const speakerName = getSpeakerName(userMessage);
+    const conversationId = userMessage.conversation_id || "lumina-studio-v1";
 
     const { data: characters } = await supabaseAdmin
       .from("lumina_characters")
@@ -96,6 +92,7 @@ export async function POST(req: Request) {
     const { data: recentMessages } = await supabaseAdmin
       .from("lumina_messages")
       .select("*")
+      .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -105,7 +102,7 @@ Eres ${character?.name || targetName}, un personaje inteligente de Lumina Studio
 Tu misión:
 - Responder como ${character?.name || targetName}.
 - Mantener una conversación natural, cálida, clara y útil.
-- Responder directamente a Felencho Humano.
+- Responder directamente a ${speakerName}.
 - No inventar datos técnicos si no están en la memoria o conocimiento.
 - Si eres Bob: habla como hermano digital, guía técnico y creativo.
 - Si eres Lina: habla con elegancia, inteligencia, sensibilidad y energía multilingüe.
@@ -163,10 +160,11 @@ ${JSON.stringify((recentMessages || []).reverse(), null, 2)}
     const { data: savedReply, error: saveError } = await supabaseAdmin
       .from("lumina_messages")
       .insert({
-        sender_name: character?.name || targetName,
-        sender_type: "character",
-        target_name: userMessage.sender_name || "Felencho Humano",
-        content: replyText,
+        conversation_id: conversationId,
+        speaker: character?.name || targetName,
+        target: speakerName,
+        message: replyText,
+        message_type: "dialogue",
       })
       .select("*")
       .single();
