@@ -4,6 +4,9 @@ import { useState } from "react";
 
 export default function MessageForm() {
   const [speaker, setSpeaker] = useState("Felencho Humano");
+  const [speakerType, setSpeakerType] = useState("host");
+  const [platform, setPlatform] = useState("studio");
+  const [language, setLanguage] = useState("auto");
   const [target, setTarget] = useState("Bob");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
@@ -17,7 +20,33 @@ export default function MessageForm() {
 
     try {
       setSaving(true);
-      setStatus("Guardando mensaje de Felencho...");
+      setStatus("Guardando mensaje en Lumina...");
+
+      const participantResponse = await fetch("/api/lumina/participants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: speaker,
+          platform,
+          speaker_type: speakerType,
+          language,
+        }),
+      });
+
+      const participantData = await participantResponse.json();
+
+      if (!participantResponse.ok) {
+        setStatus(
+          `Error creando participante: ${
+            participantData?.error ||
+            participantData?.details ||
+            "Error desconocido."
+          }`
+        );
+        return;
+      }
 
       const response = await fetch("/api/lumina/messages", {
         method: "POST",
@@ -26,10 +55,13 @@ export default function MessageForm() {
         },
         body: JSON.stringify({
           conversation_id: "lumina-studio-v1",
+          participant_id: participantData?.participant?.id || null,
           speaker,
           target,
           message: message.trim(),
           message_type: "dialogue",
+          platform,
+          language,
         }),
       });
 
@@ -38,7 +70,9 @@ export default function MessageForm() {
       if (!response.ok) {
         setStatus(
           `Error ${response.status}: ${
-            savedMessage?.error || savedMessage?.details || "No se pudo guardar."
+            savedMessage?.error ||
+            savedMessage?.details ||
+            "No se pudo guardar."
           }`
         );
         return;
@@ -52,7 +86,8 @@ export default function MessageForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message_id: savedMessage?.message?.id || savedMessage?.data?.id || savedMessage?.id,
+          message_id:
+            savedMessage?.message?.id || savedMessage?.data?.id || savedMessage?.id,
           target_name: target,
         }),
       });
@@ -62,7 +97,9 @@ export default function MessageForm() {
       if (!replyResponse.ok) {
         setStatus(
           `Mensaje guardado, pero hubo error generando respuesta: ${
-            replyData?.error || replyData?.details || "Error desconocido."
+            replyData?.error ||
+            replyData?.details ||
+            "Error desconocido."
           }`
         );
         return;
@@ -84,24 +121,64 @@ export default function MessageForm() {
 
   return (
     <div className="mt-10 rounded-2xl border border-cyan-400/30 bg-white/5 p-6">
-      <h2 className="text-2xl font-bold text-cyan-300">Nuevo Mensaje</h2>
+      <h2 className="text-2xl font-bold text-cyan-300">
+        Nuevo Mensaje Lumina
+      </h2>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <select
+        <input
           value={speaker}
           onChange={(e) => setSpeaker(e.target.value)}
           className="rounded border border-cyan-400/30 bg-black p-3 text-white"
+          placeholder="Nombre del participante"
+        />
+
+        <select
+          value={speakerType}
+          onChange={(e) => setSpeakerType(e.target.value)}
+          className="rounded border border-cyan-400/30 bg-black p-3 text-white"
         >
-          <option>Felencho Humano</option>
-          <option>Felencho Virtual</option>
-          <option>Bob</option>
-          <option>Lina</option>
+          <option value="host">Felencho / Host</option>
+          <option value="avatar">Avatar</option>
+          <option value="guest">Invitado</option>
+          <option value="audience">Público</option>
+          <option value="caller">Llamada</option>
+        </select>
+
+        <select
+          value={platform}
+          onChange={(e) => setPlatform(e.target.value)}
+          className="rounded border border-cyan-400/30 bg-black p-3 text-white"
+        >
+          <option value="studio">Studio / Felencho.ai</option>
+          <option value="youtube">YouTube</option>
+          <option value="facebook">Facebook</option>
+          <option value="instagram">Instagram</option>
+          <option value="tiktok">TikTok</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="phone">Llamada telefónica</option>
+          <option value="other">Otro</option>
+        </select>
+
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className="rounded border border-cyan-400/30 bg-black p-3 text-white"
+        >
+          <option value="auto">Detectar idioma automáticamente</option>
+          <option value="es">Español</option>
+          <option value="en">English</option>
+          <option value="pt">Português</option>
+          <option value="fr">Français</option>
+          <option value="ja">日本語</option>
+          <option value="hi">हिन्दी</option>
+          <option value="multi">Multi</option>
         </select>
 
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
-          className="rounded border border-cyan-400/30 bg-black p-3 text-white"
+          className="rounded border border-cyan-400/30 bg-black p-3 text-white md:col-span-2"
         >
           <option>Bob</option>
           <option>Lina</option>
@@ -114,7 +191,7 @@ export default function MessageForm() {
         className="mt-4 h-32 w-full rounded border border-cyan-400/30 bg-black p-3 text-white"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Escribe el mensaje para Bob o Lina..."
+        placeholder="Escribe el mensaje, pregunta del público o intervención del invitado..."
       />
 
       <button
