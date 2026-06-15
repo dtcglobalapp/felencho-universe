@@ -72,13 +72,19 @@ function detectLanguage(text: string): string {
   const t = text.toLowerCase();
 
   if (/[ぁ-んァ-ン一-龯]/.test(text)) return "ja";
+  if (/[ऀ-ॿ]/.test(text)) return "hi";
 
   if (
     t.includes("hello") ||
+    t.includes("hi ") ||
     t.includes("how are you") ||
     t.includes("good morning") ||
+    t.includes("good afternoon") ||
+    t.includes("good evening") ||
     t.includes("what is") ||
     t.includes("can you") ||
+    t.includes("please") ||
+    t.includes("thank you") ||
     t.includes("explain")
   ) {
     return "en";
@@ -86,6 +92,8 @@ function detectLanguage(text: string): string {
 
   if (
     t.includes("bonjour") ||
+    t.includes("bonsoir") ||
+    t.includes("salut") ||
     t.includes("comment") ||
     t.includes("merci")
   ) {
@@ -93,20 +101,33 @@ function detectLanguage(text: string): string {
   }
 
   if (
-    t.includes("olá") ||
     t.includes("ola") ||
+    t.includes("olá") ||
+    t.includes("voce") ||
+    t.includes("você") ||
     t.includes("obrigado") ||
-    t.includes("você")
+    t.includes("obrigada") ||
+    t.includes("bom dia") ||
+    t.includes("boa tarde") ||
+    t.includes("boa noite") ||
+    t.includes("eu ") ||
+    t.includes("quero") ||
+    t.includes("quiro") ||
+    t.includes("falar") ||
+    t.includes("falar com") ||
+    t.includes("tudo bem")
   ) {
     return "pt";
   }
 
   if (
-    t.includes("kisa") ||
+    t.includes("bonjou") ||
+    t.includes("kijan") ||
     t.includes("mwen") ||
     t.includes("ou ") ||
-    t.includes("bonjou") ||
-    t.includes("mesi")
+    t.includes("mesi") ||
+    t.includes("kisa") ||
+    t.includes("nap")
   ) {
     return "ht";
   }
@@ -349,6 +370,110 @@ async function getReputation(participantId: string | null) {
   return data;
 }
 
+async function getUserMemory(participantId: string | null) {
+  if (!participantId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("lumina_user_memory")
+    .select("*")
+    .eq("participant_id", participantId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error cargando memoria de usuario:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+async function updateUserMemory(input: {
+  participant_id: string | null;
+  participant_name: string;
+  platform: string;
+  language: string;
+  favorite_character: string;
+  topic?: string;
+}) {
+  if (!input.participant_id) return null;
+
+  const now = new Date().toISOString();
+
+  try {
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("lumina_user_memory")
+      .select("*")
+      .eq("participant_id", input.participant_id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("Error buscando memoria de usuario:", existingError.message);
+      return null;
+    }
+
+    if (!existing) {
+      const { data, error } = await supabaseAdmin
+        .from("lumina_user_memory")
+        .insert({
+          participant_id: input.participant_id,
+          participant_name: input.participant_name,
+          platform: input.platform,
+          favorite_language: input.language,
+          favorite_character: input.favorite_character,
+          visit_count: 1,
+          last_topics: input.topic || null,
+          memory_summary: `${input.participant_name} empezó a conversar con ${input.favorite_character} en Lumina desde ${input.platform}.`,
+          first_seen: now,
+          last_seen: now,
+          updated_at: now,
+        })
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error("Error creando memoria de usuario:", error.message);
+        return null;
+      }
+
+      return data;
+    }
+
+    const previousSummary =
+      existing.memory_summary ||
+      `${input.participant_name} es participante de Lumina.`;
+
+    const newSummary = `${previousSummary} Última interacción: habló con ${input.favorite_character} sobre "${input.topic || "un tema general"}".`;
+
+    const { data, error } = await supabaseAdmin
+      .from("lumina_user_memory")
+      .update({
+        participant_name: input.participant_name,
+        platform: input.platform,
+        favorite_language: input.language || existing.favorite_language,
+        favorite_character:
+          input.favorite_character || existing.favorite_character,
+        visit_count: Number(existing.visit_count || 0) + 1,
+        last_topics: input.topic || existing.last_topics,
+        memory_summary: newSummary.slice(0, 1500),
+        last_seen: now,
+        updated_at: now,
+      })
+      .eq("participant_id", input.participant_id)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Error actualizando memoria de usuario:", error.message);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("User memory error:", error);
+    return null;
+  }
+}
+
 async function updateReputation(input: {
   participant_id: string | null;
   participant_name: string;
@@ -558,6 +683,7 @@ export async function POST(req: Request) {
     const activeCharacterName = character?.name || targetName;
 
     const currentReputation = await getReputation(participantId);
+    const currentUserMemory = await getUserMemory(participantId);
 
     if (currentReputation?.is_banned) {
       const bannedReply = await saveSystemReply({
@@ -607,6 +733,15 @@ export async function POST(req: Request) {
         platform,
         action,
         ban_reason: moderation.violation_type,
+      });
+
+      await updateUserMemory({
+        participant_id: participantId,
+        participant_name: speakerName,
+        platform,
+        language,
+        favorite_character: activeCharacterName,
+        topic: `Moderación: ${moderation.violation_type || "general"}`,
       });
 
       const savedSafeReply = await saveSystemReply({
@@ -702,6 +837,9 @@ Plataforma: ${platform}
 Idioma detectado: ${language}
 Reputación actual: ${currentReputation?.reputation_score ?? "sin historial"}
 
+MEMORIA INDIVIDUAL DEL PARTICIPANTE:
+${JSON.stringify(currentUserMemory || {}, null, 2)}
+
 PERSONAJE:
 ${JSON.stringify(character || {}, null, 2)}
 
@@ -772,10 +910,20 @@ ${JSON.stringify((recentMessages || []).reverse(), null, 2)}
       action: "positive",
     });
 
+    await updateUserMemory({
+      participant_id: participantId,
+      participant_name: speakerName,
+      platform,
+      language,
+      favorite_character: activeCharacterName,
+      topic: userText.substring(0, 200),
+    });
+
     return NextResponse.json({
       success: true,
       moderated: false,
       reputation_action: "positive",
+      memory_updated: true,
       reply: savedReply,
     });
   } catch (error: any) {
