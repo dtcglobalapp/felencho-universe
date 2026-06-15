@@ -8,14 +8,65 @@ type Message = {
   created_at: string;
   message_type?: string | null;
   is_active?: boolean | null;
+  platform?: string | null;
+  language?: string | null;
+  participant_id?: string | null;
 };
 
 export const dynamic = "force-dynamic";
 
+function platformLabel(platform?: string | null) {
+  switch (platform) {
+    case "youtube":
+      return "YouTube";
+    case "facebook":
+      return "Facebook";
+    case "instagram":
+      return "Instagram";
+    case "tiktok":
+      return "TikTok";
+    case "whatsapp":
+      return "WhatsApp";
+    case "phone":
+      return "Llamada telefónica";
+    case "lumina":
+      return "Lumina";
+    case "studio":
+      return "Studio / Felencho.ai";
+    default:
+      return platform || "Sin plataforma";
+  }
+}
+
+function languageLabel(language?: string | null) {
+  switch (language) {
+    case "es":
+      return "Español";
+    case "en":
+      return "English";
+    case "pt":
+      return "Português";
+    case "fr":
+      return "Français";
+    case "ja":
+      return "日本語";
+    case "hi":
+      return "हिन्दी";
+    case "multi":
+      return "Multi";
+    case "auto":
+      return "Auto";
+    default:
+      return language || "Sin idioma";
+  }
+}
+
 export default async function ConversationViewer() {
   const { data, error } = await supabaseAdmin
     .from("lumina_messages")
-    .select("id, speaker, target, message, created_at, message_type, is_active")
+    .select(
+      "id, speaker, target, message, created_at, message_type, is_active, platform, language, participant_id"
+    )
     .eq("is_active", true)
     .order("created_at", { ascending: true });
 
@@ -68,7 +119,23 @@ export default async function ConversationViewer() {
                   {item.speaker} {item.target ? `→ ${item.target}` : ""}
                 </p>
 
-                <p className="mt-2 whitespace-pre-wrap text-white">
+                <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-400">
+                  <span className="rounded-full border border-cyan-400/20 px-2 py-1">
+                    Plataforma: {platformLabel(item.platform)}
+                  </span>
+
+                  <span className="rounded-full border border-cyan-400/20 px-2 py-1">
+                    Idioma: {languageLabel(item.language)}
+                  </span>
+
+                  {item.message_type && (
+                    <span className="rounded-full border border-cyan-400/20 px-2 py-1">
+                      Tipo: {item.message_type}
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-3 whitespace-pre-wrap text-white">
                   {item.message}
                 </p>
 
