@@ -23,6 +23,14 @@ type ModerationResult = {
   safe_reply: string | null;
 };
 
+type ReputationAction =
+  | "positive"
+  | "neutral"
+  | "warning"
+  | "minor_violation"
+  | "major_violation"
+  | "ban";
+
 function getMessageText(message: LuminaMessage) {
   return message.message || "";
 }
@@ -104,6 +112,52 @@ function detectLanguage(text: string): string {
   }
 
   return "es";
+}
+
+function scoreDelta(action: ReputationAction) {
+  switch (action) {
+    case "positive":
+      return 2;
+    case "neutral":
+      return 0;
+    case "warning":
+      return -5;
+    case "minor_violation":
+      return -10;
+    case "major_violation":
+      return -25;
+    case "ban":
+      return -100;
+    default:
+      return 0;
+  }
+}
+
+function levelFromScore(score: number) {
+  if (score >= 95) return 0;
+  if (score >= 80) return 1;
+  if (score >= 50) return 2;
+  if (score >= 20) return 3;
+  return 4;
+}
+
+function reputationActionFromViolation(
+  violationType: string | null
+): ReputationAction {
+  switch (violationType) {
+    case "PRIVATE_TECH":
+    case "PROMPT_EXTRACTION":
+    case "PERSONAL_DATA":
+    case "MINOR":
+      return "warning";
+    case "HARASSMENT":
+    case "SPAM":
+      return "minor_violation";
+    case "DANGEROUS_REQUEST":
+      return "major_violation";
+    default:
+      return "neutral";
+  }
 }
 
 function moderateMessage(input: {
@@ -278,6 +332,168 @@ async function logModeration(input: {
   });
 }
 
+async function getReputation(participantId: string | null) {
+  if (!participantId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("lumina_reputation")
+    .select("*")
+    .eq("participant_id", participantId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error cargando reputación:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+async function updateReputation(input: {
+  participant_id: string | null;
+  participant_name: string;
+  platform: string;
+  action: ReputationAction;
+  ban_reason?: string | null;
+}) {
+  if (!input.participant_id) return null;
+
+  const delta = scoreDelta(input.action);
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("lumina_reputation")
+    .select("*")
+    .eq("participant_id", input.participant_id)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error("Error buscando reputación:", existingError.message);
+    return null;
+  }
+
+  if (!existing) {
+    const startingScore = Math.max(0, Math.min(100, 100 + delta));
+    const moderationLevel = levelFromScore(startingScore);
+    const shouldBan = input.action === "ban" || moderationLevel >= 4;
+
+    const { data, error } = await supabaseAdmin
+      .from("lumina_reputation")
+      .insert({
+        participant_id: input.participant_id,
+        participant_name: input.participant_name,
+        platform: input.platform,
+        reputation_score: startingScore,
+        warnings_count:
+          input.action === "warning" ||
+          input.action === "minor_violation" ||
+          input.action === "major_violation"
+            ? 1
+            : 0,
+        positive_actions: input.action === "positive" ? 1 : 0,
+        negative_actions: delta < 0 ? 1 : 0,
+        moderation_level: moderationLevel,
+        is_muted: moderationLevel >= 3,
+        is_banned: shouldBan,
+        ban_reason: shouldBan ? input.ban_reason : null,
+        banned_at: shouldBan ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Error creando reputación:", error.message);
+      return null;
+    }
+
+    return data;
+  }
+
+  const newScore = Math.max(
+    0,
+    Math.min(100, Number(existing.reputation_score || 100) + delta)
+  );
+
+  const moderationLevel = levelFromScore(newScore);
+
+  const warningsCount =
+    Number(existing.warnings_count || 0) +
+    (input.action === "warning" ||
+    input.action === "minor_violation" ||
+    input.action === "major_violation"
+      ? 1
+      : 0);
+
+  const positiveActions =
+    Number(existing.positive_actions || 0) +
+    (input.action === "positive" ? 1 : 0);
+
+  const negativeActions =
+    Number(existing.negative_actions || 0) + (delta < 0 ? 1 : 0);
+
+  const shouldBan = input.action === "ban" || moderationLevel >= 4;
+
+  const { data, error } = await supabaseAdmin
+    .from("lumina_reputation")
+    .update({
+      participant_name: input.participant_name,
+      platform: input.platform,
+      reputation_score: newScore,
+      warnings_count: warningsCount,
+      positive_actions: positiveActions,
+      negative_actions: negativeActions,
+      moderation_level: moderationLevel,
+      is_muted: moderationLevel >= 3,
+      is_banned: shouldBan,
+      ban_reason: shouldBan ? input.ban_reason || existing.ban_reason : null,
+      banned_at: shouldBan
+        ? existing.banned_at || new Date().toISOString()
+        : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("participant_id", input.participant_id)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Error actualizando reputación:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+async function saveSystemReply(input: {
+  conversationId: string;
+  participantId: string | null;
+  speaker: string;
+  target: string;
+  message: string;
+  messageType: string;
+  platform: string;
+  language: string;
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("lumina_messages")
+    .insert({
+      conversation_id: input.conversationId,
+      participant_id: input.participantId,
+      speaker: input.speaker,
+      target: input.target,
+      message: input.message,
+      message_type: input.messageType,
+      platform: input.platform,
+      language: input.language,
+      is_active: true,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -341,6 +557,29 @@ export async function POST(req: Request) {
 
     const activeCharacterName = character?.name || targetName;
 
+    const currentReputation = await getReputation(participantId);
+
+    if (currentReputation?.is_banned) {
+      const bannedReply = await saveSystemReply({
+        conversationId,
+        participantId,
+        speaker: activeCharacterName,
+        target: speakerName,
+        message:
+          "Tu participación está bloqueada temporalmente por comportamiento inapropiado dentro de Lumina. Si crees que esto fue un error, espera la revisión del equipo autorizado.",
+        messageType: "moderation",
+        platform,
+        language,
+      });
+
+      return NextResponse.json({
+        success: true,
+        blocked: true,
+        reason: "banned_user",
+        reply: bannedReply,
+      });
+    }
+
     const moderation = moderateMessage({
       message: userText,
       participant_id: participantId,
@@ -360,31 +599,35 @@ export async function POST(req: Request) {
         moderation_action: moderation.moderation_action,
       });
 
-      const { data: savedSafeReply, error: saveSafeError } = await supabaseAdmin
-        .from("lumina_messages")
-        .insert({
-          conversation_id: conversationId,
-          participant_id: participantId,
-          speaker: activeCharacterName,
-          target: speakerName,
-          message:
-            moderation.safe_reply ||
-            "No puedo responder a esa solicitud dentro de las reglas de Lumina.",
-          message_type: "moderation",
-          platform,
-          language,
-          is_active: true,
-        })
-        .select("*")
-        .single();
+      const action = reputationActionFromViolation(moderation.violation_type);
 
-      if (saveSafeError) throw saveSafeError;
+      await updateReputation({
+        participant_id: participantId,
+        participant_name: speakerName,
+        platform,
+        action,
+        ban_reason: moderation.violation_type,
+      });
+
+      const savedSafeReply = await saveSystemReply({
+        conversationId,
+        participantId,
+        speaker: activeCharacterName,
+        target: speakerName,
+        message:
+          moderation.safe_reply ||
+          "No puedo responder a esa solicitud dentro de las reglas de Lumina.",
+        messageType: "moderation",
+        platform,
+        language,
+      });
 
       return NextResponse.json({
         success: true,
         moderated: true,
         violation_type: moderation.violation_type,
         action: moderation.moderation_action,
+        reputation_action: action,
         reply: savedSafeReply,
       });
     }
@@ -457,6 +700,7 @@ CONTEXTO DEL PARTICIPANTE:
 Nombre: ${speakerName}
 Plataforma: ${platform}
 Idioma detectado: ${language}
+Reputación actual: ${currentReputation?.reputation_score ?? "sin historial"}
 
 PERSONAJE:
 ${JSON.stringify(character || {}, null, 2)}
@@ -510,27 +754,28 @@ ${JSON.stringify((recentMessages || []).reverse(), null, 2)}
       aiData.output?.[0]?.content?.[0]?.text ||
       "No pude generar una respuesta en este momento.";
 
-    const { data: savedReply, error: saveError } = await supabaseAdmin
-      .from("lumina_messages")
-      .insert({
-        conversation_id: conversationId,
-        participant_id: participantId,
-        speaker: activeCharacterName,
-        target: speakerName,
-        message: replyText,
-        message_type: "dialogue",
-        platform,
-        language,
-        is_active: true,
-      })
-      .select("*")
-      .single();
+    const savedReply = await saveSystemReply({
+      conversationId,
+      participantId,
+      speaker: activeCharacterName,
+      target: speakerName,
+      message: replyText,
+      messageType: "dialogue",
+      platform,
+      language,
+    });
 
-    if (saveError) throw saveError;
+    await updateReputation({
+      participant_id: participantId,
+      participant_name: speakerName,
+      platform,
+      action: "positive",
+    });
 
     return NextResponse.json({
       success: true,
       moderated: false,
+      reputation_action: "positive",
       reply: savedReply,
     });
   } catch (error: any) {
