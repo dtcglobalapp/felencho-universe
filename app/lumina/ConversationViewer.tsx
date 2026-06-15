@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Message = {
@@ -14,6 +15,7 @@ type Message = {
 };
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function platformLabel(platform?: string | null) {
   switch (platform) {
@@ -52,6 +54,8 @@ function languageLabel(language?: string | null) {
       return "日本語";
     case "hi":
       return "हिन्दी";
+    case "ht":
+      return "Kreyòl ayisyen";
     case "multi":
       return "Multi";
     case "auto":
@@ -61,7 +65,33 @@ function languageLabel(language?: string | null) {
   }
 }
 
+function cardStyles(messageType?: string | null, speaker?: string | null) {
+  if (messageType === "moderation") {
+    return {
+      card: "border-yellow-400/40 bg-yellow-950/20",
+      title: "text-yellow-300",
+    };
+  }
+
+  const isCharacter =
+    speaker === "Bob" || speaker === "Lina" || speaker === "Felencho Virtual";
+
+  if (isCharacter) {
+    return {
+      card: "border-purple-400/30 bg-purple-950/20",
+      title: "text-purple-300",
+    };
+  }
+
+  return {
+    card: "border-cyan-400/20 bg-black/40",
+    title: "text-cyan-300",
+  };
+}
+
 export default async function ConversationViewer() {
+  noStore();
+
   const { data, error } = await supabaseAdmin
     .from("lumina_messages")
     .select(
@@ -97,25 +127,14 @@ export default async function ConversationViewer() {
       ) : (
         <div className="mt-6 space-y-4">
           {messages.map((item) => {
-            const isCharacter =
-              item.speaker === "Bob" ||
-              item.speaker === "Lina" ||
-              item.speaker === "Felencho Virtual";
+            const styles = cardStyles(item.message_type, item.speaker);
 
             return (
               <div
                 key={item.id}
-                className={`rounded-xl border p-4 ${
-                  isCharacter
-                    ? "border-purple-400/30 bg-purple-950/20"
-                    : "border-cyan-400/20 bg-black/40"
-                }`}
+                className={`rounded-xl border p-4 ${styles.card}`}
               >
-                <p
-                  className={`font-bold ${
-                    isCharacter ? "text-purple-300" : "text-cyan-300"
-                  }`}
-                >
+                <p className={`font-bold ${styles.title}`}>
                   {item.speaker} {item.target ? `→ ${item.target}` : ""}
                 </p>
 
@@ -134,6 +153,12 @@ export default async function ConversationViewer() {
                     </span>
                   )}
                 </div>
+
+                {item.message_type === "moderation" && (
+                  <p className="mt-3 text-xs font-bold uppercase tracking-widest text-yellow-300">
+                    Lumina Guard
+                  </p>
+                )}
 
                 <p className="mt-3 whitespace-pre-wrap text-white">
                   {item.message}
