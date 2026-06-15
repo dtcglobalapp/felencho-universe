@@ -6,13 +6,18 @@ type Message = {
   target: string | null;
   message: string;
   created_at: string;
+  message_type?: string | null;
+  is_active?: boolean | null;
 };
+
+export const dynamic = "force-dynamic";
 
 export default async function ConversationViewer() {
   const { data, error } = await supabaseAdmin
     .from("lumina_messages")
-    .select("id, speaker, target, message, created_at")
-    .order("created_at", { ascending: false });
+    .select("id, speaker, target, message, created_at, message_type, is_active")
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
 
   if (error) {
     return (
@@ -32,9 +37,7 @@ export default async function ConversationViewer() {
 
   return (
     <div className="mt-10 rounded-2xl border border-cyan-400/30 bg-white/5 p-6">
-      <h2 className="text-2xl font-bold text-cyan-300">
-        Conversaciones
-      </h2>
+      <h2 className="text-2xl font-bold text-cyan-300">Conversaciones</h2>
 
       {messages.length === 0 ? (
         <p className="mt-4 text-gray-400">
@@ -42,22 +45,39 @@ export default async function ConversationViewer() {
         </p>
       ) : (
         <div className="mt-6 space-y-4">
-          {messages.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-xl border border-cyan-400/20 bg-black/40 p-4"
-            >
-              <p className="font-bold text-cyan-300">
-                {item.speaker} {item.target ? `→ ${item.target}` : ""}
-              </p>
+          {messages.map((item) => {
+            const isCharacter =
+              item.speaker === "Bob" ||
+              item.speaker === "Lina" ||
+              item.speaker === "Felencho Virtual";
 
-              <p className="mt-2 text-white">{item.message}</p>
+            return (
+              <div
+                key={item.id}
+                className={`rounded-xl border p-4 ${
+                  isCharacter
+                    ? "border-purple-400/30 bg-purple-950/20"
+                    : "border-cyan-400/20 bg-black/40"
+                }`}
+              >
+                <p
+                  className={`font-bold ${
+                    isCharacter ? "text-purple-300" : "text-cyan-300"
+                  }`}
+                >
+                  {item.speaker} {item.target ? `→ ${item.target}` : ""}
+                </p>
 
-              <p className="mt-2 text-xs text-gray-500">
-                {new Date(item.created_at).toLocaleString()}
-              </p>
-            </div>
-          ))}
+                <p className="mt-2 whitespace-pre-wrap text-white">
+                  {item.message}
+                </p>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  {new Date(item.created_at).toLocaleString()}
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
