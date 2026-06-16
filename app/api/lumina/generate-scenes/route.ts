@@ -8,7 +8,7 @@ const supabase = createClient(
 
 type SceneTemplate = {
   title: string;
-  description: string;
+  content: string;
 };
 
 function getSceneTemplates(scriptType: string | null): SceneTemplate[] {
@@ -16,27 +16,27 @@ function getSceneTemplates(scriptType: string | null): SceneTemplate[] {
     return [
       {
         title: "Apertura del episodio",
-        description: "Presentación del tema, bienvenida y contexto inicial.",
+        content: "Presentación del tema, bienvenida y contexto inicial.",
       },
       {
         title: "Pregunta central",
-        description: "Se plantea la gran pregunta que guiará la conversación.",
+        content: "Se plantea la gran pregunta que guiará la conversación.",
       },
       {
         title: "Historia y contexto",
-        description: "Bob aporta datos históricos y estructura informativa.",
+        content: "Bob aporta datos históricos y estructura informativa.",
       },
       {
         title: "Mirada humana",
-        description: "Lina analiza el impacto emocional y social del tema.",
+        content: "Lina analiza el impacto emocional y social del tema.",
       },
       {
         title: "Opinión de Felencho Virtual",
-        description: "Felencho Virtual conecta el tema con el presente.",
+        content: "Felencho Virtual conecta el tema con el presente.",
       },
       {
         title: "Cierre reflexivo",
-        description: "Conclusión con mensaje final para la audiencia.",
+        content: "Conclusión con mensaje final para la audiencia.",
       },
     ];
   }
@@ -45,23 +45,23 @@ function getSceneTemplates(scriptType: string | null): SceneTemplate[] {
     return [
       {
         title: "Presentación del debate",
-        description: "Introducción del tema y presentación de posturas.",
+        content: "Introducción del tema y presentación de posturas.",
       },
       {
         title: "Primera postura",
-        description: "Bob presenta una visión analítica e histórica.",
+        content: "Bob presenta una visión analítica e histórica.",
       },
       {
         title: "Segunda postura",
-        description: "Lina presenta una visión humana, emocional y ética.",
+        content: "Lina presenta una visión humana, emocional y ética.",
       },
       {
         title: "Intervención de Felencho Virtual",
-        description: "Felencho Virtual conecta ambas posturas con la audiencia.",
+        content: "Felencho Virtual conecta ambas posturas con la audiencia.",
       },
       {
         title: "Conclusión del debate",
-        description: "Se resumen ideas y se plantea una reflexión final.",
+        content: "Se resumen ideas y se plantea una reflexión final.",
       },
     ];
   }
@@ -70,27 +70,27 @@ function getSceneTemplates(scriptType: string | null): SceneTemplate[] {
     return [
       {
         title: "Apertura cinematográfica",
-        description: "Inicio narrativo con tono emocional y visual.",
+        content: "Inicio narrativo con tono emocional y visual.",
       },
       {
         title: "Origen del personaje",
-        description: "Se presenta el contexto, infancia o punto de partida.",
+        content: "Se presenta el contexto, infancia o punto de partida.",
       },
       {
         title: "Primer conflicto",
-        description: "Aparece el reto principal de la historia.",
+        content: "Aparece el reto principal de la historia.",
       },
       {
         title: "Momento decisivo",
-        description: "La historia alcanza su punto más intenso.",
+        content: "La historia alcanza su punto más intenso.",
       },
       {
         title: "Consecuencias",
-        description: "Se muestran los efectos de las decisiones tomadas.",
+        content: "Se muestran los efectos de las decisiones tomadas.",
       },
       {
         title: "Legado",
-        description: "Cierre dramático con reflexión final.",
+        content: "Cierre dramático con reflexión final.",
       },
     ];
   }
@@ -98,35 +98,35 @@ function getSceneTemplates(scriptType: string | null): SceneTemplate[] {
   return [
     {
       title: "Introducción",
-      description: "Presentación cinematográfica del tema y su importancia.",
+      content: "Presentación cinematográfica del tema y su importancia.",
     },
     {
       title: "Origen y contexto",
-      description: "Se explica el nacimiento, época o contexto histórico.",
+      content: "Se explica el nacimiento, época o contexto histórico.",
     },
     {
       title: "Formación y primeras señales",
-      description: "Se exploran los primeros talentos, ideas o conflictos.",
+      content: "Se exploran los primeros talentos, ideas o conflictos.",
     },
     {
       title: "Aportes principales",
-      description: "Se presentan las contribuciones más importantes.",
+      content: "Se presentan las contribuciones más importantes.",
     },
     {
       title: "Luchas y contradicciones",
-      description: "Se muestran dificultades, errores, persecuciones o conflictos.",
+      content: "Se muestran dificultades, errores, persecuciones o conflictos.",
     },
     {
       title: "Momento decisivo",
-      description: "Se narra el punto de mayor impacto en la historia.",
+      content: "Se narra el punto de mayor impacto en la historia.",
     },
     {
       title: "Muerte, consecuencias o cierre histórico",
-      description: "Se aborda el desenlace y sus interpretaciones.",
+      content: "Se aborda el desenlace y sus interpretaciones.",
     },
     {
       title: "Legado para la humanidad",
-      description: "Reflexión final sobre el impacto del tema en el presente y futuro.",
+      content: "Reflexión final sobre el impacto del tema en el presente y futuro.",
     },
   ];
 }
@@ -166,9 +166,7 @@ export async function POST(request: Request) {
       project_id: script.project_id || null,
       scene_order: index + 1,
       scene_title: scene.title,
-      scene_description: `${scene.description}\n\nTema: ${
-        script.topic || script.title
-      }`,
+      scene_content: `${scene.content}\n\nTema: ${script.topic || script.title}`,
       is_active: true,
     }));
 
