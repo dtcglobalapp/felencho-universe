@@ -6,16 +6,22 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+
     const scriptId = searchParams.get("script_id");
+    const sceneId = searchParams.get("scene_id");
 
     let query = supabaseAdmin
-      .from("lumina_script_scenes")
+      .from("lumina_script_lines")
       .select("*")
       .eq("is_active", true)
-      .order("scene_order", { ascending: true });
+      .order("line_order", { ascending: true });
 
     if (scriptId) {
       query = query.eq("script_id", scriptId);
+    }
+
+    if (sceneId) {
+      query = query.eq("scene_id", sceneId);
     }
 
     const { data, error } = await query;
@@ -24,12 +30,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      scenes: data || [],
+      lines: data || [],
     });
   } catch (error: any) {
     return NextResponse.json(
       {
-        error: "Error cargando escenas.",
+        error: "Error cargando líneas.",
         details: error?.message || String(error),
       },
       { status: 500 }
@@ -41,20 +47,20 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const sceneTitle = body.scene_title || body.title || "Escena";
-    const sceneContent = body.scene_content || body.description || "";
-
     const { data, error } = await supabaseAdmin
-      .from("lumina_script_scenes")
+      .from("lumina_script_lines")
       .insert({
         script_id: body.script_id,
-        scene_order: body.scene_order || 1,
+        scene_id: body.scene_id,
 
-        title: sceneTitle,
-        description: sceneContent,
+        line_order: body.line_order || 1,
+        speaker: body.speaker || "Bob",
+        content: body.content || "",
 
-        scene_title: sceneTitle,
-        scene_content: sceneContent,
+        delivery_style: body.delivery_style || "",
+        emotion: body.emotion || "",
+        camera_note: body.camera_note || "",
+        audio_note: body.audio_note || "",
 
         is_active: true,
         updated_at: new Date().toISOString(),
@@ -66,12 +72,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      scene: data,
+      line: data,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
-        error: "Error creando escena.",
+        error: "Error creando línea.",
         details: error?.message || String(error),
       },
       { status: 500 }
