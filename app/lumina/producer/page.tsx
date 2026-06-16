@@ -4,6 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import ProducerPanel from "../ProducerPanel";
 
+type ScriptProject = {
+  id: string;
+  title: string;
+  topic: string;
+  duration: string | null;
+  style: string | null;
+  language: string | null;
+  producer_notes: string | null;
+  status: string | null;
+  created_at: string;
+};
+
 export default function LuminaProducerPage() {
   const [topic, setTopic] = useState("");
   const [duration, setDuration] = useState("30 minutos");
@@ -11,18 +23,56 @@ export default function LuminaProducerPage() {
   const [language, setLanguage] = useState("Español");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [project, setProject] = useState<ScriptProject | null>(null);
 
-  function prepareScript() {
+  async function prepareScript() {
     if (!topic.trim()) {
       setStatus("Escribe primero el tema del episodio.");
       return;
     }
 
-    setStatus(
-      `Idea preparada para Lumina Producer:\n\nTema: ${topic}\nDuración: ${duration}\nEstilo: ${style}\nIdioma: ${language}\nNotas: ${
-        notes || "Sin notas adicionales."
-      }\n\nPróximo paso: conectar este formulario al generador automático de guiones.`
-    );
+    try {
+      setIsSaving(true);
+      setStatus("Guardando idea en Lumina Producer...");
+
+      const response = await fetch("/api/lumina/script-projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: topic.trim(),
+          topic: topic.trim(),
+          duration,
+          style,
+          language,
+          producer_notes: notes.trim(),
+          status: "draft",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setStatus(data.error || "Error guardando la idea.");
+        return;
+      }
+
+      setProject(data.project);
+
+      setStatus(
+        `Proyecto creado correctamente en Lumina Producer.\n\nID del proyecto:\n${data.project.id}\n\nTema:\n${data.project.topic}\n\nEstado:\n${data.project.status}\n\nPróximo paso: generar guion, escenas y líneas.`
+      );
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? `Error inesperado: ${error.message}`
+          : "Error inesperado guardando la idea."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -129,10 +179,34 @@ export default function LuminaProducerPage() {
 
         <button
           onClick={prepareScript}
-          className="mt-6 rounded-xl bg-cyan-500 px-5 py-3 font-bold text-black"
+          disabled={isSaving}
+          className="mt-6 rounded-xl bg-cyan-500 px-5 py-3 font-bold text-black disabled:opacity-50"
         >
-          PREPARAR IDEA
+          {isSaving ? "GUARDANDO..." : "PREPARAR IDEA"}
         </button>
+
+        {project && (
+          <div className="mt-6 rounded-xl border border-green-400/30 bg-green-500/10 p-4">
+            <h3 className="text-lg font-bold text-green-300">
+              Proyecto creado
+            </h3>
+
+            <p className="mt-2 text-gray-300">
+              <span className="font-semibold text-green-300">Título:</span>{" "}
+              {project.title}
+            </p>
+
+            <p className="mt-1 break-all text-gray-300">
+              <span className="font-semibold text-green-300">ID:</span>{" "}
+              {project.id}
+            </p>
+
+            <p className="mt-1 text-gray-300">
+              <span className="font-semibold text-green-300">Estado:</span>{" "}
+              {project.status}
+            </p>
+          </div>
+        )}
 
         {status && (
           <pre className="mt-6 whitespace-pre-wrap rounded-xl border border-cyan-400/20 bg-black/50 p-4 text-gray-300">
