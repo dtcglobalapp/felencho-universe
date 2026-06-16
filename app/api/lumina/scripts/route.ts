@@ -1,49 +1,67 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { data, error } = await supabase
-    .from("lumina_scripts")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("lumina_scripts")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
 
-  if (error) {
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      scripts: data || [],
+    });
+  } catch (error: any) {
     return NextResponse.json(
-      { error: error.message },
+      {
+        error: "Error cargando guiones.",
+        details: error?.message || String(error),
+      },
       { status: 500 }
     );
   }
-
-  return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  try {
+    const body = await request.json();
 
-  const { data, error } = await supabase
-    .from("lumina_scripts")
-    .insert({
-      title: body.title,
-      description: body.description || "",
-      director: body.director || "Felencho Virtual",
-      status: body.status || "draft",
-      is_active: true,
-    })
-    .select()
-    .single();
+    const { data, error } = await supabaseAdmin
+      .from("lumina_scripts")
+      .insert({
+        title: body.title || "Guion sin título",
+        topic: body.topic || body.title || "Tema sin definir",
+        description: body.description || "",
+        script_type: body.script_type || "podcast",
+        language: body.language || "multi",
+        duration_minutes: body.duration_minutes || 15,
+        director: body.director || "Felencho Virtual",
+        status: body.status || "draft",
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
 
-  if (error) {
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      script: data,
+    });
+  } catch (error: any) {
     return NextResponse.json(
-      { error: error.message },
+      {
+        error: "Error creando guion.",
+        details: error?.message || String(error),
+      },
       { status: 500 }
     );
   }
-
-  return NextResponse.json(data);
 }
