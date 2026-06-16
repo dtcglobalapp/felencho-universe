@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import MessageForm from "./MessageForm";
 import ConversationViewer from "./ConversationViewer";
+import ProducerPanel from "./ProducerPanel";
 
 export default async function LuminaPage() {
   const { data, error } = await supabaseAdmin
@@ -57,6 +58,8 @@ export default async function LuminaPage() {
       </section>
 
       <MessageForm />
+
+      <ProducerPanel />
 
       <ConversationViewer />
     </main>
