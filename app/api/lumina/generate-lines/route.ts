@@ -19,19 +19,22 @@ type Scene = {
   scene_description: string | null;
 };
 
+type Speaker = "Bob" | "Lina" | "Felencho Virtual";
+
 type GeneratedLine = {
-  speaker: "Bob" | "Lina" | "Felencho Virtual";
+  speaker: Speaker;
   dialogue: string;
   emotion: string;
 };
 
-function cleanJsonText(text: string) {
-  return text
-    .replace(/^```json/i, "")
-    .replace(/^```/i, "")
-    .replace(/```$/i, "")
-    .trim();
-}
+type LineInsert = {
+  scene_id: string;
+  speaker: string;
+  line_order: number;
+  dialogue: string;
+  emotion: string;
+  is_active: boolean;
+};
 
 function fallbackLines(scene: Scene, topic: string): GeneratedLine[] {
   const sceneInfo =
@@ -40,22 +43,26 @@ function fallbackLines(scene: Scene, topic: string): GeneratedLine[] {
   return [
     {
       speaker: "Bob",
-      dialogue: `En esta escena sobre "${scene.scene_title}", debemos analizar el tema "${topic}" con una mirada clara y ordenada. El punto central es: ${sceneInfo}`,
+      dialogue: `En esta escena sobre "${scene.scene_title}", vamos a analizar el tema "${topic}" con claridad. Punto central: ${sceneInfo}`,
       emotion: "analítico y narrativo",
     },
     {
       speaker: "Lina",
       dialogue:
-        "Más allá de los datos, esta parte de la historia tiene un lado humano. Cada proceso creativo, cada lucha y cada decisión dejan una huella emocional.",
+        "Más allá de los datos, esta parte de la historia tiene un lado humano. Cada lucha, cada sueño y cada decisión dejan una huella emocional.",
       emotion: "reflexiva y humana",
     },
     {
       speaker: "Felencho Virtual",
       dialogue:
-        "Y aquí conectamos esta conversación con el presente. Lo que estamos analizando no vive solamente en el pasado; también habla del futuro que estamos construyendo.",
+        "Y aquí conectamos esta conversación con el presente. Lo que analizamos no vive solo en el pasado; también habla del futuro que estamos construyendo.",
       emotion: "inspirador y futurista",
     },
   ];
+}
+
+function isValidSpeaker(value: string): value is Speaker {
+  return value === "Bob" || value === "Lina" || value === "Felencho Virtual";
 }
 
 async function generateLinesWithGPT({
@@ -76,10 +83,21 @@ async function generateLinesWithGPT({
   const sceneContent =
     scene.scene_description || scene.scene_content || "Sin descripción.";
 
-  const prompt = `
-Eres Lumina Brain, el motor creativo del proyecto Felencho Mundial.
-
-Debes generar un diálogo original para una escena de un episodio producido por Lumina Producer.
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.85,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres Lumina Brain. Generas diálogos originales para Bob, Lina y Felencho Virtual. Respondes solamente JSON válido.",
+        },
+        {
+          role: "user",
+          content: `
+Genera diálogos originales para una escena de Felencho Mundial.
 
 DATOS DEL EPISODIO:
 Tema: ${topic}
@@ -90,97 +108,76 @@ Pautas del productor ejecutivo: ${producerNotes || "Sin pautas adicionales."}
 
 DATOS DE LA ESCENA:
 Número de escena: ${scene.scene_order}
-Título de escena: ${scene.scene_title}
-Descripción de escena: ${sceneContent}
+Título: ${scene.scene_title}
+Descripción: ${sceneContent}
 
 PERSONAJES:
-1. Bob:
-- Analítico, técnico, histórico, paciente y narrador.
-- Aporta contexto, datos, estructura, historia y claridad.
-- Debe sonar inteligente, natural y útil.
-
-2. Lina:
-- Emocional, espiritual, humana, sensible y reflexiva.
-- Aporta sentimientos, impacto social, preguntas profundas y conexión emocional.
-- Debe sonar cálida, elegante y sabia.
-
-3. Felencho Virtual:
-- Representa a Felencho como creador, artista, visionario y productor ejecutivo.
-- Conecta el tema con la vida real, los artistas emergentes, la tecnología, la cultura, la comunidad y el futuro.
-- Puede hablar desde una perspectiva cercana, inspiradora y directa.
+Bob: analítico, histórico, técnico, narrador.
+Lina: humana, emocional, espiritual, reflexiva.
+Felencho Virtual: creador, visionario, artista, conecta con la vida real y el futuro.
 
 INSTRUCCIONES:
-- Genera exactamente 3 líneas de diálogo: una para Bob, una para Lina y una para Felencho Virtual.
-- No repitas frases genéricas entre escenas.
-- Cada línea debe estar conectada al tema y a la escena.
-- No inventes datos específicos si no estás seguro. Si falta información, habla de forma general, reflexiva o contextual.
-- El texto debe sonar como parte de un podcast real.
-- No uses markdown.
-- No uses comillas decorativas.
-- Responde SOLO con JSON válido.
+- Crea exactamente 3 líneas.
+- Una línea para Bob.
+- Una línea para Lina.
+- Una línea para Felencho Virtual.
+- No repitas frases genéricas.
+- Cada línea debe conectar con el tema y la escena.
+- No inventes datos específicos dudosos.
+- Usa español natural si el idioma es Español.
+- Devuelve solo este JSON:
 
-FORMATO EXACTO:
-[
-  {
-    "speaker": "Bob",
-    "dialogue": "texto",
-    "emotion": "emoción breve"
-  },
-  {
-    "speaker": "Lina",
-    "dialogue": "texto",
-    "emotion": "emoción breve"
-  },
-  {
-    "speaker": "Felencho Virtual",
-    "dialogue": "texto",
-    "emotion": "emoción breve"
-  }
-]
-`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.85,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Eres Lumina Brain. Generas diálogos originales para Bob, Lina y Felencho Virtual en formato JSON válido.",
-        },
-        {
-          role: "user",
-          content: prompt,
+{
+  "lines": [
+    {
+      "speaker": "Bob",
+      "dialogue": "texto",
+      "emotion": "emoción breve"
+    },
+    {
+      "speaker": "Lina",
+      "dialogue": "texto",
+      "emotion": "emoción breve"
+    },
+    {
+      "speaker": "Felencho Virtual",
+      "dialogue": "texto",
+      "emotion": "emoción breve"
+    }
+  ]
+}
+`,
         },
       ],
     });
 
     const content = completion.choices[0]?.message?.content || "";
-    const cleaned = cleanJsonText(content);
-    const parsed = JSON.parse(cleaned);
+    const parsed = JSON.parse(content);
 
-    if (!Array.isArray(parsed)) {
+    if (!parsed.lines || !Array.isArray(parsed.lines)) {
       return fallbackLines(scene, topic);
     }
 
-    const safeLines: GeneratedLine[] = parsed
+    const safeLines: GeneratedLine[] = parsed.lines
       .filter(
-        (item) =>
-          item &&
+        (item: { speaker?: unknown; dialogue?: unknown }) =>
           typeof item.speaker === "string" &&
+          isValidSpeaker(item.speaker) &&
           typeof item.dialogue === "string"
       )
-      .map((item) => ({
-        speaker: item.speaker,
-        dialogue: item.dialogue,
-        emotion:
-          typeof item.emotion === "string"
-            ? item.emotion
-            : "natural y conversacional",
-      }))
-      .filter((item) =>
-        ["Bob", "Lina", "Felencho Virtual"].includes(item.speaker)
+      .map(
+        (item: {
+          speaker: Speaker;
+          dialogue: string;
+          emotion?: unknown;
+        }): GeneratedLine => ({
+          speaker: item.speaker,
+          dialogue: item.dialogue,
+          emotion:
+            typeof item.emotion === "string"
+              ? item.emotion
+              : "natural y conversacional",
+        })
       );
 
     if (safeLines.length !== 3) {
@@ -246,7 +243,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const sceneIds = scenes.map((scene) => scene.id);
+    const sceneIds = scenes.map((scene: Scene) => scene.id);
 
     await supabase
       .from("lumina_scene_lines")
@@ -259,7 +256,7 @@ export async function POST(request: Request) {
     const durationMinutes = script.duration_minutes || 30;
     const producerNotes = script.description || "";
 
-    const linesToInsert = [];
+    const linesToInsert: LineInsert[] = [];
 
     for (const scene of scenes as Scene[]) {
       const generatedLines = await generateLinesWithGPT({
