@@ -45,6 +45,7 @@ export default function LuminaVoiceConsolePage() {
   const [reply, setReply] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [debug, setDebug] = useState<any>(null);
   const [history, setHistory] = useState<LuminaMessage[]>([]);
 
@@ -72,6 +73,12 @@ export default function LuminaVoiceConsolePage() {
 
   useEffect(() => {
     loadHistory();
+
+    const timer = setInterval(() => {
+      loadHistory();
+    }, 4000);
+
+    return () => clearInterval(timer);
   }, []);
 
   function changeCharacter(characterId: string) {
@@ -85,6 +92,47 @@ export default function LuminaVoiceConsolePage() {
     setReply("");
     setStatus("");
     setDebug(null);
+  }
+
+  function startListening() {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Este navegador no soporta reconocimiento de voz. Prueba con Chrome o Edge.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "es-ES";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    setIsListening(true);
+    setStatus("Escuchando... habla ahora.");
+
+    recognition.start();
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || "";
+
+      if (transcript) {
+        setMessage(transcript);
+        setStatus("Voz capturada. Revisa el mensaje y presiona Enviar y hablar.");
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event);
+      setStatus("Error escuchando el micrófono.");
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
   }
 
   async function sendMessage() {
@@ -147,7 +195,7 @@ export default function LuminaVoiceConsolePage() {
           <h1 className="text-3xl font-bold">Lumina Voice Console</h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Consola interna para probar Bob, Lina y Felencho Virtual con memoria y voz.
+            Consola interna para probar Bob, Lina y Felencho Virtual con memoria, voz y micrófono.
           </p>
 
           <div className="mt-8">
@@ -184,13 +232,23 @@ export default function LuminaVoiceConsolePage() {
             />
           </div>
 
-          <button
-            onClick={sendMessage}
-            disabled={loading}
-            className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white disabled:opacity-50"
-          >
-            {loading ? "Generando..." : "Enviar y hablar"}
-          </button>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button
+              onClick={sendMessage}
+              disabled={loading}
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              {loading ? "Generando..." : "Enviar y hablar"}
+            </button>
+
+            <button
+              onClick={startListening}
+              disabled={isListening || loading}
+              className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              {isListening ? "Escuchando..." : "🎤 Escuchar"}
+            </button>
+          </div>
 
           {status && (
             <p className="mt-4 text-sm text-zinc-400">
@@ -247,8 +305,8 @@ export default function LuminaVoiceConsolePage() {
                   key={item.id}
                   className={`rounded-2xl p-4 ${
                     isAvatar
-                      ? "ml-8 bg-blue-950/40 border border-blue-500/20"
-                      : "mr-8 bg-zinc-900 border border-white/10"
+                      ? "ml-8 border border-blue-500/20 bg-blue-950/40"
+                      : "mr-8 border border-white/10 bg-zinc-900"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
