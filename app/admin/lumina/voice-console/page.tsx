@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const characters = [
   {
@@ -13,7 +13,7 @@ const characters = [
     name: "Lina",
     id: "adec8041-03d0-41c9-a8ec-8e9f7ab68010",
     defaultUser: "Felencho",
-    defaultMessage: "Hola Lina, preséntate como parte de Lumina Studio.",
+    defaultMessage: "Hola Lina. Preséntate para los oyentes de Felencho Mundial.",
   },
   {
     name: "Felencho Virtual",
@@ -22,6 +22,18 @@ const characters = [
     defaultMessage: "Miriam acaba de entrar al estudio. Salúdala.",
   },
 ];
+
+type LuminaMessage = {
+  id: string;
+  created_at: string;
+  conversation_id: string;
+  speaker: string;
+  target: string | null;
+  message: string;
+  message_type: string;
+  platform: string | null;
+  language: string | null;
+};
 
 export default function LuminaVoiceConsolePage() {
   const [selectedCharacterId, setSelectedCharacterId] = useState(characters[0].id);
@@ -34,6 +46,33 @@ export default function LuminaVoiceConsolePage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState<any>(null);
+  const [history, setHistory] = useState<LuminaMessage[]>([]);
+
+  async function loadHistory() {
+    try {
+      const response = await fetch("/api/lumina/messages", {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (Array.isArray(data)) {
+        const filtered = data
+          .filter((item: LuminaMessage) => {
+            return item.conversation_id === "lumina-studio-v1";
+          })
+          .slice(-30);
+
+        setHistory(filtered);
+      }
+    } catch (error) {
+      console.error("Error cargando historial:", error);
+    }
+  }
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   function changeCharacter(characterId: string) {
     const character = characters.find((item) => item.id === characterId);
@@ -63,6 +102,7 @@ export default function LuminaVoiceConsolePage() {
         body: JSON.stringify({
           character_id: selectedCharacterId,
           user_message: message,
+          conversation_id: "lumina-studio-v1",
           channel: "felencho.ai",
           language: "es",
           user_name: userName,
@@ -79,6 +119,8 @@ export default function LuminaVoiceConsolePage() {
 
       setReply(data.reply || "");
       setDebug(data.chat || data);
+
+      await loadHistory();
 
       if (data.audio_base64) {
         const audio = new Audio(
@@ -100,15 +142,15 @@ export default function LuminaVoiceConsolePage() {
 
   return (
     <main className="min-h-screen bg-black p-8 text-white">
-      <div className="mx-auto max-w-4xl rounded-2xl border border-white/10 bg-zinc-950 p-8 shadow-2xl">
-        <h1 className="text-4xl font-bold">Lumina Voice Console</h1>
+      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[420px_1fr]">
+        <section className="rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
+          <h1 className="text-3xl font-bold">Lumina Voice Console</h1>
 
-        <p className="mt-2 text-zinc-400">
-          Consola interna para probar Bob, Lina y Felencho Virtual con memoria y voz.
-        </p>
+          <p className="mt-2 text-sm text-zinc-400">
+            Consola interna para probar Bob, Lina y Felencho Virtual con memoria y voz.
+          </p>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <div>
+          <div className="mt-8">
             <label className="mb-2 block text-sm text-zinc-400">Avatar</label>
             <select
               className="w-full rounded-lg bg-zinc-900 p-3 text-white outline-none"
@@ -123,7 +165,7 @@ export default function LuminaVoiceConsolePage() {
             </select>
           </div>
 
-          <div>
+          <div className="mt-5">
             <label className="mb-2 block text-sm text-zinc-400">Usuario</label>
             <input
               className="w-full rounded-lg bg-zinc-900 p-3 text-white outline-none"
@@ -131,47 +173,104 @@ export default function LuminaVoiceConsolePage() {
               onChange={(e) => setUserName(e.target.value)}
             />
           </div>
-        </div>
 
-        <div className="mt-6">
-          <label className="mb-2 block text-sm text-zinc-400">Mensaje</label>
-          <textarea
-            className="w-full rounded-lg bg-zinc-900 p-4 text-white outline-none"
-            rows={5}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-        </div>
+          <div className="mt-5">
+            <label className="mb-2 block text-sm text-zinc-400">Mensaje</label>
+            <textarea
+              className="w-full rounded-lg bg-zinc-900 p-4 text-white outline-none"
+              rows={7}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+          </div>
 
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-          className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white disabled:opacity-50"
-        >
-          {loading ? "Generando..." : "Enviar y hablar"}
-        </button>
+          <button
+            onClick={sendMessage}
+            disabled={loading}
+            className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white disabled:opacity-50"
+          >
+            {loading ? "Generando..." : "Enviar y hablar"}
+          </button>
 
-        {status && (
-          <p className="mt-4 text-sm text-zinc-400">
-            Estado: {status}
-          </p>
-        )}
+          {status && (
+            <p className="mt-4 text-sm text-zinc-400">
+              Estado: {status}
+            </p>
+          )}
 
-        {reply && (
-          <section className="mt-8 rounded-xl bg-zinc-900 p-5">
-            <h2 className="text-xl font-semibold">Respuesta</h2>
-            <p className="mt-3 leading-7 text-zinc-200">{reply}</p>
-          </section>
-        )}
+          {reply && (
+            <section className="mt-6 rounded-xl bg-zinc-900 p-5">
+              <h2 className="text-xl font-semibold">Última respuesta</h2>
+              <p className="mt-3 leading-7 text-zinc-200">{reply}</p>
+            </section>
+          )}
 
-        {debug && (
-          <section className="mt-6 rounded-xl bg-zinc-900 p-5">
-            <h2 className="text-xl font-semibold">Memoria usada</h2>
-            <pre className="mt-3 overflow-auto text-xs text-zinc-300">
-              {JSON.stringify(debug, null, 2)}
-            </pre>
-          </section>
-        )}
+          {debug && (
+            <section className="mt-6 rounded-xl bg-zinc-900 p-5">
+              <h2 className="text-xl font-semibold">Memoria usada</h2>
+              <pre className="mt-3 max-h-64 overflow-auto text-xs text-zinc-300">
+                {JSON.stringify(debug, null, 2)}
+              </pre>
+            </section>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-bold">Conversación</h2>
+              <p className="mt-2 text-sm text-zinc-400">
+                Últimos mensajes guardados en lumina_messages.
+              </p>
+            </div>
+
+            <button
+              onClick={loadHistory}
+              className="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Actualizar
+            </button>
+          </div>
+
+          <div className="mt-6 max-h-[760px] space-y-4 overflow-y-auto pr-2">
+            {history.length === 0 && (
+              <p className="text-zinc-500">No hay mensajes todavía.</p>
+            )}
+
+            {history.map((item) => {
+              const isAvatar = characters.some(
+                (character) => character.name === item.speaker
+              );
+
+              return (
+                <article
+                  key={item.id}
+                  className={`rounded-2xl p-4 ${
+                    isAvatar
+                      ? "ml-8 bg-blue-950/40 border border-blue-500/20"
+                      : "mr-8 bg-zinc-900 border border-white/10"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold">
+                      {isAvatar ? "🤖 " : "🧑 "}
+                      {item.speaker}
+                      {item.target ? ` → ${item.target}` : ""}
+                    </p>
+
+                    <p className="text-xs text-zinc-500">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <p className="mt-3 leading-7 text-zinc-200">
+                    {item.message}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </main>
   );
