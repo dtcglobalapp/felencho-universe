@@ -1,0 +1,59 @@
+
+> felencho-universe@0.1.0 build
+> next build
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1020ms
+  Running TypeScript ...
+  Finished TypeScript in 1142ms ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/26) ...
+  Generating static pages using 15 workers (6/26) 
+  Generating static pages using 15 workers (12/26) 
+  Generating static pages using 15 workers (19/26) 
+✓ Generating static pages using 15 workers (26/26) in 747ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /about
+├ ○ /admin/lumina
+├ ƒ /api/lumina/brain-context
+├ ƒ /api/lumina/brain-memory
+├ ƒ /api/lumina/characters
+├ ƒ /api/lumina/chat
+├ ƒ /api/lumina/conversations
+├ ƒ /api/lumina/generate-lines
+├ ƒ /api/lumina/generate-scenes
+├ ƒ /api/lumina/generate-script
+├ ƒ /api/lumina/lumina_producer/next
+├ ƒ /api/lumina/lumina_producer/session
+├ ƒ /api/lumina/memory
+├ ƒ /api/lumina/messages
+├ ƒ /api/lumina/moderate
+├ ƒ /api/lumina/participants
+├ ƒ /api/lumina/personality
+├ ƒ /api/lumina/reply
+├ ƒ /api/lumina/reputation
+├ ƒ /api/lumina/script-lines
+├ ƒ /api/lumina/script-projects
+├ ƒ /api/lumina/script-scenes
+├ ƒ /api/lumina/scripts
+├ ƒ /api/lumina/speak
+├ ƒ /api/lumina/user-memory
+├ ƒ /api/lumina/worldview
+├ ƒ /lumina
+├ ○ /lumina/producer
+├ ○ /museum
+├ ○ /novels
+├ ○ /podcast
+└ ƒ /song/[slug]
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
