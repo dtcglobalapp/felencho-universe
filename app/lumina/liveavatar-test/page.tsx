@@ -14,7 +14,10 @@ export default function LiveAvatarTestPage() {
 
   const [status, setStatus] = useState("Bob está dormido.");
   const [sessionData, setSessionData] = useState<any>(null);
-  const [textMessage, setTextMessage] = useState("Hola Bob, ¿quién es Miriam Garcia?");
+  const [textMessage, setTextMessage] = useState(
+    "Hola Bob, ¿quién es Miriam Garcia?"
+  );
+  const [lastUserTranscript, setLastUserTranscript] = useState("");
   const [logs, setLogs] = useState<LogItem[]>([]);
 
   function addLog(type: string, data: any) {
@@ -24,8 +27,88 @@ export default function LiveAvatarTestPage() {
         type,
         data,
       },
-      ...prev.slice(0, 49),
+      ...prev.slice(0, 79),
     ]);
+  }
+
+  async function askLumina(message: string) {
+    const response = await fetch("/api/liveavatar/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "lumina-bob-v1",
+        messages: [
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.error?.message || "Lumina no respondió.");
+    }
+
+    const reply =
+      data?.choices?.[0]?.message?.content ||
+      "No pude generar una respuesta en este momento.";
+
+    return {
+      reply,
+      raw: data,
+    };
+  }
+
+  async function makeBobSpeak(text: string) {
+    if (!sessionRef.current) {
+      throw new Error("Primero despierta a Bob.");
+    }
+
+    const result = sessionRef.current.repeat(text);
+
+    addLog("BOB_REPEAT_COMMAND", {
+      text,
+      sdk_result: result,
+    });
+
+    return result;
+  }
+
+  async function askLuminaAndSpeak(message: string) {
+    try {
+      if (!message.trim()) {
+        setStatus("Escribe o dicta un mensaje primero.");
+        return;
+      }
+
+      setStatus("Lumina está pensando...");
+      addLog("ASK_LUMINA", { message });
+
+      const lumina = await askLumina(message);
+
+      addLog("LUMINA_REPLY", lumina.raw);
+
+      setStatus("Bob está hablando con la respuesta de Lumina...");
+
+      const speakResult = await makeBobSpeak(lumina.reply);
+
+      setSessionData({
+        user_message: message,
+        bob_reply: lumina.reply,
+        sdk_result: speakResult,
+      });
+
+      setStatus("Bob respondió usando Lumina.");
+    } catch (error: any) {
+      setStatus("Error conectando Lumina con la voz de Bob.");
+      setSessionData(error?.message || error);
+      addLog("ASK_LUMINA_AND_SPEAK_ERROR", error?.message || error);
+    }
   }
 
   async function wakeBob() {
@@ -43,7 +126,7 @@ export default function LiveAvatarTestPage() {
       if (!tokenResponse.ok) {
         setSessionData(tokenData);
         setStatus("Error creando sesión.");
-        addLog("session-token-error", tokenData);
+        addLog("SESSION_TOKEN_ERROR", tokenData);
         return;
       }
 
@@ -52,7 +135,7 @@ export default function LiveAvatarTestPage() {
       if (!sessionToken) {
         setSessionData(tokenData);
         setStatus("No llegó session_token.");
-        addLog("missing-session-token", tokenData);
+        addLog("MISSING_SESSION_TOKEN", tokenData);
         return;
       }
 
@@ -60,11 +143,7 @@ export default function LiveAvatarTestPage() {
 
       const sdk = await import("@heygen/liveavatar-web-sdk");
 
-      const {
-        LiveAvatarSession,
-        SessionEvent,
-        AgentEventsEnum,
-      } = sdk as any;
+      const { LiveAvatarSession, SessionEvent, AgentEventsEnum } = sdk as any;
 
       const session = new LiveAvatarSession(sessionToken, {
         voiceChat: true,
@@ -78,15 +157,19 @@ export default function LiveAvatarTestPage() {
 
       session.on(SessionEvent.SESSION_STREAM_READY, () => {
         addLog("SESSION_STREAM_READY", "Stream listo.");
+
         if (videoRef.current) {
           session.attach(videoRef.current);
           videoRef.current.play().catch(() => {});
         }
       });
 
-      session.on(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, (quality: any) => {
-        addLog("CONNECTION_QUALITY", quality);
-      });
+      session.on(
+        SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED,
+        (quality: any) => {
+          addLog("CONNECTION_QUALITY", quality);
+        }
+      );
 
       session.on(SessionEvent.SESSION_DISCONNECTED, (reason: any) => {
         addLog("SESSION_DISCONNECTED", reason);
@@ -94,6 +177,7 @@ export default function LiveAvatarTestPage() {
       });
 
       session.on(AgentEventsEnum.USER_TRANSCRIPTION, (event: any) => {
+        setLastUserTranscript(event?.text || "");
         addLog("USER_TRANSCRIPTION", event);
       });
 
@@ -125,6 +209,10 @@ export default function LiveAvatarTestPage() {
         addLog("AVATAR_SPEAK_ENDED", event);
       });
 
+      session.on(AgentEventsEnum.ELEVENLABS_AGENT_EVENT, (event: any) => {
+        addLog("ELEVENLABS_AGENT_EVENT", event);
+      });
+
       session.on(AgentEventsEnum.SESSION_STOPPED, (event: any) => {
         addLog("SESSION_STOPPED", event);
       });
@@ -142,18 +230,18 @@ export default function LiveAvatarTestPage() {
         session_started: true,
       });
 
-      setStatus("Bob está despierto. Prueba Enviar texto a Bob.");
+      setStatus("Bob está despierto. Usa Enviar a Lumina y hablar.");
       addLog("SESSION_STARTED", {
         session_id: tokenData?.data?.session_id,
       });
     } catch (error: any) {
       setStatus("Error despertando a Bob.");
       setSessionData(error?.message || error);
-      addLog("wakeBob-error", error?.message || error);
+      addLog("WAKE_BOB_ERROR", error?.message || error);
     }
   }
 
-  function sendTextToBob() {
+  function sendTextToSdkOnly() {
     try {
       if (!sessionRef.current) {
         setStatus("Primero despierta a Bob.");
@@ -162,20 +250,20 @@ export default function LiveAvatarTestPage() {
 
       const result = sessionRef.current.message(textMessage);
 
-      setStatus("Mensaje enviado a Bob. Esperando respuesta...");
+      setStatus("Mensaje enviado al SDK.");
       setSessionData({
         sent_message: textMessage,
         sdk_result: result,
       });
 
-      addLog("MESSAGE_SENT_TO_BOB", {
+      addLog("MESSAGE_SENT_TO_SDK_ONLY", {
         text: textMessage,
         sdk_result: result,
       });
     } catch (error: any) {
-      setStatus("Error enviando mensaje.");
+      setStatus("Error enviando mensaje al SDK.");
       setSessionData(error?.message || error);
-      addLog("sendText-error", error?.message || error);
+      addLog("SEND_TEXT_SDK_ERROR", error?.message || error);
     }
   }
 
@@ -198,7 +286,7 @@ export default function LiveAvatarTestPage() {
     } catch (error: any) {
       setStatus("Error activando micrófono.");
       setSessionData(error?.message || error);
-      addLog("startListening-error", error?.message || error);
+      addLog("START_LISTENING_ERROR", error?.message || error);
     }
   }
 
@@ -221,7 +309,7 @@ export default function LiveAvatarTestPage() {
     } catch (error: any) {
       setStatus("Error deteniendo micrófono.");
       setSessionData(error?.message || error);
-      addLog("stopListening-error", error?.message || error);
+      addLog("STOP_LISTENING_ERROR", error?.message || error);
     }
   }
 
@@ -237,7 +325,7 @@ export default function LiveAvatarTestPage() {
     } catch (error: any) {
       setStatus("Error deteniendo a Bob.");
       setSessionData(error?.message || error);
-      addLog("stopBob-error", error?.message || error);
+      addLog("STOP_BOB_ERROR", error?.message || error);
     }
   }
 
@@ -302,13 +390,36 @@ export default function LiveAvatarTestPage() {
             onChange={(event) => setTextMessage(event.target.value)}
           />
 
-          <button
-            onClick={sendTextToBob}
-            className="mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-500"
-          >
-            Enviar texto a Bob
-          </button>
+          <div className="mt-4 flex flex-wrap gap-4">
+            <button
+              onClick={() => askLuminaAndSpeak(textMessage)}
+              className="rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-500"
+            >
+              Enviar a Lumina y Bob habla
+            </button>
+
+            <button
+              onClick={sendTextToSdkOnly}
+              className="rounded-xl bg-zinc-700 px-6 py-3 font-bold text-white hover:bg-zinc-600"
+            >
+              Enviar solo al SDK
+            </button>
+
+            <button
+              onClick={() => askLuminaAndSpeak(lastUserTranscript)}
+              className="rounded-xl bg-cyan-600 px-6 py-3 font-bold text-white hover:bg-cyan-500"
+            >
+              Responder última voz
+            </button>
+          </div>
         </div>
+
+        {lastUserTranscript && (
+          <section className="mt-6 rounded-xl bg-zinc-900 p-4">
+            <h2 className="font-bold text-cyan-300">Última voz detectada</h2>
+            <p className="mt-2 text-zinc-200">{lastUserTranscript}</p>
+          </section>
+        )}
 
         <p className="mt-6 text-lg text-zinc-300">Estado: {status}</p>
 
