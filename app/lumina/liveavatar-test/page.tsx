@@ -2,6 +2,12 @@
 
 import { useRef, useState } from "react";
 
+type LogItem = {
+  time: string;
+  type: string;
+  data: any;
+};
+
 export default function LiveAvatarTestPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sessionRef = useRef<any>(null);
@@ -9,11 +15,24 @@ export default function LiveAvatarTestPage() {
   const [status, setStatus] = useState("Bob está dormido.");
   const [sessionData, setSessionData] = useState<any>(null);
   const [textMessage, setTextMessage] = useState("Hola Bob, ¿quién es Miriam Garcia?");
+  const [logs, setLogs] = useState<LogItem[]>([]);
+
+  function addLog(type: string, data: any) {
+    setLogs((prev) => [
+      {
+        time: new Date().toLocaleTimeString(),
+        type,
+        data,
+      },
+      ...prev.slice(0, 49),
+    ]);
+  }
 
   async function wakeBob() {
     try {
       setStatus("Creando sesión de Bob...");
       setSessionData(null);
+      setLogs([]);
 
       const tokenResponse = await fetch("/api/liveavatar/session-token", {
         method: "POST",
@@ -24,6 +43,7 @@ export default function LiveAvatarTestPage() {
       if (!tokenResponse.ok) {
         setSessionData(tokenData);
         setStatus("Error creando sesión.");
+        addLog("session-token-error", tokenData);
         return;
       }
 
@@ -32,13 +52,19 @@ export default function LiveAvatarTestPage() {
       if (!sessionToken) {
         setSessionData(tokenData);
         setStatus("No llegó session_token.");
+        addLog("missing-session-token", tokenData);
         return;
       }
 
       setStatus("Cargando LiveAvatar SDK...");
 
       const sdk = await import("@heygen/liveavatar-web-sdk");
-      const LiveAvatarSession = (sdk as any).LiveAvatarSession;
+
+      const {
+        LiveAvatarSession,
+        SessionEvent,
+        AgentEventsEnum,
+      } = sdk as any;
 
       const session = new LiveAvatarSession(sessionToken, {
         voiceChat: true,
@@ -46,11 +72,69 @@ export default function LiveAvatarTestPage() {
 
       sessionRef.current = session;
 
+      session.on(SessionEvent.SESSION_STATE_CHANGED, (state: any) => {
+        addLog("SESSION_STATE_CHANGED", state);
+      });
+
+      session.on(SessionEvent.SESSION_STREAM_READY, () => {
+        addLog("SESSION_STREAM_READY", "Stream listo.");
+        if (videoRef.current) {
+          session.attach(videoRef.current);
+          videoRef.current.play().catch(() => {});
+        }
+      });
+
+      session.on(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, (quality: any) => {
+        addLog("CONNECTION_QUALITY", quality);
+      });
+
+      session.on(SessionEvent.SESSION_DISCONNECTED, (reason: any) => {
+        addLog("SESSION_DISCONNECTED", reason);
+        setStatus("Bob se desconectó.");
+      });
+
+      session.on(AgentEventsEnum.USER_TRANSCRIPTION, (event: any) => {
+        addLog("USER_TRANSCRIPTION", event);
+      });
+
+      session.on(AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, (event: any) => {
+        addLog("USER_TRANSCRIPTION_CHUNK", event);
+      });
+
+      session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION, (event: any) => {
+        addLog("AVATAR_TRANSCRIPTION", event);
+      });
+
+      session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, (event: any) => {
+        addLog("AVATAR_TRANSCRIPTION_CHUNK", event);
+      });
+
+      session.on(AgentEventsEnum.USER_SPEAK_STARTED, (event: any) => {
+        addLog("USER_SPEAK_STARTED", event);
+      });
+
+      session.on(AgentEventsEnum.USER_SPEAK_ENDED, (event: any) => {
+        addLog("USER_SPEAK_ENDED", event);
+      });
+
+      session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, (event: any) => {
+        addLog("AVATAR_SPEAK_STARTED", event);
+      });
+
+      session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, (event: any) => {
+        addLog("AVATAR_SPEAK_ENDED", event);
+      });
+
+      session.on(AgentEventsEnum.SESSION_STOPPED, (event: any) => {
+        addLog("SESSION_STOPPED", event);
+      });
+
       setStatus("Despertando a Bob...");
       await session.start();
 
       if (videoRef.current) {
         session.attach(videoRef.current);
+        videoRef.current.play().catch(() => {});
       }
 
       setSessionData({
@@ -58,10 +142,14 @@ export default function LiveAvatarTestPage() {
         session_started: true,
       });
 
-      setStatus("Bob está despierto. Prueba el botón Hablar por texto.");
+      setStatus("Bob está despierto. Prueba Enviar texto a Bob.");
+      addLog("SESSION_STARTED", {
+        session_id: tokenData?.data?.session_id,
+      });
     } catch (error: any) {
       setStatus("Error despertando a Bob.");
       setSessionData(error?.message || error);
+      addLog("wakeBob-error", error?.message || error);
     }
   }
 
@@ -73,14 +161,21 @@ export default function LiveAvatarTestPage() {
       }
 
       const result = sessionRef.current.message(textMessage);
-      setStatus("Mensaje enviado a Bob.");
+
+      setStatus("Mensaje enviado a Bob. Esperando respuesta...");
       setSessionData({
         sent_message: textMessage,
+        sdk_result: result,
+      });
+
+      addLog("MESSAGE_SENT_TO_BOB", {
+        text: textMessage,
         sdk_result: result,
       });
     } catch (error: any) {
       setStatus("Error enviando mensaje.");
       setSessionData(error?.message || error);
+      addLog("sendText-error", error?.message || error);
     }
   }
 
@@ -92,14 +187,18 @@ export default function LiveAvatarTestPage() {
       }
 
       const result = sessionRef.current.startListening();
+
       setStatus("Bob está escuchando. Habla ahora.");
       setSessionData({
         listening: true,
         sdk_result: result,
       });
+
+      addLog("START_LISTENING", result);
     } catch (error: any) {
       setStatus("Error activando micrófono.");
       setSessionData(error?.message || error);
+      addLog("startListening-error", error?.message || error);
     }
   }
 
@@ -111,14 +210,18 @@ export default function LiveAvatarTestPage() {
       }
 
       const result = sessionRef.current.stopListening();
+
       setStatus("Bob dejó de escuchar.");
       setSessionData({
         listening: false,
         sdk_result: result,
       });
+
+      addLog("STOP_LISTENING", result);
     } catch (error: any) {
       setStatus("Error deteniendo micrófono.");
       setSessionData(error?.message || error);
+      addLog("stopListening-error", error?.message || error);
     }
   }
 
@@ -130,9 +233,11 @@ export default function LiveAvatarTestPage() {
       }
 
       setStatus("Bob volvió a dormir.");
+      addLog("STOP_BOB", "Sesión detenida.");
     } catch (error: any) {
       setStatus("Error deteniendo a Bob.");
       setSessionData(error?.message || error);
+      addLog("stopBob-error", error?.message || error);
     }
   }
 
@@ -208,10 +313,36 @@ export default function LiveAvatarTestPage() {
         <p className="mt-6 text-lg text-zinc-300">Estado: {status}</p>
 
         {sessionData && (
-          <pre className="mt-6 max-h-96 overflow-auto rounded-xl bg-zinc-900 p-4 text-sm text-zinc-300">
+          <pre className="mt-6 max-h-72 overflow-auto rounded-xl bg-zinc-900 p-4 text-sm text-zinc-300">
             {JSON.stringify(sessionData, null, 2)}
           </pre>
         )}
+
+        <section className="mt-8 rounded-xl bg-zinc-900 p-5">
+          <h2 className="text-2xl font-bold">Eventos LiveAvatar</h2>
+
+          {logs.length === 0 && (
+            <p className="mt-3 text-zinc-500">Todavía no hay eventos.</p>
+          )}
+
+          <div className="mt-4 max-h-96 space-y-3 overflow-auto">
+            {logs.map((log, index) => (
+              <article
+                key={`${log.time}-${index}`}
+                className="rounded-xl border border-white/10 bg-black p-4"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <p className="font-bold text-blue-300">{log.type}</p>
+                  <p className="text-xs text-zinc-500">{log.time}</p>
+                </div>
+
+                <pre className="mt-3 overflow-auto text-xs text-zinc-300">
+                  {JSON.stringify(log.data, null, 2)}
+                </pre>
+              </article>
+            ))}
+          </div>
+        </section>
       </section>
     </main>
   );
