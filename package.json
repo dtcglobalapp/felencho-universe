@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@heygen/liveavatar-web-sdk": "^0.0.18",
     "@supabase/supabase-js": "^2.107.0",
     "framer-motion": "^12.40.0",
     "next": "16.2.6",
