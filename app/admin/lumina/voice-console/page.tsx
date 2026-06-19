@@ -23,6 +23,46 @@ const characters = [
   },
 ];
 
+const nameCorrections: Array<[RegExp, string]> = [
+  [/\b(fencho|femenino|felencio|felenzo|felenxo|felenchoo|ferencho|felencho)\b/gi, "Felencho"],
+  [/\b(mirian|miriam garcía|miriam garcia|miriam)\b/gi, "Miriam Garcia"],
+  [/\b(jesica|yesica|jessica)\b/gi, "Jessica"],
+  [/\b(glenis|glenys|gleny|glen)\b/gi, "Glenys"],
+  [/\b(lumína|lumina|lumena|luminia)\b/gi, "Lumina"],
+  [/\b(bab|bo|bob)\b/gi, "Bob"],
+  [/\b(lina|lena|linda)\b/gi, "Lina"],
+  [/\b(neno|neno)\b/gi, "Neno"],
+  [/\b(luisa|luiza)\b/gi, "Luisa"],
+  [/\b(paco)\b/gi, "Paco"],
+  [/\b(pascual|pasqual)\b/gi, "Pascual"],
+  [/\b(german|germán|herman)\b/gi, "German"],
+  [/\b(nena)\b/gi, "Nena"],
+  [/\b(maritza|marisa|maritza)\b/gi, "Maritza"],
+  [/\b(esperanza)\b/gi, "Esperanza"],
+  [/\b(anibal|aníbal)\b/gi, "Anibal"],
+  [/\b(aderly ruiz|aderly|aderli ruiz|aderli)\b/gi, "Aderly Ruiz"],
+  [/\b(albert duran|albert durán|albert)\b/gi, "Albert Duran"],
+  [/\b(argenis)\b/gi, "Argenis"],
+  [/\b(awilda|aguilda|huilda)\b/gi, "Awilda"],
+  [/\b(yasmin|yasmín|jazmin|jazmín)\b/gi, "Yasmin"],
+  [/\b(helen|ellen)\b/gi, "Helen"],
+  [/\b(ileana|iliana|ilena)\b/gi, "Ileana"],
+  [/\b(agustina|augustina)\b/gi, "Agustina"],
+  [/\b(patricia)\b/gi, "Patricia"],
+  [/\b(carmen)\b/gi, "Carmen"],
+  [/\b(maria|maría)\b/gi, "Maria"],
+  [/\b(hilda|ilda)\b/gi, "Hilda"],
+  [/\b(joenfy|joenfi|joemfy|joenfie)\b/gi, "Joenfy"],
+  [/\b(johanny|johani|yohanny|yohani)\b/gi, "Johanny"],
+  [/\b(raffy|rafi|raffi)\b/gi, "Raffy"],
+  [/\b(juanita)\b/gi, "Juanita"],
+  [/\b(dtc|dt control|daycare total control)\b/gi, "DTC"],
+  [/\b(heygen|hey gen|heigen)\b/gi, "HeyGen"],
+  [/\b(elevenlabs|eleven labs|eleven lab)\b/gi, "ElevenLabs"],
+  [/\b(felencho mundial)\b/gi, "Felencho Mundial"],
+  [/\b(mango power band)\b/gi, "Mango Power Band"],
+];
+
 type LuminaMessage = {
   id: string;
   created_at: string;
@@ -34,6 +74,16 @@ type LuminaMessage = {
   platform: string | null;
   language: string | null;
 };
+
+function normalizeLuminaNames(text: string) {
+  let normalizedText = text;
+
+  for (const [pattern, replacement] of nameCorrections) {
+    normalizedText = normalizedText.replace(pattern, replacement);
+  }
+
+  return normalizedText;
+}
 
 export default function LuminaVoiceConsolePage() {
   const [selectedCharacterId, setSelectedCharacterId] = useState(characters[0].id);
@@ -119,8 +169,15 @@ export default function LuminaVoiceConsolePage() {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
 
       if (transcript) {
-        setMessage(transcript);
-        setStatus("Voz capturada. Revisa el mensaje y presiona Enviar y hablar.");
+        const normalizedTranscript = normalizeLuminaNames(transcript);
+
+        setMessage(normalizedTranscript);
+
+        if (normalizedTranscript !== transcript) {
+          setStatus(`Voz capturada y corregida: "${transcript}" → "${normalizedTranscript}"`);
+        } else {
+          setStatus("Voz capturada. Revisa el mensaje y presiona Enviar y hablar.");
+        }
       }
     };
 
@@ -142,6 +199,12 @@ export default function LuminaVoiceConsolePage() {
       setReply("");
       setDebug(null);
 
+      const normalizedMessage = normalizeLuminaNames(message);
+
+      if (normalizedMessage !== message) {
+        setMessage(normalizedMessage);
+      }
+
       const response = await fetch("/api/lumina/chat-voice", {
         method: "POST",
         headers: {
@@ -149,11 +212,11 @@ export default function LuminaVoiceConsolePage() {
         },
         body: JSON.stringify({
           character_id: selectedCharacterId,
-          user_message: message,
+          user_message: normalizedMessage,
           conversation_id: "lumina-studio-v1",
           channel: "felencho.ai",
           language: "es",
-          user_name: userName,
+          user_name: normalizeLuminaNames(userName),
         }),
       });
 
@@ -195,7 +258,7 @@ export default function LuminaVoiceConsolePage() {
           <h1 className="text-3xl font-bold">Lumina Voice Console</h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Consola interna para probar Bob, Lina y Felencho Virtual con memoria, voz y micrófono.
+            Consola interna para probar Bob, Lina y Felencho Virtual con memoria, voz, micrófono y corrección de nombres.
           </p>
 
           <div className="mt-8">
@@ -218,7 +281,7 @@ export default function LuminaVoiceConsolePage() {
             <input
               className="w-full rounded-lg bg-zinc-900 p-3 text-white outline-none"
               value={userName}
-              onChange={(e) => setUserName(e.target.value)}
+              onChange={(e) => setUserName(normalizeLuminaNames(e.target.value))}
             />
           </div>
 
@@ -247,6 +310,14 @@ export default function LuminaVoiceConsolePage() {
               className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white disabled:opacity-50"
             >
               {isListening ? "Escuchando..." : "🎤 Escuchar"}
+            </button>
+
+            <button
+              onClick={() => setMessage(normalizeLuminaNames(message))}
+              disabled={loading}
+              className="rounded-xl bg-zinc-800 px-6 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              Corregir nombres
             </button>
           </div>
 
