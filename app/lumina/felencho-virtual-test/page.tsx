@@ -8,17 +8,17 @@ type LogItem = {
   data: any;
 };
 
-export default function LiveAvatarTestPage() {
+export default function FelenchoVirtualTestPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sessionRef = useRef<any>(null);
   const autoVoiceEnabledRef = useRef(true);
-  const isBobSpeakingRef = useRef(false);
+  const isAvatarSpeakingRef = useRef(false);
   const lastAutoTranscriptRef = useRef("");
 
-  const [status, setStatus] = useState("Felencho está dormido.");
+  const [status, setStatus] = useState("Felencho Virtual está dormido.");
   const [sessionData, setSessionData] = useState<any>(null);
   const [textMessage, setTextMessage] = useState(
-    "Hola Felencho, ¿quién es Miriam Garcia?"
+    "Hola Felencho Virtual, ¿quién eres?"
   );
   const [lastUserTranscript, setLastUserTranscript] = useState("");
   const [autoVoiceEnabled, setAutoVoiceEnabled] = useState(true);
@@ -42,21 +42,24 @@ export default function LiveAvatarTestPage() {
   }
 
   async function askLumina(message: string) {
-    const response = await fetch("/api/liveavatar/felencho-virtual/session-token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "lumina-bob-v1",
-        messages: [
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-      }),
-    });
+    const response = await fetch(
+      "/api/liveavatar/felencho-virtual/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "lumina-felencho-v1",
+          messages: [
+            {
+              role: "user",
+              content: message,
+            },
+          ],
+        }),
+      }
+    );
 
     const data = await response.json();
 
@@ -74,16 +77,16 @@ export default function LiveAvatarTestPage() {
     };
   }
 
-  async function makeBobSpeak(text: string) {
+  async function makeAvatarSpeak(text: string) {
     if (!sessionRef.current) {
-      throw new Error("Primero despierta a Bob.");
+      throw new Error("Primero despierta a Felencho Virtual.");
     }
 
-    isBobSpeakingRef.current = true;
+    isAvatarSpeakingRef.current = true;
 
     const result = sessionRef.current.repeat(text);
 
-    addLog("BOB_REPEAT_COMMAND", {
+    addLog("FELENCHO_REPEAT_COMMAND", {
       text,
       sdk_result: result,
     });
@@ -98,26 +101,26 @@ export default function LiveAvatarTestPage() {
         return;
       }
 
-      setStatus("Lumina está pensando...");
-      addLog("ASK_LUMINA", { message });
+      setStatus("Lumina está pensando como Felencho Virtual...");
+      addLog("ASK_LUMINA_FELENCHO", { message });
 
       const lumina = await askLumina(message);
 
-      addLog("LUMINA_REPLY", lumina.raw);
+      addLog("LUMINA_FELENCHO_REPLY", lumina.raw);
 
-      setStatus("Bob está hablando con la respuesta de Lumina...");
+      setStatus("Felencho Virtual está hablando con Lumina...");
 
-      const speakResult = await makeBobSpeak(lumina.reply);
+      const speakResult = await makeAvatarSpeak(lumina.reply);
 
       setSessionData({
         user_message: message,
-        bob_reply: lumina.reply,
+        felencho_virtual_reply: lumina.reply,
         sdk_result: speakResult,
       });
 
-      setStatus("Bob respondió usando Lumina.");
+      setStatus("Felencho Virtual respondió usando Lumina.");
     } catch (error: any) {
-      setStatus("Error conectando Lumina con la voz de Bob.");
+      setStatus("Error conectando Lumina con Felencho Virtual.");
       setSessionData(error?.message || error);
       addLog("ASK_LUMINA_AND_SPEAK_ERROR", error?.message || error);
     }
@@ -126,17 +129,15 @@ export default function LiveAvatarTestPage() {
   async function handleAutomaticVoice(text: string) {
     const cleanText = text.trim();
 
-    if (!cleanText) {
-      return;
-    }
+    if (!cleanText) return;
 
     if (!autoVoiceEnabledRef.current) {
       addLog("AUTO_VOICE_SKIPPED", "Modo automático desactivado.");
       return;
     }
 
-    if (isBobSpeakingRef.current) {
-      addLog("AUTO_VOICE_SKIPPED", "Bob está hablando; se ignora eco.");
+    if (isAvatarSpeakingRef.current) {
+      addLog("AUTO_VOICE_SKIPPED", "Felencho Virtual está hablando; se ignora eco.");
       return;
     }
 
@@ -153,17 +154,20 @@ export default function LiveAvatarTestPage() {
     await askLuminaAndSpeak(cleanText);
   }
 
-  async function wakeBob() {
+  async function wakeFelenchoVirtual() {
     try {
-      setStatus("Creando sesión de Bob...");
+      setStatus("Creando sesión de Felencho Virtual...");
       setSessionData(null);
       setLogs([]);
       lastAutoTranscriptRef.current = "";
-      isBobSpeakingRef.current = false;
+      isAvatarSpeakingRef.current = false;
 
-      const tokenResponse = await fetch("/api/liveavatar/felencho-virtual/chat/completions", {
-        method: "POST",
-      });
+      const tokenResponse = await fetch(
+        "/api/liveavatar/felencho-virtual/session-token",
+        {
+          method: "POST",
+        }
+      );
 
       const tokenData = await tokenResponse.json();
 
@@ -186,7 +190,6 @@ export default function LiveAvatarTestPage() {
       setStatus("Cargando LiveAvatar SDK...");
 
       const sdk = await import("@heygen/liveavatar-web-sdk");
-
       const { LiveAvatarSession, SessionEvent, AgentEventsEnum } = sdk as any;
 
       const session = new LiveAvatarSession(sessionToken, {
@@ -217,7 +220,7 @@ export default function LiveAvatarTestPage() {
 
       session.on(SessionEvent.SESSION_DISCONNECTED, (reason: any) => {
         addLog("SESSION_DISCONNECTED", reason);
-        setStatus("Bob se desconectó.");
+        setStatus("Felencho Virtual se desconectó.");
       });
 
       session.on(AgentEventsEnum.USER_TRANSCRIPTION, async (event: any) => {
@@ -251,12 +254,12 @@ export default function LiveAvatarTestPage() {
       });
 
       session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, (event: any) => {
-        isBobSpeakingRef.current = true;
+        isAvatarSpeakingRef.current = true;
         addLog("AVATAR_SPEAK_STARTED", event);
       });
 
       session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, (event: any) => {
-        isBobSpeakingRef.current = false;
+        isAvatarSpeakingRef.current = false;
         addLog("AVATAR_SPEAK_ENDED", event);
       });
 
@@ -265,11 +268,11 @@ export default function LiveAvatarTestPage() {
       });
 
       session.on(AgentEventsEnum.SESSION_STOPPED, (event: any) => {
-        isBobSpeakingRef.current = false;
+        isAvatarSpeakingRef.current = false;
         addLog("SESSION_STOPPED", event);
       });
 
-      setStatus("Despertando a Felencho...");
+      setStatus("Despertando a Felencho Virtual...");
       await session.start();
 
       if (videoRef.current) {
@@ -282,12 +285,12 @@ export default function LiveAvatarTestPage() {
         session_started: true,
       });
 
-      setStatus("Felencho está despierto. Pulsa 🎤 Felencho escucha y háblale.");
+      setStatus("Felencho Virtual está despierto. Pulsa 🎤 Escuchar y háblale.");
       addLog("SESSION_STARTED", {
         session_id: tokenData?.data?.session_id,
       });
     } catch (error: any) {
-      setStatus("Error despertando a Felencho.");
+      setStatus("Error despertando a Felencho Virtual.");
       setSessionData(error?.message || error);
       addLog("WAKE_FELENCHO_ERROR", error?.message || error);
     }
@@ -296,13 +299,13 @@ export default function LiveAvatarTestPage() {
   function sendTextToSdkOnly() {
     try {
       if (!sessionRef.current) {
-        setStatus("Primero despierta a Felencho.");
+        setStatus("Primero despierta a Felencho Virtual.");
         return;
       }
 
       const result = sessionRef.current.message(textMessage);
 
-      setStatus("Mensaje enviado al SDK.");
+      setStatus("Mensaje enviado solo al SDK.");
       setSessionData({
         sent_message: textMessage,
         sdk_result: result,
@@ -319,16 +322,16 @@ export default function LiveAvatarTestPage() {
     }
   }
 
-  function startBobListening() {
+  function startListening() {
     try {
       if (!sessionRef.current) {
-        setStatus("Primero despierta a Felencho.");
+        setStatus("Primero despierta a Felencho Virtual.");
         return;
       }
 
       const result = sessionRef.current.startListening();
 
-      setStatus("Felencho está escuchando. Habla ahora.");
+      setStatus("Felencho Virtual está escuchando. Habla ahora.");
       setSessionData({
         listening: true,
         sdk_result: result,
@@ -343,16 +346,16 @@ export default function LiveAvatarTestPage() {
     }
   }
 
-  function stopBobListening() {
+  function stopListening() {
     try {
       if (!sessionRef.current) {
-        setStatus("Primero despierta a Felencho.");
+        setStatus("Primero despierta a Felencho Virtual.");
         return;
       }
 
       const result = sessionRef.current.stopListening();
 
-      setStatus("Felencho dejó de escuchar.");
+      setStatus("Felencho Virtual dejó de escuchar.");
       setSessionData({
         listening: false,
         sdk_result: result,
@@ -366,18 +369,18 @@ export default function LiveAvatarTestPage() {
     }
   }
 
-  async function stopBob() {
+  async function stopFelenchoVirtual() {
     try {
       if (sessionRef.current) {
         await sessionRef.current.stop();
         sessionRef.current = null;
       }
 
-      isBobSpeakingRef.current = false;
-      setStatus("Felencho volvió a dormir.");
+      isAvatarSpeakingRef.current = false;
+      setStatus("Felencho Virtual volvió a dormir.");
       addLog("STOP_FELENCHO", "Sesión detenida.");
     } catch (error: any) {
-      setStatus("Error deteniendo a Felencho.");
+      setStatus("Error deteniendo a Felencho Virtual.");
       setSessionData(error?.message || error);
       addLog("STOP_FELENCHO_ERROR", error?.message || error);
     }
@@ -386,10 +389,10 @@ export default function LiveAvatarTestPage() {
   return (
     <main className="min-h-screen bg-black p-8 text-white">
       <section className="mx-auto max-w-5xl rounded-2xl border border-white/10 bg-zinc-950 p-8 shadow-2xl">
-        <h1 className="text-4xl font-bold">Lumina LiveAvatar Test</h1>
+        <h1 className="text-4xl font-bold">Lumina Felencho Virtual Test</h1>
 
         <p className="mt-3 text-zinc-400">
-          Prueba interna para despertar a Bob usando LiveAvatar + Lumina Brain.
+          Prueba interna para despertar a Felencho Virtual usando LiveAvatar + Lumina Brain.
         </p>
 
         <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black">
@@ -404,31 +407,31 @@ export default function LiveAvatarTestPage() {
 
         <div className="mt-8 flex flex-wrap gap-4">
           <button
-            onClick={wakeBob}
+            onClick={wakeFelenchoVirtual}
             className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white hover:bg-blue-500"
           >
-            Despertar a Felencho
+            Despertar Felencho Virtual
           </button>
 
           <button
-            onClick={startBobListening}
+            onClick={startListening}
             className="rounded-xl bg-green-600 px-6 py-3 font-bold text-white hover:bg-green-500"
           >
-            🎤 Felencho escucha
+            🎤 Escuchar
           </button>
 
           <button
-            onClick={stopBobListening}
+            onClick={stopListening}
             className="rounded-xl bg-yellow-600 px-6 py-3 font-bold text-white hover:bg-yellow-500"
           >
             Detener escucha
           </button>
 
           <button
-            onClick={stopBob}
+            onClick={stopFelenchoVirtual}
             className="rounded-xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-500"
           >
-            Dormir a Bob
+            Dormir Felencho Virtual
           </button>
 
           <button
