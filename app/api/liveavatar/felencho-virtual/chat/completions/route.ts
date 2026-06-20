@@ -1,4 +1,3 @@
-```ts
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -58,8 +57,7 @@ export async function POST(request: Request) {
     }
 
     const reply =
-      luminaData.reply ||
-      "No pude generar una respuesta en este momento.";
+      luminaData.reply || "No pude generar una respuesta en este momento.";
 
     return NextResponse.json({
       id: `chatcmpl-lumina-${Date.now()}`,
@@ -96,4 +94,3 @@ export async function POST(request: Request) {
     );
   }
 }
-```
