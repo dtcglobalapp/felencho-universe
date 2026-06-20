@@ -11,6 +11,9 @@ type LogItem = {
 export default function LiveAvatarTestPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sessionRef = useRef<any>(null);
+  const autoVoiceEnabledRef = useRef(true);
+  const isBobSpeakingRef = useRef(false);
+  const lastAutoTranscriptRef = useRef("");
 
   const [status, setStatus] = useState("Bob está dormido.");
   const [sessionData, setSessionData] = useState<any>(null);
@@ -18,6 +21,7 @@ export default function LiveAvatarTestPage() {
     "Hola Bob, ¿quién es Miriam Garcia?"
   );
   const [lastUserTranscript, setLastUserTranscript] = useState("");
+  const [autoVoiceEnabled, setAutoVoiceEnabled] = useState(true);
   const [logs, setLogs] = useState<LogItem[]>([]);
 
   function addLog(type: string, data: any) {
@@ -29,6 +33,12 @@ export default function LiveAvatarTestPage() {
       },
       ...prev.slice(0, 79),
     ]);
+  }
+
+  function setAutoMode(value: boolean) {
+    autoVoiceEnabledRef.current = value;
+    setAutoVoiceEnabled(value);
+    addLog("AUTO_VOICE_MODE", value ? "Activado" : "Desactivado");
   }
 
   async function askLumina(message: string) {
@@ -68,6 +78,8 @@ export default function LiveAvatarTestPage() {
     if (!sessionRef.current) {
       throw new Error("Primero despierta a Bob.");
     }
+
+    isBobSpeakingRef.current = true;
 
     const result = sessionRef.current.repeat(text);
 
@@ -111,11 +123,43 @@ export default function LiveAvatarTestPage() {
     }
   }
 
+  async function handleAutomaticVoice(text: string) {
+    const cleanText = text.trim();
+
+    if (!cleanText) {
+      return;
+    }
+
+    if (!autoVoiceEnabledRef.current) {
+      addLog("AUTO_VOICE_SKIPPED", "Modo automático desactivado.");
+      return;
+    }
+
+    if (isBobSpeakingRef.current) {
+      addLog("AUTO_VOICE_SKIPPED", "Bob está hablando; se ignora eco.");
+      return;
+    }
+
+    if (lastAutoTranscriptRef.current === cleanText) {
+      addLog("AUTO_VOICE_SKIPPED", "Transcripción repetida ignorada.");
+      return;
+    }
+
+    lastAutoTranscriptRef.current = cleanText;
+
+    setStatus("Voz detectada. Enviando automáticamente a Lumina...");
+    addLog("AUTO_VOICE_TO_LUMINA", { text: cleanText });
+
+    await askLuminaAndSpeak(cleanText);
+  }
+
   async function wakeBob() {
     try {
       setStatus("Creando sesión de Bob...");
       setSessionData(null);
       setLogs([]);
+      lastAutoTranscriptRef.current = "";
+      isBobSpeakingRef.current = false;
 
       const tokenResponse = await fetch("/api/liveavatar/session-token", {
         method: "POST",
@@ -176,9 +220,14 @@ export default function LiveAvatarTestPage() {
         setStatus("Bob se desconectó.");
       });
 
-      session.on(AgentEventsEnum.USER_TRANSCRIPTION, (event: any) => {
-        setLastUserTranscript(event?.text || "");
+      session.on(AgentEventsEnum.USER_TRANSCRIPTION, async (event: any) => {
+        const text = event?.text || "";
+
+        setLastUserTranscript(text);
+        setTextMessage(text || textMessage);
         addLog("USER_TRANSCRIPTION", event);
+
+        await handleAutomaticVoice(text);
       });
 
       session.on(AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, (event: any) => {
@@ -202,10 +251,12 @@ export default function LiveAvatarTestPage() {
       });
 
       session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, (event: any) => {
+        isBobSpeakingRef.current = true;
         addLog("AVATAR_SPEAK_STARTED", event);
       });
 
       session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, (event: any) => {
+        isBobSpeakingRef.current = false;
         addLog("AVATAR_SPEAK_ENDED", event);
       });
 
@@ -214,6 +265,7 @@ export default function LiveAvatarTestPage() {
       });
 
       session.on(AgentEventsEnum.SESSION_STOPPED, (event: any) => {
+        isBobSpeakingRef.current = false;
         addLog("SESSION_STOPPED", event);
       });
 
@@ -230,7 +282,7 @@ export default function LiveAvatarTestPage() {
         session_started: true,
       });
 
-      setStatus("Bob está despierto. Usa Enviar a Lumina y hablar.");
+      setStatus("Bob está despierto. Pulsa 🎤 Bob escucha y háblale.");
       addLog("SESSION_STARTED", {
         session_id: tokenData?.data?.session_id,
       });
@@ -280,6 +332,7 @@ export default function LiveAvatarTestPage() {
       setSessionData({
         listening: true,
         sdk_result: result,
+        auto_voice_enabled: autoVoiceEnabledRef.current,
       });
 
       addLog("START_LISTENING", result);
@@ -320,6 +373,7 @@ export default function LiveAvatarTestPage() {
         sessionRef.current = null;
       }
 
+      isBobSpeakingRef.current = false;
       setStatus("Bob volvió a dormir.");
       addLog("STOP_BOB", "Sesión detenida.");
     } catch (error: any) {
@@ -375,6 +429,17 @@ export default function LiveAvatarTestPage() {
             className="rounded-xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-500"
           >
             Dormir a Bob
+          </button>
+
+          <button
+            onClick={() => setAutoMode(!autoVoiceEnabled)}
+            className={`rounded-xl px-6 py-3 font-bold text-white ${
+              autoVoiceEnabled
+                ? "bg-emerald-600 hover:bg-emerald-500"
+                : "bg-zinc-700 hover:bg-zinc-600"
+            }`}
+          >
+            {autoVoiceEnabled ? "Auto voz: ON" : "Auto voz: OFF"}
           </button>
         </div>
 
