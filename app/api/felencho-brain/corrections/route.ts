@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabaseAdmin
     .from("felencho_corrections")
     .insert({
-      character_key: body.character_key,
+      character_key: body.character_key || "shared",
       original_question: body.original_question || null,
       wrong_answer: body.wrong_answer || null,
       corrected_answer: body.corrected_answer,
