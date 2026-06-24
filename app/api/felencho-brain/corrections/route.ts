@@ -1,4 +1,3 @@
-cat > app/api/felencho-brain/corrections/route.ts <<'EOF'
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -39,4 +38,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ data });
 }
-EOF
