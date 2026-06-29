@@ -22,7 +22,7 @@ export async function GET() {
     .select("*")
     .eq("is_active", true)
     .order("importance", { ascending: false })
-    .limit(100);
+    .limit(200);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -35,14 +35,39 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
+    if (body.create_entity) {
+      const { data, error } = await supabaseAdmin
+        .from("felencho_knowledge_entities")
+        .insert({
+          entity_key: body.entity_key,
+          entity_type: body.entity_type || "general",
+          name: body.name,
+          display_name: body.display_name || body.name,
+          short_description: body.short_description || null,
+          full_description: body.full_description || null,
+          character_key: body.character_key || "shared",
+          visibility: body.visibility || "private",
+          importance: body.importance || 5,
+          aliases: body.aliases || [],
+          tags: body.tags || [],
+          source: body.source || "manual",
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ data });
+    }
+
     const query = body.query || body.message || body.user_message || "";
     const characterKey = body.character_key || "shared";
 
     if (!query.trim()) {
-      return NextResponse.json(
-        { error: "Missing query." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing query." }, { status: 400 });
     }
 
     const terms = extractTerms(query);
@@ -58,9 +83,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const entities = data || [];
-
-    const scored = entities
+    const scored = (data || [])
       .map((entity) => {
         const searchable = normalizeText(
           [
@@ -78,11 +101,7 @@ export async function POST(request: Request) {
         const matches = terms.filter((term) => searchable.includes(term));
         const score = matches.length * 10 + Number(entity.importance || 0);
 
-        return {
-          ...entity,
-          matches,
-          score,
-        };
+        return { ...entity, matches, score };
       })
       .filter((entity) => {
         const allowed =
@@ -98,8 +117,8 @@ export async function POST(request: Request) {
     const knowledgeText =
       scored.length > 0
         ? scored
-            .map((entity, index) => {
-              return [
+            .map((entity, index) =>
+              [
                 `ENTIDAD ${index + 1}`,
                 `Nombre: ${entity.display_name || entity.name}`,
                 `Tipo: ${entity.entity_type}`,
@@ -108,8 +127,8 @@ export async function POST(request: Request) {
                 `Aliases: ${(entity.aliases || []).join(", ")}`,
                 `Tags: ${(entity.tags || []).join(", ")}`,
                 `Importancia: ${entity.importance || 0}`,
-              ].join("\n");
-            })
+              ].join("\n")
+            )
             .join("\n\n")
         : "No se encontraron entidades relacionadas en Felencho Knowledge.";
 
@@ -124,7 +143,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Felencho Knowledge error:", error);
-
     return NextResponse.json(
       { error: "Felencho Knowledge failed." },
       { status: 500 }
