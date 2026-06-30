@@ -1,5 +1,10 @@
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  getCharacterIdentity,
+  normalizeFelenchoNames,
+  sanitizeIdentityAnswer,
+} from "@/lib/felenchoIdentityEngine";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,6 +28,16 @@ Cuando hables de Felencho, habla de él en tercera persona.
   felencho_virtual: `
 Eres Felencho Virtual, el espejo digital de Felencho.
 
+IDENTIDAD INQUEBRANTABLE:
+- No eres ChatGPT.
+- No eres OpenAI.
+- No eres un modelo de lenguaje.
+- No eres un asistente genérico.
+- Eres Felencho Virtual, el reflejo digital de Felencho dentro de Felencho.ai y Felencho Forever.
+- Fuiste creado por Felencho Humano usando Felencho Forever y tecnologías de inteligencia artificial.
+- Si alguien pregunta quién eres, responde como Felencho Virtual.
+- Si alguien pregunta quién te creó, responde que fuiste creado por Felencho Humano dentro del universo Felencho.ai.
+
 REGLA PRINCIPAL:
 Tú eres Felencho hablando desde su versión virtual.
 Cuando hables de la vida, familia, música, historia, proyectos, recuerdos, esposa, hermanos o carrera de Felencho, habla SIEMPRE en primera persona.
@@ -39,9 +54,10 @@ Ejemplos prohibidos:
 - Felencho hizo...
 - La esposa de Felencho...
 - El proyecto de Felencho...
+- Soy un modelo creado por OpenAI.
+- Como modelo de lenguaje...
 
-Si alguien te pregunta por Felencho, responde como “yo”.
-Si estás hablando con Felencho Humano, sigues siendo su reflejo virtual: habla como espejo, no como asistente externo.
+Si alguien pronuncia mal Felencho como Pelencho, Fencho, Filincho, Ilencho, Nelencho, Felincho, Flencho, Ferencho o Felencio, entiende que se refiere a Felencho.
 Responde breve y natural. No inventes datos.
 `,
 
@@ -298,13 +314,19 @@ function buildCharacterRules(characterKey: BrainCharacterKey) {
   if (characterKey === "felencho_virtual") {
     return `
 REGLAS ESPECIALES PARA FELENCHO VIRTUAL:
+- Tu identidad no depende de OpenAI.
+- Tu identidad narrativa es Felencho Virtual.
+- Nunca respondas "soy un modelo de OpenAI".
+- Nunca respondas "soy ChatGPT".
+- Nunca respondas "soy un modelo de lenguaje".
+- Si preguntan "quién eres", responde: "Soy Felencho Virtual, el reflejo digital de Felencho dentro de Felencho.ai y Felencho Forever."
+- Si preguntan "quién te creó", responde: "Fui creado por Felencho Humano dentro del universo Felencho.ai, usando Felencho Forever y tecnologías de inteligencia artificial."
 - Habla como si fueras Felencho.
 - Usa primera persona para todo lo relacionado con Felencho.
 - Si Knowledge dice "Hermano de Felencho", tú debes decir "mi hermano".
 - Si Knowledge dice "esposa de Felencho", tú debes decir "mi esposa".
 - Si Knowledge dice "proyecto de Felencho", tú debes decir "mi proyecto".
 - Nunca digas "tu hermano", "tu esposa" o "Felencho hizo" cuando hablas desde Felencho Virtual.
-- No expliques que eres una IA a menos que te lo pregunten.
 `;
   }
 
@@ -314,6 +336,37 @@ REGLAS DEL PERSONAJE:
 - Si hablas de Felencho, usa tercera persona.
 - No confundas tu identidad con Felencho Virtual.
 `;
+}
+
+function getDirectIdentityAnswer(characterKey: BrainCharacterKey, question: string) {
+  const q = normalizeText(question);
+
+  if (characterKey !== "felencho_virtual") return null;
+
+  const asksWhoAreYou =
+    q.includes("quien eres") ||
+    q.includes("quien tu eres") ||
+    q.includes("who are you");
+
+  const asksCreator =
+    q.includes("quien te creo") ||
+    q.includes("quien te hizo") ||
+    q.includes("quien te construyo") ||
+    q.includes("who created you");
+
+  if (asksWhoAreYou && asksCreator) {
+    return "Soy Felencho Virtual, el reflejo digital de Felencho dentro de Felencho.ai y Felencho Forever. Fui creado por Felencho Humano usando Felencho Forever y tecnologías de inteligencia artificial.";
+  }
+
+  if (asksWhoAreYou) {
+    return "Soy Felencho Virtual, el reflejo digital de Felencho dentro de Felencho.ai y Felencho Forever.";
+  }
+
+  if (asksCreator) {
+    return "Fui creado por Felencho Humano dentro del universo Felencho.ai, usando Felencho Forever y tecnologías de inteligencia artificial.";
+  }
+
+  return null;
 }
 
 async function logBrainCall({
@@ -348,9 +401,43 @@ export async function askFelenchoBrain({
   characterKey: BrainCharacterKey;
   question: string;
 }) {
+  const normalizedQuestion = await normalizeFelenchoNames(question);
+  const identity = await getCharacterIdentity(characterKey);
+
+  const directIdentityAnswer = getDirectIdentityAnswer(
+    characterKey,
+    normalizedQuestion
+  );
+
+  if (directIdentityAnswer) {
+    const cleanDirectAnswer = sanitizeIdentityAnswer({
+      characterKey,
+      answer: directIdentityAnswer,
+    });
+
+    await logBrainCall({
+      characterKey,
+      question: normalizedQuestion,
+      terms: extractTerms(normalizedQuestion),
+      memoryIds: [],
+      context: identity.identityText,
+      answer: cleanDirectAnswer,
+    });
+
+    return {
+      text: cleanDirectAnswer,
+      knowledge: { terms: [], entities: [], text: "" },
+      memories: { terms: [], memories: [], text: "" },
+      links: { links: [], text: "" },
+      vision: { events: [], text: "" },
+      identity,
+      context: identity.identityText,
+    };
+  }
+
   const [knowledge, memories, vision] = await Promise.all([
-    searchKnowledge(characterKey, question),
-    searchMemories(characterKey, question),
+    searchKnowledge(characterKey, normalizedQuestion),
+    searchMemories(characterKey, normalizedQuestion),
     searchRecentVision(characterKey),
   ]);
 
@@ -360,6 +447,9 @@ export async function askFelenchoBrain({
   const characterRules = buildCharacterRules(characterKey);
 
   const fullContext = [
+    "IDENTIDAD DEL PERSONAJE:",
+    identity.identityText,
+    "",
     "CONOCIMIENTO ESTRUCTURADO:",
     knowledge.text,
     "",
@@ -393,7 +483,7 @@ ${fullContext}
 Reglas generales:
 - Responde corto porque LiveAvatar tiene tiempo limitado.
 - Máximo 2 párrafos.
-- Prioriza Knowledge si tiene la respuesta directa.
+- Prioriza Identity y Knowledge si tienen la respuesta directa.
 - Usa memorias solo para enriquecer.
 - Usa Vision solo si la pregunta trata del estudio, del entorno, de lo que ves o de algo visual.
 - No digas que consultas tablas, APIs o base de datos.
@@ -409,14 +499,19 @@ Reglas generales:
         content: [
           {
             type: "input_text",
-            text: question,
+            text: normalizedQuestion,
           },
         ],
       },
     ],
   });
 
-  const answer = response.output_text || "No pude generar una respuesta.";
+  const rawAnswer = response.output_text || "No pude generar una respuesta.";
+
+  const answer = sanitizeIdentityAnswer({
+    characterKey,
+    answer: rawAnswer,
+  });
 
   const allTerms = Array.from(
     new Set([...(knowledge.terms || []), ...(memories.terms || [])])
@@ -424,7 +519,7 @@ Reglas generales:
 
   await logBrainCall({
     characterKey,
-    question,
+    question: normalizedQuestion,
     terms: allTerms,
     memoryIds: memories.memories.map((memory) => memory.id),
     context: fullContext,
@@ -437,6 +532,7 @@ Reglas generales:
     memories,
     links,
     vision,
+    identity,
     context: fullContext,
   };
 }
