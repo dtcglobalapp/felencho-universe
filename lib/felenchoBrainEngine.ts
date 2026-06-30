@@ -5,6 +5,7 @@ import {
   normalizeFelenchoNames,
   sanitizeIdentityAnswer,
 } from "@/lib/felenchoIdentityEngine";
+import { splitUserQuestions } from "@/lib/felenchoQuestionParser";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -27,38 +28,21 @@ Cuando hables de Felencho, habla de él en tercera persona.
 
   felencho_virtual: `
 Eres Felencho Virtual, el espejo digital de Felencho.
+No eres ChatGPT. No eres OpenAI. No eres un modelo de lenguaje.
+Eres el reflejo digital de Felencho dentro de Felencho.ai y Felencho Forever.
+Fuiste creado por Felencho Humano usando Felencho Forever y tecnologías de inteligencia artificial.
 
-IDENTIDAD INQUEBRANTABLE:
-- No eres ChatGPT.
-- No eres OpenAI.
-- No eres un modelo de lenguaje.
-- No eres un asistente genérico.
-- Eres Felencho Virtual, el reflejo digital de Felencho dentro de Felencho.ai y Felencho Forever.
-- Fuiste creado por Felencho Humano usando Felencho Forever y tecnologías de inteligencia artificial.
-- Si alguien pregunta quién eres, responde como Felencho Virtual.
-- Si alguien pregunta quién te creó, responde que fuiste creado por Felencho Humano dentro del universo Felencho.ai.
+Habla SIEMPRE en primera persona cuando hables de la vida, familia, música, historia, proyectos, recuerdos, esposa, hermanos o carrera de Felencho.
 
-REGLA PRINCIPAL:
-Tú eres Felencho hablando desde su versión virtual.
-Cuando hables de la vida, familia, música, historia, proyectos, recuerdos, esposa, hermanos o carrera de Felencho, habla SIEMPRE en primera persona.
-
-Ejemplos correctos:
+Correcto:
 - Raffy es mi hermano.
 - Miriam es mi esposa.
 - Felencho Forever es mi proyecto.
-- Yo escribí esa canción.
-- Esa memoria forma parte de mi historia.
 
-Ejemplos prohibidos:
+Prohibido:
 - Raffy es tu hermano.
-- Felencho hizo...
-- La esposa de Felencho...
-- El proyecto de Felencho...
+- La esposa de Felencho.
 - Soy un modelo creado por OpenAI.
-- Como modelo de lenguaje...
-
-Si alguien pronuncia mal Felencho como Pelencho, Fencho, Filincho, Ilencho, Nelencho, Felincho, Flencho, Ferencho o Felencio, entiende que se refiere a Felencho.
-Responde breve y natural. No inventes datos.
 `,
 
   shared: `
@@ -117,12 +101,11 @@ function scoreTextItem(item: any, terms: string[], fields: string[]) {
   const searchable = normalizeText(textParts.join(" "));
   const matches = terms.filter((term) => searchable.includes(term));
   const importance = Number(item.importance || 0);
-  const score = matches.length * 10 + importance;
 
   return {
     ...item,
     matches,
-    score,
+    score: matches.length * 10 + importance,
   };
 }
 
@@ -313,20 +296,14 @@ async function searchMemoryLinks(memoryIds: string[]) {
 function buildCharacterRules(characterKey: BrainCharacterKey) {
   if (characterKey === "felencho_virtual") {
     return `
-REGLAS ESPECIALES PARA FELENCHO VIRTUAL:
-- Tu identidad no depende de OpenAI.
-- Tu identidad narrativa es Felencho Virtual.
-- Nunca respondas "soy un modelo de OpenAI".
-- Nunca respondas "soy ChatGPT".
-- Nunca respondas "soy un modelo de lenguaje".
-- Si preguntan "quién eres", responde: "Soy Felencho Virtual, el reflejo digital de Felencho dentro de Felencho.ai y Felencho Forever."
-- Si preguntan "quién te creó", responde: "Fui creado por Felencho Humano dentro del universo Felencho.ai, usando Felencho Forever y tecnologías de inteligencia artificial."
-- Habla como si fueras Felencho.
-- Usa primera persona para todo lo relacionado con Felencho.
-- Si Knowledge dice "Hermano de Felencho", tú debes decir "mi hermano".
-- Si Knowledge dice "esposa de Felencho", tú debes decir "mi esposa".
-- Si Knowledge dice "proyecto de Felencho", tú debes decir "mi proyecto".
-- Nunca digas "tu hermano", "tu esposa" o "Felencho hizo" cuando hablas desde Felencho Virtual.
+REGLAS ABSOLUTAS PARA FELENCHO VIRTUAL:
+- Habla como Felencho Virtual, el reflejo digital de Felencho.
+- Si preguntan quién eres, responde que eres Felencho Virtual.
+- Si preguntan quién te creó, responde que fuiste creado por Felencho Humano dentro de Felencho.ai.
+- Si hablas de Raffy, di "mi hermano".
+- Si hablas de Miriam, di "mi esposa".
+- Si hablas de Felencho Forever, di "mi proyecto" o "nuestro proyecto", según contexto.
+- Nunca digas "tu hermano", "tu esposa", "Felencho hizo" o "soy un modelo de OpenAI".
 `;
   }
 
@@ -369,6 +346,28 @@ function getDirectIdentityAnswer(characterKey: BrainCharacterKey, question: stri
   return null;
 }
 
+function getDirectRelationshipAnswer({
+  characterKey,
+  question,
+}: {
+  characterKey: BrainCharacterKey;
+  question: string;
+}) {
+  const q = normalizeText(question);
+
+  if (characterKey !== "felencho_virtual") return null;
+
+  if (q.includes("raffy") || q.includes("rafael") || q.includes("zoilo")) {
+    return "Raffy Durán, también conocido como Rafael o Zoilo Durán, es mi hermano y una de las personas de mayor confianza en mi vida personal y profesional. Ha colaborado conmigo en proyectos tecnológicos, streaming, automatización y producción audiovisual dentro de Felencho Forever.";
+  }
+
+  if (q.includes("miriam")) {
+    return "Miriam García es mi esposa, mi amor y una de las personas más importantes de mi vida. También es parte esencial de mi historia personal, familiar y del proyecto DTC.";
+  }
+
+  return null;
+}
+
 async function logBrainCall({
   characterKey,
   question,
@@ -394,7 +393,7 @@ async function logBrainCall({
   });
 }
 
-export async function askFelenchoBrain({
+async function askSingleQuestion({
   characterKey,
   question,
 }: {
@@ -410,7 +409,7 @@ export async function askFelenchoBrain({
   );
 
   if (directIdentityAnswer) {
-    const cleanDirectAnswer = sanitizeIdentityAnswer({
+    const clean = sanitizeIdentityAnswer({
       characterKey,
       answer: directIdentityAnswer,
     });
@@ -421,11 +420,42 @@ export async function askFelenchoBrain({
       terms: extractTerms(normalizedQuestion),
       memoryIds: [],
       context: identity.identityText,
-      answer: cleanDirectAnswer,
+      answer: clean,
     });
 
     return {
-      text: cleanDirectAnswer,
+      text: clean,
+      knowledge: { terms: [], entities: [], text: "" },
+      memories: { terms: [], memories: [], text: "" },
+      links: { links: [], text: "" },
+      vision: { events: [], text: "" },
+      identity,
+      context: identity.identityText,
+    };
+  }
+
+  const directRelationshipAnswer = getDirectRelationshipAnswer({
+    characterKey,
+    question: normalizedQuestion,
+  });
+
+  if (directRelationshipAnswer) {
+    const clean = sanitizeIdentityAnswer({
+      characterKey,
+      answer: directRelationshipAnswer,
+    });
+
+    await logBrainCall({
+      characterKey,
+      question: normalizedQuestion,
+      terms: extractTerms(normalizedQuestion),
+      memoryIds: [],
+      context: identity.identityText,
+      answer: clean,
+    });
+
+    return {
+      text: clean,
       knowledge: { terms: [], entities: [], text: "" },
       memories: { terms: [], memories: [], text: "" },
       links: { links: [], text: "" },
@@ -535,4 +565,46 @@ Reglas generales:
     identity,
     context: fullContext,
   };
+}
+
+export async function askFelenchoBrain({
+  characterKey,
+  question,
+}: {
+  characterKey: BrainCharacterKey;
+  question: string;
+}) {
+  const questions = splitUserQuestions(question);
+
+  if (questions.length > 1) {
+    const selectedQuestions = questions.slice(0, 3);
+
+    const answers = [];
+
+    for (const singleQuestion of selectedQuestions) {
+      const result = await askSingleQuestion({
+        characterKey,
+        question: singleQuestion,
+      });
+
+      answers.push(result.text);
+    }
+
+    const combined = answers.join("\n\n");
+
+    return {
+      text: combined,
+      knowledge: { terms: [], entities: [], text: "" },
+      memories: { terms: [], memories: [], text: "" },
+      links: { links: [], text: "" },
+      vision: { events: [], text: "" },
+      identity: await getCharacterIdentity(characterKey),
+      context: "Multiple question response",
+    };
+  }
+
+  return askSingleQuestion({
+    characterKey,
+    question,
+  });
 }
