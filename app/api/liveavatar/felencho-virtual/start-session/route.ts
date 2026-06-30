@@ -51,7 +51,15 @@ export async function POST() {
     }
 
     const sessionToken =
-      tokenData.session_token || tokenData.token || tokenData.access_token;
+      tokenData?.data?.session_token ||
+      tokenData?.session_token ||
+      tokenData?.token ||
+      tokenData?.access_token;
+
+    const sessionId =
+      tokenData?.data?.session_id ||
+      tokenData?.session_id ||
+      null;
 
     if (!sessionToken) {
       return NextResponse.json(
@@ -80,8 +88,17 @@ export async function POST() {
       return NextResponse.json(startData, { status: startResponse.status });
     }
 
-    const livekitUrl = startData.livekit_url;
-    const livekitClientToken = startData.livekit_client_token;
+    const livekitUrl =
+      startData?.data?.livekit_url ||
+      startData?.livekit_url ||
+      startData?.data?.livekitUrl ||
+      startData?.livekitUrl;
+
+    const livekitClientToken =
+      startData?.data?.livekit_client_token ||
+      startData?.livekit_client_token ||
+      startData?.data?.livekitClientToken ||
+      startData?.livekitClientToken;
 
     const meetUrl =
       livekitUrl && livekitClientToken
@@ -92,6 +109,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
+      session_id: sessionId,
       session_token: sessionToken,
       token_data: tokenData,
       start_data: startData,
