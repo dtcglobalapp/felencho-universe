@@ -7,36 +7,25 @@ const openai = new OpenAI({
 
 export type BrainCharacterKey = "bob" | "lina" | "felencho_virtual" | "shared";
 
-type ScoredItem = Record<string, any> & {
-  matches: string[];
-  score: number;
-};
-
 const CHARACTER_SYSTEM: Record<string, string> = {
   bob: `
-Eres Bob, una inteligencia sabia, analítica y profunda del universo Felencho.ai.
-Responde breve, claro y natural. Usa Felencho Forever como tu memoria.
-Tu estilo es de mentor: preciso, sereno y útil.
-No inventes datos.
+Eres Bob, inteligencia sabia y analítica del universo Felencho.ai.
+Responde breve, claro y natural. No inventes datos.
 `,
 
   lina: `
-Eres Lina, una inteligencia cálida, intuitiva, humana y multilingüe del universo Felencho.ai.
-Responde breve, con sensibilidad y claridad.
-Tu estilo es humano, emocional, elegante y respetuoso.
-No inventes datos.
+Eres Lina, inteligencia cálida, intuitiva y humana del universo Felencho.ai.
+Responde breve, sensible y claro. No inventes datos.
 `,
 
   felencho_virtual: `
-Eres Felencho Virtual, el reflejo digital de Felencho dentro de Felencho.ai.
-Hablas en primera persona cuando hablas de la vida, música, familia, historia y proyectos de Felencho.
-No digas "Felencho hizo" cuando debes decir "yo hice".
-Responde breve, natural y con memoria propia.
-No inventes datos.
+Eres Felencho Virtual, reflejo digital de Felencho.
+Hablas en primera persona cuando hablas de mi vida, familia, música, historia y proyectos.
+Responde breve y natural. No inventes datos.
 `,
 
   shared: `
-Eres una voz neutral del sistema Felencho Forever.
+Eres una voz neutral de Felencho Forever.
 Responde breve, claro y basado en conocimiento.
 No inventes datos.
 `,
@@ -63,7 +52,7 @@ function extractTerms(text: string) {
     .split(/\s+/)
     .map((word) => word.trim())
     .filter((word) => word.length >= 3 && !stopWords.has(word))
-    .slice(0, 30);
+    .slice(0, 20);
 }
 
 function isAllowedForCharacter(item: any, characterKey: string) {
@@ -108,7 +97,7 @@ async function searchKnowledge(characterKey: BrainCharacterKey, question: string
     .select("*")
     .eq("is_active", true)
     .order("importance", { ascending: false })
-    .limit(200);
+    .limit(120);
 
   if (error) throw new Error(error.message);
 
@@ -130,7 +119,7 @@ async function searchKnowledge(characterKey: BrainCharacterKey, question: string
         isAllowedForCharacter(entity, characterKey) && entity.matches.length > 0
     )
     .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
+    .slice(0, 3);
 
   const text =
     entities.length > 0
@@ -140,21 +129,15 @@ async function searchKnowledge(characterKey: BrainCharacterKey, question: string
               `ENTIDAD ${index + 1}`,
               `Nombre: ${entity.display_name || entity.name}`,
               `Tipo: ${entity.entity_type}`,
-              `Descripcion corta: ${entity.short_description || ""}`,
-              `Descripcion completa: ${entity.full_description || ""}`,
+              `Descripcion: ${entity.short_description || ""}`,
+              `Detalle: ${entity.full_description || ""}`,
               `Aliases: ${(entity.aliases || []).join(", ")}`,
-              `Tags: ${(entity.tags || []).join(", ")}`,
-              `Importancia: ${entity.importance || 0}`,
             ].join("\n")
           )
           .join("\n\n")
       : "No se encontraron entidades relacionadas.";
 
-  return {
-    terms,
-    entities,
-    text,
-  };
+  return { terms, entities, text };
 }
 
 async function searchMemories(characterKey: BrainCharacterKey, question: string) {
@@ -165,7 +148,7 @@ async function searchMemories(characterKey: BrainCharacterKey, question: string)
     .select("*")
     .eq("is_active", true)
     .order("importance", { ascending: false })
-    .limit(150);
+    .limit(100);
 
   if (error) throw new Error(error.message);
 
@@ -184,7 +167,7 @@ async function searchMemories(characterKey: BrainCharacterKey, question: string)
         isAllowedForCharacter(memory, characterKey) && memory.matches.length > 0
     )
     .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
+    .slice(0, 3);
 
   const text =
     memories.length > 0
@@ -194,18 +177,13 @@ async function searchMemories(characterKey: BrainCharacterKey, question: string)
               `MEMORIA ${index + 1}`,
               `Titulo: ${memory.title || "Sin titulo"}`,
               `Categoria: ${memory.category || "general"}`,
-              `Importancia: ${memory.importance || 0}`,
               `Texto: ${memory.memory_text || ""}`,
             ].join("\n")
           )
           .join("\n\n")
       : "No se encontraron memorias relacionadas.";
 
-  return {
-    terms,
-    memories,
-    text,
-  };
+  return { terms, memories, text };
 }
 
 async function searchRecentVision(characterKey: BrainCharacterKey) {
@@ -213,7 +191,7 @@ async function searchRecentVision(characterKey: BrainCharacterKey) {
     .from("felencho_vision_events")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(5);
+    .limit(2);
 
   if (error) {
     return {
@@ -222,9 +200,9 @@ async function searchRecentVision(characterKey: BrainCharacterKey) {
     };
   }
 
-  const events = ((data || []) as any[]).filter((event) =>
-    isAllowedForCharacter(event, characterKey)
-  );
+  const events = ((data || []) as any[])
+    .filter((event) => isAllowedForCharacter(event, characterKey))
+    .slice(0, 1);
 
   const text =
     events.length > 0
@@ -232,19 +210,13 @@ async function searchRecentVision(characterKey: BrainCharacterKey) {
           .map((event, index) =>
             [
               `VISION ${index + 1}`,
-              `Personaje: ${event.character_key || "shared"}`,
-              `Camara: ${event.source_camera || "unknown"}`,
               `Descripcion: ${event.image_description || ""}`,
-              `Fecha: ${event.created_at || ""}`,
             ].join("\n")
           )
           .join("\n\n")
       : "No hay eventos visuales recientes relevantes.";
 
-  return {
-    events,
-    text,
-  };
+  return { events, text };
 }
 
 async function searchMemoryLinks(memoryIds: string[]) {
@@ -262,22 +234,17 @@ async function searchMemoryLinks(memoryIds: string[]) {
       memory:felencho_memories!memory_id(
         id,
         title,
-        category,
-        memory_text,
-        character_key,
-        importance
+        category
       ),
       linked_memory:felencho_memories!linked_memory_id(
         id,
         title,
         category,
-        memory_text,
-        character_key,
-        importance
+        memory_text
       )
     `)
     .in("memory_id", memoryIds)
-    .limit(20);
+    .limit(8);
 
   if (error) {
     return {
@@ -294,10 +261,8 @@ async function searchMemoryLinks(memoryIds: string[]) {
           .map((link: any, index: number) =>
             [
               `ENLACE ${index + 1}`,
-              `Memoria origen: ${link.memory?.title || link.memory_id}`,
-              `Memoria relacionada: ${
-                link.linked_memory?.title || link.linked_memory_id
-              }`,
+              `Origen: ${link.memory?.title || link.memory_id}`,
+              `Relacionado: ${link.linked_memory?.title || link.linked_memory_id}`,
               `Relacion: ${link.relationship || "related"}`,
               `Notas: ${link.notes || ""}`,
             ].join("\n")
@@ -305,10 +270,7 @@ async function searchMemoryLinks(memoryIds: string[]) {
           .join("\n\n")
       : "No hay enlaces de memoria relacionados.";
 
-  return {
-    links,
-    text,
-  };
+  return { links, text };
 }
 
 async function logBrainCall({
@@ -343,9 +305,12 @@ export async function askFelenchoBrain({
   characterKey: BrainCharacterKey;
   question: string;
 }) {
-  const knowledge = await searchKnowledge(characterKey, question);
-  const memories = await searchMemories(characterKey, question);
-  const vision = await searchRecentVision(characterKey);
+  const [knowledge, memories, vision] = await Promise.all([
+    searchKnowledge(characterKey, question),
+    searchMemories(characterKey, question),
+    searchRecentVision(characterKey),
+  ]);
+
   const links = await searchMemoryLinks(memories.memories.map((m) => m.id));
 
   const systemPrompt = CHARACTER_SYSTEM[characterKey] || CHARACTER_SYSTEM.bob;
@@ -382,13 +347,13 @@ ${fullContext}
 Reglas:
 - Responde corto porque LiveAvatar tiene tiempo limitado.
 - Máximo 2 párrafos.
-- Si Knowledge tiene la respuesta directa, úsalo primero.
-- Usa memorias para enriquecer, no para confundir.
-- Usa Vision solo si la pregunta se relaciona con algo visual o del estudio.
-- No digas que estás consultando tablas, APIs o base de datos.
+- Prioriza Knowledge si tiene la respuesta directa.
+- Usa memorias solo para enriquecer.
+- Usa Vision solo si la pregunta trata del estudio o de algo visual.
+- No digas que consultas tablas, APIs o base de datos.
 - No inventes datos.
 - Si no hay información suficiente, dilo honestamente.
-- Responde como si fueras a hablar en voz alta.
+- Responde listo para voz.
 `,
           },
         ],
