@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 const LIVEAVATAR_API_KEY = process.env.LIVEAVATAR_API_KEY!;
 
 const FELENCHO_AVATAR_ID = "5593a161-df04-4366-b1a9-a42fe600f239";
-const FELENCHO_VOICE_ID = "nJdcnZj8qIND9vBbqVQG";
+const FELENCHO_VOICE_ID = "fbfffd18-0ad9-47e1-accb-e335d8bf320a";
+const FELENCHO_CONTEXT_ID = "88ffc16d-a14c-4c31-a48c-86bef34967ff";
 
 export async function POST() {
   try {
@@ -29,6 +30,7 @@ export async function POST() {
           avatar_id: FELENCHO_AVATAR_ID,
           avatar_persona: {
             voice_id: FELENCHO_VOICE_ID,
+            context_id: FELENCHO_CONTEXT_ID,
             language: "es",
           },
           mode: "FULL",
@@ -99,8 +101,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          error?.message ||
-          "Error iniciando Felencho Virtual LiveAvatar.",
+          error?.message || "Error iniciando Felencho Virtual LiveAvatar.",
       },
       { status: 500 }
     );
