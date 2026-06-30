@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const LIVEAVATAR_API_KEY = process.env.LIVEAVATAR_API_KEY!;
 
 const FELENCHO_AVATAR_ID = "5593a161-df04-4366-b1a9-a42fe600f239";
-const FELENCHO_VOICE_ID = "fbfffd18-0ad9-47e1-accb-e335d8bf320a";
-const FELENCHO_CONTEXT_ID = "88ffc16d-a14c-4c31-a48c-86bef34967ff";
-const FELENCHO_LLM_CONFIGURATION_ID =
-  "67110991-9d89-4664-8915-cf04a9578cec";
+const FELENCHO_VOICE_ID = "nJdcnZj8qIND9vBbqVQG";
 
 export async function POST() {
   try {
@@ -29,7 +27,6 @@ export async function POST() {
         avatar_id: FELENCHO_AVATAR_ID,
         avatar_persona: {
           voice_id: FELENCHO_VOICE_ID,
-          context_id: FELENCHO_CONTEXT_ID,
           language: "es",
         },
         mode: "FULL",
@@ -39,7 +36,6 @@ export async function POST() {
           encoding: "H264",
         },
         interactivity_type: "CONVERSATIONAL",
-        llm_configuration_id: FELENCHO_LLM_CONFIGURATION_ID,
       }),
     });
 
