@@ -37,17 +37,64 @@ export default function FelenchoLivePage() {
   const roomRef = useRef<Room | null>(null);
   const videoRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLDivElement | null>(null);
+  const remoteAudioElementsRef = useRef<HTMLAudioElement[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [micOn, setMicOn] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [sessionId, setSessionId] = useState("");
-  const [message, setMessage] = useState("¿Quién eres? ¿Quién te creó? ¿Quién es Raffy?");
+  const [message, setMessage] = useState(
+    "¿Quién eres? ¿Quién te creó? ¿Quién es Raffy?"
+  );
   const [logs, setLogs] = useState<string[]>([]);
   const [error, setError] = useState("");
 
   function addLog(text: string) {
-    setLogs((prev) => [`${new Date().toLocaleTimeString()} — ${text}`, ...prev].slice(0, 40));
+    setLogs((prev) =>
+      [`${new Date().toLocaleTimeString()} — ${text}`, ...prev].slice(0, 80)
+    );
+  }
+
+  async function unlockAudio() {
+    try {
+      remoteAudioElementsRef.current.forEach((audio) => {
+        audio.muted = false;
+        audio.volume = 1;
+        audio.autoplay = true;
+        audio.playsInline = true;
+        audio.play().catch(() => {});
+      });
+
+      setAudioUnlocked(true);
+      addLog("Audio activado por el usuario.");
+    } catch (err: any) {
+      addLog(`No pude activar audio: ${err?.message || "error desconocido"}`);
+    }
+  }
+
+  async function testBrowserAudio() {
+    try {
+      const AudioContextClass =
+        window.AudioContext || (window as any).webkitAudioContext;
+
+      const context = new AudioContextClass();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.frequency.value = 440;
+      gain.gain.value = 0.08;
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.25);
+
+      addLog("Prueba de audio del navegador enviada.");
+    } catch (err: any) {
+      addLog(`Error probando audio del navegador: ${err?.message || "error"}`);
+    }
   }
 
   async function sendAgentEvent(eventType: string, extra: any = {}) {
@@ -71,11 +118,14 @@ export default function FelenchoLivePage() {
 
   function attachTrack(
     track: RemoteTrack,
-    publication: RemoteTrackPublication,
+    _publication: RemoteTrackPublication,
     participant: RemoteParticipant
   ) {
     if (track.kind === Track.Kind.Video && videoRef.current) {
-      const el = track.attach();
+      const el = track.attach() as HTMLVideoElement;
+      el.autoplay = true;
+      el.playsInline = true;
+      el.muted = false;
       el.style.width = "100%";
       el.style.height = "100%";
       el.style.objectFit = "cover";
@@ -88,11 +138,27 @@ export default function FelenchoLivePage() {
     }
 
     if (track.kind === Track.Kind.Audio && audioRef.current) {
-      const el = track.attach();
+      const el = track.attach() as HTMLAudioElement;
+      el.autoplay = true;
+      el.playsInline = true;
+      el.controls = true;
+      el.muted = false;
+      el.volume = 1;
+
+      remoteAudioElementsRef.current.push(el);
       audioRef.current.innerHTML = "";
       audioRef.current.appendChild(el);
 
-      addLog(`Audio recibido de ${participant.identity}`);
+      el.play()
+        .then(() => {
+          setAudioUnlocked(true);
+          addLog(`Audio remoto reproduciendo de ${participant.identity}`);
+        })
+        .catch((err) => {
+          addLog(
+            `Audio remoto conectado, pero Chrome bloqueó autoplay. Pulsa "Activar audio". ${err?.message || ""}`
+          );
+        });
     }
   }
 
@@ -102,6 +168,8 @@ export default function FelenchoLivePage() {
     setLogs([]);
     setConnected(false);
     setMicOn(false);
+    setAudioUnlocked(false);
+    remoteAudioElementsRef.current = [];
 
     try {
       const res = await fetch("/api/liveavatar/felencho-virtual/start-session", {
@@ -132,13 +200,24 @@ export default function FelenchoLivePage() {
 
       room.on(RoomEvent.TrackSubscribed, attachTrack);
 
+      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        track.detach().forEach((el) => el.remove());
+        addLog("Track remoto desconectado.");
+      });
+
       room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
         if (topic !== "agent-response") return;
 
         try {
           const text = new TextDecoder().decode(payload);
           const event = JSON.parse(text);
-          addLog(`Respuesta: ${event.event_type} ${event.text ? `— ${event.text}` : ""}`);
+          const speaker = participant?.identity || "agent";
+
+          addLog(
+            `Respuesta: ${event.event_type}${
+              event.text ? ` — ${event.text}` : ""
+            }`
+          );
 
           if (event.event_type === "user.transcription" && event.text) {
             addLog(`Tú dijiste: ${event.text}`);
@@ -146,6 +225,14 @@ export default function FelenchoLivePage() {
 
           if (event.event_type === "avatar.transcription" && event.text) {
             addLog(`Felencho Virtual: ${event.text}`);
+          }
+
+          if (event.event_type === "avatar.speak_started") {
+            addLog(`Avatar comenzó a hablar (${speaker}).`);
+          }
+
+          if (event.event_type === "avatar.speak_ended") {
+            addLog(`Avatar terminó de hablar (${speaker}).`);
           }
         } catch {
           addLog("Respuesta agent-response recibida, pero no pude leer el JSON.");
@@ -165,7 +252,7 @@ export default function FelenchoLivePage() {
 
       await room.connect(livekitUrl, livekitToken);
 
-      addLog("Esperando avatar y agente...");
+      addLog("Esperando avatar, video y audio remoto...");
     } catch (err: any) {
       setError(err?.message || "Error iniciando Felencho LiveAvatar.");
     } finally {
@@ -176,6 +263,8 @@ export default function FelenchoLivePage() {
   async function speakResponse() {
     if (!message.trim()) return;
 
+    await unlockAudio();
+
     await sendAgentEvent("avatar.speak_response", {
       text: message.trim(),
     });
@@ -183,6 +272,8 @@ export default function FelenchoLivePage() {
 
   async function speakTextDirect() {
     if (!message.trim()) return;
+
+    await unlockAudio();
 
     await sendAgentEvent("avatar.speak_text", {
       text: message.trim(),
@@ -243,8 +334,10 @@ export default function FelenchoLivePage() {
       roomRef.current = null;
     }
 
+    remoteAudioElementsRef.current = [];
     setConnected(false);
     setMicOn(false);
+    setAudioUnlocked(false);
     setSessionId("");
     addLog("Sesión cerrada.");
   }
@@ -257,7 +350,7 @@ export default function FelenchoLivePage() {
             Felencho LiveAvatar Controller
           </h1>
           <p className="mt-3 text-gray-300">
-            Control propio para probar texto, micrófono y eventos FULL Mode.
+            Control propio para probar texto, micrófono, audio y eventos FULL Mode.
           </p>
         </header>
 
@@ -274,7 +367,12 @@ export default function FelenchoLivePage() {
               className="aspect-video w-full overflow-hidden rounded-2xl bg-black"
             />
 
-            <div ref={audioRef} className="hidden" />
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black p-3">
+              <p className="mb-2 text-sm font-bold text-cyan-300">
+                Audio remoto del avatar
+              </p>
+              <div ref={audioRef} className="min-h-10" />
+            </div>
 
             <div className="mt-4 flex flex-wrap gap-3">
               <button
@@ -283,6 +381,21 @@ export default function FelenchoLivePage() {
                 className="rounded-xl bg-cyan-500 px-5 py-3 font-bold text-black disabled:opacity-40"
               >
                 {loading ? "Iniciando..." : "Iniciar"}
+              </button>
+
+              <button
+                onClick={unlockAudio}
+                disabled={!connected}
+                className="rounded-xl bg-green-400 px-5 py-3 font-bold text-black disabled:opacity-40"
+              >
+                Activar audio
+              </button>
+
+              <button
+                onClick={testBrowserAudio}
+                className="rounded-xl bg-yellow-400 px-5 py-3 font-bold text-black"
+              >
+                Probar audio
               </button>
 
               <button
@@ -304,7 +417,8 @@ export default function FelenchoLivePage() {
 
             <div className="mt-4 text-sm text-gray-400">
               Estado: {connected ? "Conectado" : "Desconectado"} · Micrófono:{" "}
-              {micOn ? "Activo" : "Apagado"}
+              {micOn ? "Activo" : "Apagado"} · Audio:{" "}
+              {audioUnlocked ? "Activo" : "Bloqueado/pendiente"}
             </div>
           </div>
 
