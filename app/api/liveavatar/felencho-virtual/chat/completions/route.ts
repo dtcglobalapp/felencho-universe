@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { askFelenchoBrain } from "@/lib/felenchoBrainEngine";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,62 +16,32 @@ export async function POST(request: Request) {
     const messages: OpenAIMessage[] = body.messages || [];
 
     const lastUserMessage =
-      [...messages].reverse().find((m) => m.role === "user")?.content ??
+      [...messages].reverse().find((msg) => msg.role === "user")?.content ||
       "Hola.";
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000");
+    const brain = await askFelenchoBrain({
+      characterKey: "felencho_virtual",
+      question: lastUserMessage,
+    });
 
-    const brainResponse = await fetch(
-      `${baseUrl}/api/felencho-forever/conversation`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          character_key: "felencho_virtual",
-          message: lastUserMessage,
-        }),
-      }
-    );
-
-    const brainData = await brainResponse.json();
-
-    if (!brainResponse.ok) {
-      return NextResponse.json(
-        {
-          error: {
-            message:
-              brainData.error ||
-              "Error conectando con Felencho Forever.",
-            type: "brain_error",
-          },
-        },
-        { status: 500 }
-      );
-    }
+    const reply =
+      brain.text || "No pude generar una respuesta en este momento.";
 
     return NextResponse.json({
-      id: `chatcmpl-${Date.now()}`,
+      id: `chatcmpl-felencho-${Date.now()}`,
       object: "chat.completion",
       created: Math.floor(Date.now() / 1000),
-      model: "felencho-forever",
-
+      model: body.model || "felencho-forever-brain",
       choices: [
         {
           index: 0,
           message: {
             role: "assistant",
-            content: brainData.data.text,
+            content: reply,
           },
           finish_reason: "stop",
         },
       ],
-
       usage: {
         prompt_tokens: 0,
         completion_tokens: 0,
@@ -83,7 +54,7 @@ export async function POST(request: Request) {
         error: {
           message:
             error?.message ||
-            "Error interno conectando LiveAvatar con Felencho Forever.",
+            "Error conectando Felencho Virtual con Felencho Forever Brain.",
           type: "server_error",
         },
       },
