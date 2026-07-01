@@ -62,7 +62,7 @@ export default function FelenchoLivePage() {
         audio.muted = false;
         audio.volume = 1;
         audio.autoplay = true;
-        audio.playsInline = true;
+        audio.setAttribute("playsinline", "true");
         audio.play().catch(() => {});
       });
 
@@ -140,7 +140,7 @@ export default function FelenchoLivePage() {
     if (track.kind === Track.Kind.Audio && audioRef.current) {
       const el = track.attach() as HTMLAudioElement;
       el.autoplay = true;
-      el.playsInline = true;
+      el.setAttribute("playsinline", "true");
       el.controls = true;
       el.muted = false;
       el.volume = 1;
