@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 const LIVEAVATAR_API_KEY = process.env.LIVEAVATAR_API_KEY!;
 
-const BOB_AVATAR_ID = "8cf8a4ef-c528-473a-a66b-322c4a695b8e";
+const BOB_AVATAR_ID = "23e0cc5a-d312-49cf-8248-c976eefdd989";
 const BOB_VOICE_ID = "605d25b3-b346-415a-a7c5-dd6d7ba75049";
 const BOB_CONTEXT_ID = "92d107f5-9412-4cec-9f3c-a1873c542992";
 const LUMINA_LLM_CONFIGURATION_ID = "894f9688-e7fb-4e2f-8e5f-390be37199b3";
