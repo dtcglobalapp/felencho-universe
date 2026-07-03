@@ -10,6 +10,10 @@ import {
   Track,
 } from "livekit-client";
 
+import FelenchoGateway from "@/lib/FelenchoGateway";
+import FelenchoBrainRestClient from "@/lib/FelenchoBrainRestClient";
+import LiveAvatarAdapter from "@/lib/LiveAvatarAdapter";
+
 type StartSessionResponse = {
   success: boolean;
   session_id: string;
@@ -21,20 +25,12 @@ type StartSessionResponse = {
   };
 };
 
-function makeEvent(eventType: string, sessionId: string, extra: any = {}) {
-  return {
-    event_id: `${eventType}-${Date.now()}-${Math.random()
-      .toString(16)
-      .slice(2)}`,
-    event_type: eventType,
-    session_id: sessionId,
-    source_event_id: null,
-    ...extra,
-  };
-}
-
 export default function FelenchoLivePage() {
   const roomRef = useRef<Room | null>(null);
+  const sessionIdRef = useRef("");
+  const gatewayRef = useRef<FelenchoGateway | null>(null);
+  const adapterRef = useRef<LiveAvatarAdapter | null>(null);
+
   const videoRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLDivElement | null>(null);
   const remoteAudioElementsRef = useRef<HTMLAudioElement[]>([]);
@@ -97,25 +93,6 @@ export default function FelenchoLivePage() {
     }
   }
 
-  async function sendAgentEvent(eventType: string, extra: any = {}) {
-    const room = roomRef.current;
-
-    if (!room || !sessionId) {
-      addLog("No hay sala conectada todavía.");
-      return;
-    }
-
-    const payload = makeEvent(eventType, sessionId, extra);
-    const data = new TextEncoder().encode(JSON.stringify(payload));
-
-    await room.localParticipant.publishData(data, {
-      reliable: true,
-      topic: "agent-control",
-    });
-
-    addLog(`Enviado: ${eventType}`);
-  }
-
   function attachTrack(
     track: RemoteTrack,
     _publication: RemoteTrackPublication,
@@ -156,10 +133,50 @@ export default function FelenchoLivePage() {
         })
         .catch((err) => {
           addLog(
-            `Audio remoto conectado, pero Chrome bloqueó autoplay. Pulsa "Activar audio". ${err?.message || ""}`
+            `Audio remoto conectado, pero Chrome bloqueó autoplay. Pulsa "Activar audio". ${
+              err?.message || ""
+            }`
           );
         });
     }
+  }
+
+  function createFelenchoSystem(activeSessionId: string) {
+    const adapter = new LiveAvatarAdapter({
+      getRoom: () => roomRef.current,
+      getSessionId: () => sessionIdRef.current,
+      unlockAudio,
+      onLog: addLog,
+    });
+
+    const brain = new FelenchoBrainRestClient({
+      endpoint: "/api/felencho-brain/chat",
+      debug: true,
+    });
+
+    const gateway = new FelenchoGateway({
+      characterKey: "felencho_virtual",
+      brain,
+      avatar: adapter,
+      sessionId: activeSessionId,
+      language: "es",
+      source: "liveavatar",
+      participantName: "Felencho",
+      debug: true,
+      onLog: addLog,
+      onThinkingStart: () => addLog("Felencho Forever está pensando..."),
+      onThinkingEnd: () => addLog("Felencho Forever terminó de pensar."),
+      onError: (err) => {
+        addLog(
+          err instanceof Error
+            ? `Error Gateway: ${err.message}`
+            : "Error desconocido en Gateway."
+        );
+      },
+    });
+
+    adapterRef.current = adapter;
+    gatewayRef.current = gateway;
   }
 
   async function start() {
@@ -189,7 +206,9 @@ export default function FelenchoLivePage() {
         throw new Error("LiveAvatar no devolvió LiveKit URL o token.");
       }
 
+      sessionIdRef.current = json.session_id;
       setSessionId(json.session_id);
+      createFelenchoSystem(json.session_id);
 
       const room = new Room({
         adaptiveStream: true,
@@ -205,7 +224,7 @@ export default function FelenchoLivePage() {
         addLog("Track remoto desconectado.");
       });
 
-      room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+      room.on(RoomEvent.DataReceived, async (payload, participant, _kind, topic) => {
         if (topic !== "agent-response") return;
 
         try {
@@ -221,6 +240,14 @@ export default function FelenchoLivePage() {
 
           if (event.event_type === "user.transcription" && event.text) {
             addLog(`Tú dijiste: ${event.text}`);
+
+            await gatewayRef.current?.receive({
+              text: event.text,
+              isFinal: true,
+              language: "es",
+              participantName: "Felencho",
+              source: "liveavatar",
+            });
           }
 
           if (event.event_type === "avatar.transcription" && event.text) {
@@ -260,70 +287,45 @@ export default function FelenchoLivePage() {
     }
   }
 
-  async function speakResponse() {
+  async function sendToBrainAndSpeak() {
     if (!message.trim()) return;
 
-    await unlockAudio();
-
-    await sendAgentEvent("avatar.speak_response", {
+    await gatewayRef.current?.receive({
       text: message.trim(),
+      isFinal: true,
+      language: "es",
+      participantName: "Felencho",
+      source: "manual-test",
     });
   }
 
   async function speakTextDirect() {
     if (!message.trim()) return;
-
-    await unlockAudio();
-
-    await sendAgentEvent("avatar.speak_text", {
-      text: message.trim(),
-    });
+    await adapterRef.current?.speakText(message.trim());
   }
 
   async function startListening() {
-    const room = roomRef.current;
-    if (!room) return;
-
-    await room.localParticipant.setMicrophoneEnabled(true);
+    await adapterRef.current?.startListening();
     setMicOn(true);
-
-    await sendAgentEvent("avatar.start_listening");
   }
 
   async function stopListening() {
-    await sendAgentEvent("avatar.stop_listening");
-
-    const room = roomRef.current;
-    if (room) {
-      await room.localParticipant.setMicrophoneEnabled(false);
-    }
-
+    await adapterRef.current?.stopListening();
     setMicOn(false);
   }
 
   async function startPushToTalk() {
-    const room = roomRef.current;
-    if (!room) return;
-
-    await room.localParticipant.setMicrophoneEnabled(true);
+    await adapterRef.current?.startPushToTalk();
     setMicOn(true);
-
-    await sendAgentEvent("user.start_push_to_talk");
   }
 
   async function stopPushToTalk() {
-    await sendAgentEvent("user.stop_push_to_talk");
-
-    const room = roomRef.current;
-    if (room) {
-      await room.localParticipant.setMicrophoneEnabled(false);
-    }
-
+    await adapterRef.current?.stopPushToTalk();
     setMicOn(false);
   }
 
   async function interrupt() {
-    await sendAgentEvent("avatar.interrupt");
+    await gatewayRef.current?.interrupt();
   }
 
   async function leave() {
@@ -334,7 +336,11 @@ export default function FelenchoLivePage() {
       roomRef.current = null;
     }
 
+    gatewayRef.current = null;
+    adapterRef.current = null;
+    sessionIdRef.current = "";
     remoteAudioElementsRef.current = [];
+
     setConnected(false);
     setMicOn(false);
     setAudioUnlocked(false);
@@ -350,7 +356,7 @@ export default function FelenchoLivePage() {
             Felencho LiveAvatar Controller
           </h1>
           <p className="mt-3 text-gray-300">
-            Control propio para probar texto, micrófono, audio y eventos FULL Mode.
+            Control propio conectado a FelenchoGateway + Felencho Forever Brain.
           </p>
         </header>
 
@@ -418,7 +424,8 @@ export default function FelenchoLivePage() {
             <div className="mt-4 text-sm text-gray-400">
               Estado: {connected ? "Conectado" : "Desconectado"} · Micrófono:{" "}
               {micOn ? "Activo" : "Apagado"} · Audio:{" "}
-              {audioUnlocked ? "Activo" : "Bloqueado/pendiente"}
+              {audioUnlocked ? "Activo" : "Bloqueado/pendiente"} · Session:{" "}
+              {sessionId || "sin sesión"}
             </div>
           </div>
 
@@ -435,11 +442,11 @@ export default function FelenchoLivePage() {
 
             <div className="mt-4 grid gap-3">
               <button
-                onClick={speakResponse}
+                onClick={sendToBrainAndSpeak}
                 disabled={!connected}
                 className="rounded-xl bg-purple-500 px-5 py-3 font-bold text-white disabled:opacity-40"
               >
-                Enviar texto al Brain y hablar
+                Enviar a FelenchoGateway y hablar
               </button>
 
               <button
