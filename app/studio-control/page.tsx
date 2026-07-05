@@ -1,30 +1,75 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import StudioSync from "@/lib/StudioSync";
 import {
   presenceController,
   PresenceCharacterStatus,
 } from "@/lib/PresenceController";
 
-import { presenceStudioController } from "@/lib/PresenceStudioController";
-
+const studioId = "new_york_physical";
 const characters = ["bob", "lina", "felencho"];
 
 export default function StudioControlPage() {
+  const syncRef = useRef<StudioSync | null>(null);
   const [statuses, setStatuses] = useState<PresenceCharacterStatus[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  function addLog(message: string) {
+    setLogs((prev) =>
+      [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 50)
+    );
+  }
 
   function refresh() {
-    setStatuses(characters.map((character) => presenceController.getStatus(character)));
+    setStatuses(
+      characters.map((character) => presenceController.getStatus(character))
+    );
   }
 
   useEffect(() => {
+    const sync = new StudioSync({
+      studioId,
+      onLog: addLog,
+    });
+
+    syncRef.current = sync;
+
+    sync.loadInitialState();
+    sync.subscribe();
     refresh();
 
-    return presenceController.subscribe(() => {
+    const unsubscribePresence = presenceController.subscribe(() => {
       refresh();
     });
+
+    return () => {
+      unsubscribePresence();
+      sync.unsubscribe();
+      syncRef.current = null;
+    };
   }, []);
+
+  async function wake(character: string) {
+    await syncRef.current?.setLive(character);
+  }
+
+  async function sleep(character: string) {
+    await syncRef.current?.setPresence(character);
+  }
+
+  async function wakeOnly(character: string) {
+    await syncRef.current?.wakeOnly(character, characters);
+  }
+
+  async function wakeAll() {
+    await Promise.all(characters.map((character) => wake(character)));
+  }
+
+  async function sleepAll() {
+    await syncRef.current?.sleepAll(characters);
+  }
 
   return (
     <main className="min-h-screen bg-black p-6 text-white">
@@ -34,8 +79,9 @@ export default function StudioControlPage() {
             Felencho Studio Control
           </h1>
           <p className="mt-2 text-gray-400">
-            Director del estudio: controla quién está presente y quién entra en modo live.
+            Director global conectado a Supabase Realtime.
           </p>
+          <p className="mt-2 text-sm text-gray-500">Studio: {studioId}</p>
         </header>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -60,21 +106,21 @@ export default function StudioControlPage() {
 
                 <div className="mt-5 grid gap-3">
                   <button
-                    onClick={() => presenceStudioController.wake(character)}
+                    onClick={() => wake(character)}
                     className="rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black"
                   >
                     Despertar
                   </button>
 
                   <button
-                    onClick={() => presenceStudioController.sleep(character)}
+                    onClick={() => sleep(character)}
                     className="rounded-xl bg-zinc-700 px-4 py-3 font-bold text-white"
                   >
                     Dormir
                   </button>
 
                   <button
-                    onClick={() => presenceStudioController.wakeOnly(character)}
+                    onClick={() => wakeOnly(character)}
                     className="rounded-xl bg-purple-500 px-4 py-3 font-bold text-white"
                   >
                     Solo {character}
@@ -90,18 +136,29 @@ export default function StudioControlPage() {
 
           <div className="mt-4 flex flex-wrap gap-3">
             <button
-              onClick={() => presenceStudioController.wakeMany(characters)}
+              onClick={wakeAll}
               className="rounded-xl bg-green-400 px-5 py-3 font-bold text-black"
             >
               Despertar todos
             </button>
 
             <button
-              onClick={() => presenceStudioController.sleepAll()}
+              onClick={sleepAll}
               className="rounded-xl bg-red-500 px-5 py-3 font-bold text-white"
             >
               Dormir todos
             </button>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-zinc-950 p-5">
+          <h2 className="text-2xl font-bold text-purple-300">Logs</h2>
+          <div className="mt-4 max-h-72 overflow-auto rounded-2xl bg-black p-4 text-sm text-gray-300">
+            {logs.length === 0 ? (
+              <p className="text-gray-500">Sin eventos todavía.</p>
+            ) : (
+              logs.map((log, index) => <p key={index}>{log}</p>)
+            )}
           </div>
         </div>
       </section>
