@@ -1,6 +1,9 @@
 "use client";
 
 import PresenceVideo from "./PresenceVideo";
+import PresenceLive from "./PresenceLive";
+
+export type PresenceAvatarMode = "presence" | "live";
 
 export type PresenceAvatarCharacter =
   | "bob"
@@ -11,24 +14,17 @@ export type PresenceAvatarCharacter =
 type PresenceAvatarProps = {
   character: PresenceAvatarCharacter;
   video: string;
+  mode?: PresenceAvatarMode;
 };
 
 export default function PresenceAvatar({
   character,
   video,
+  mode = "presence",
 }: PresenceAvatarProps) {
-  return (
-    <section
-      data-character={character}
-      style={{
-        width: "100vw",
-        height: "100vh",
-        background: "#000",
-        overflow: "hidden",
-        cursor: "none",
-      }}
-    >
-      <PresenceVideo src={video} />
-    </section>
-  );
+  if (mode === "live") {
+    return <PresenceLive character={character} />;
+  }
+
+  return <PresenceVideo src={video} />;
 }
