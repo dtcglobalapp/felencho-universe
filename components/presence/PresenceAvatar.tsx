@@ -1,9 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import PresenceVideo from "./PresenceVideo";
 import PresenceLive from "./PresenceLive";
 
-export type PresenceAvatarMode = "presence" | "live";
+import {
+  presenceController,
+  PresenceMode,
+} from "@/lib/PresenceController";
 
 export type PresenceAvatarCharacter =
   | "bob"
@@ -14,14 +19,22 @@ export type PresenceAvatarCharacter =
 type PresenceAvatarProps = {
   character: PresenceAvatarCharacter;
   video: string;
-  mode?: PresenceAvatarMode;
 };
 
 export default function PresenceAvatar({
   character,
   video,
-  mode = "presence",
 }: PresenceAvatarProps) {
+  const [mode, setMode] = useState<PresenceMode>(
+    presenceController.getMode()
+  );
+
+  useEffect(() => {
+    return presenceController.subscribe(() => {
+      setMode(presenceController.getMode());
+    });
+  }, []);
+
   if (mode === "live") {
     return <PresenceLive character={character} />;
   }
