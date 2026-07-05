@@ -6,21 +6,24 @@ export type PresenceState =
   | "thinking"
   | "speaking";
 
+export type PresenceCharacterStatus = {
+  character: string;
+  mode: PresenceMode;
+  state: PresenceState;
+  updatedAt: number;
+};
+
 type Listener = () => void;
 
 class PresenceController {
-  private mode: PresenceMode = "presence";
-  private state: PresenceState = "sleeping";
-
+  private characters: Record<string, PresenceCharacterStatus> = {};
   private listeners: Listener[] = [];
 
   subscribe(listener: Listener) {
     this.listeners.push(listener);
 
     return () => {
-      this.listeners = this.listeners.filter(
-        (item) => item !== listener
-      );
+      this.listeners = this.listeners.filter((item) => item !== listener);
     };
   }
 
@@ -28,39 +31,81 @@ class PresenceController {
     this.listeners.forEach((listener) => listener());
   }
 
-  getMode() {
-    return this.mode;
+  private normalizeCharacter(character: string): string {
+    return character.trim().toLowerCase();
   }
 
-  getState() {
-    return this.state;
+  private ensureCharacter(character: string): PresenceCharacterStatus {
+    const key = this.normalizeCharacter(character);
+
+    if (!this.characters[key]) {
+      this.characters[key] = {
+        character: key,
+        mode: "presence",
+        state: "sleeping",
+        updatedAt: Date.now(),
+      };
+    }
+
+    return this.characters[key];
   }
 
-  setPresence() {
-    this.mode = "presence";
-    this.state = "sleeping";
+  getStatus(character: string): PresenceCharacterStatus {
+    return { ...this.ensureCharacter(character) };
+  }
+
+  getMode(character: string): PresenceMode {
+    return this.ensureCharacter(character).mode;
+  }
+
+  getState(character: string): PresenceState {
+    return this.ensureCharacter(character).state;
+  }
+
+  getAllStatuses(): PresenceCharacterStatus[] {
+    return Object.values(this.characters).map((status) => ({ ...status }));
+  }
+
+  setPresence(character: string) {
+    const status = this.ensureCharacter(character);
+    status.mode = "presence";
+    status.state = "sleeping";
+    status.updatedAt = Date.now();
     this.notify();
   }
 
-  setLive() {
-    this.mode = "live";
-    this.state = "waking";
+  setLive(character: string) {
+    const status = this.ensureCharacter(character);
+    status.mode = "live";
+    status.state = "waking";
+    status.updatedAt = Date.now();
     this.notify();
   }
 
-  think() {
-    this.state = "thinking";
+  think(character: string) {
+    const status = this.ensureCharacter(character);
+    status.state = "thinking";
+    status.updatedAt = Date.now();
     this.notify();
   }
 
-  speak() {
-    this.state = "speaking";
+  speak(character: string) {
+    const status = this.ensureCharacter(character);
+    status.state = "speaking";
+    status.updatedAt = Date.now();
     this.notify();
   }
 
-  sleep() {
-    this.state = "sleeping";
-    this.mode = "presence";
+  sleep(character: string) {
+    const status = this.ensureCharacter(character);
+    status.mode = "presence";
+    status.state = "sleeping";
+    status.updatedAt = Date.now();
+    this.notify();
+  }
+
+  resetAll() {
+    this.characters = {};
     this.notify();
   }
 }

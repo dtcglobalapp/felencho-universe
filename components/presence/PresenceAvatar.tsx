@@ -26,14 +26,14 @@ export default function PresenceAvatar({
   video,
 }: PresenceAvatarProps) {
   const [mode, setMode] = useState<PresenceMode>(
-    presenceController.getMode()
+    presenceController.getMode(character)
   );
 
   useEffect(() => {
     return presenceController.subscribe(() => {
-      setMode(presenceController.getMode());
+      setMode(presenceController.getMode(character));
     });
-  }, []);
+  }, [character]);
 
   if (mode === "live") {
     return <PresenceLive character={character} />;
