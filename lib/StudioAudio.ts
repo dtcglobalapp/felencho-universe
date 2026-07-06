@@ -1,4 +1,3 @@
-cat > lib/StudioAudio.ts <<'EOF'
 export type StudioAudioOptions = {
   onLog?: (message: string) => void;
 };
@@ -14,7 +13,6 @@ class StudioAudioEngine {
 
   async play(audioUrl: string) {
     this.stop();
-
     this.hasStarted = false;
 
     return new Promise<void>((resolve, reject) => {
@@ -87,4 +85,3 @@ class StudioAudioEngine {
 const StudioAudio = new StudioAudioEngine();
 
 export default StudioAudio;
-EOF
