@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StudioSync from "@/lib/StudioSync";
 import StudioAudio from "@/lib/StudioAudio";
 
@@ -10,40 +10,29 @@ const characters = ["bob", "lina", "felencho"];
 const wakeWords = [
   {
     character: "bob",
-    words: [
-      "oye bob",
-      "hola bob",
-      "hey bob",
-      "bob",
-      "bo",
-      "bot",
-      "bop",
-      "vos",
-      "voz",
-      "box",
-    ],
+    words: ["oye bob", "hola bob", "hey bob", "bob", "bo", "bot", "bop", "vos", "voz", "box"],
   },
   {
     character: "lina",
     words: ["oye lina", "hola lina", "hey lina", "lina", "linda"],
   },
   {
-  character: "felencho",
-  words: [
-    "felencho virtual",
-    "hola felencho",
-    "oye felencho",
-    "felencho",
-    "felenche",
-    "felencio",
-    "felincho",
-    "fencho",
-    "el fencho",
-    "selenio",
-    "selencho",
-    "selencio",
-  ],
-},
+    character: "felencho",
+    words: [
+      "felencho virtual",
+      "hola felencho",
+      "oye felencho",
+      "felencho",
+      "felenche",
+      "felencio",
+      "felincho",
+      "fencho",
+      "el fencho",
+      "selenio",
+      "selencho",
+      "selencio",
+    ],
+  },
 ];
 
 export default function StudioListenerPage() {
@@ -52,6 +41,7 @@ export default function StudioListenerPage() {
   const activeCharacterRef = useRef<string | null>(null);
   const processingRef = useRef(false);
   const listeningRef = useRef(false);
+  const autoStartedRef = useRef(false);
 
   const [listening, setListening] = useState(false);
   const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
@@ -183,9 +173,7 @@ export default function StudioListenerPage() {
     const command = findWakeCommand(clean);
 
     if (command) {
-      addLog(
-        `🐸 Wake word detectada: ${command.character} (${command.wakeWord})`
-      );
+      addLog(`🐸 Wake word detectada: ${command.character} (${command.wakeWord})`);
 
       await wakeCharacter(command.character);
 
@@ -209,6 +197,8 @@ export default function StudioListenerPage() {
   }
 
   function startListening() {
+    if (listeningRef.current) return;
+
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
@@ -237,7 +227,7 @@ export default function StudioListenerPage() {
     recognition.onstart = () => {
       listeningRef.current = true;
       setListening(true);
-      addLog("🎙 StudioListener activo. Di: Bob, Lina o Felencho.");
+      addLog("🎙 StudioListener activo automáticamente. El estudio está escuchando.");
     };
 
     recognition.onresult = async (event: any) => {
@@ -260,7 +250,10 @@ export default function StudioListenerPage() {
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
+
+    try {
+      recognition.start();
+    } catch {}
   }
 
   async function stopListening() {
@@ -286,10 +279,20 @@ export default function StudioListenerPage() {
     addLog("StudioListener detenido. Todos volvieron a Presence.");
   }
 
-  async function sleepNow() {
-    StudioAudio.stop();
-    await sleepActiveCharacter();
-  }
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+
+    autoStartedRef.current = true;
+
+    const timer = window.setTimeout(() => {
+      startListening();
+    }, 800);
+
+    return () => {
+      window.clearTimeout(timer);
+      stopListening();
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-black p-6 text-white">
@@ -298,46 +301,28 @@ export default function StudioListenerPage() {
           <h1 className="text-4xl font-black text-cyan-300">
             Felencho Studio Listener
           </h1>
+
           <p className="mt-2 text-gray-400">
-            Escucha la Rode desde La Bestia y despierta personajes por voz.
+            El estudio está vivo. Escucha desde La Bestia y despierta personajes por voz.
           </p>
+
           <p className="mt-2 text-sm text-gray-500">Studio: {studioId}</p>
         </header>
 
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={startListening}
-              disabled={listening}
-              className="rounded-xl bg-green-400 px-5 py-3 font-bold text-black disabled:opacity-40"
-            >
-              Activar escucha
-            </button>
+          <div className="rounded-2xl border border-cyan-500/20 bg-black p-5">
+            <p className="text-lg font-bold text-cyan-300">
+              {listening ? "🎙 Escuchando automáticamente" : "⏳ Iniciando escucha..."}
+            </p>
 
-            <button
-              onClick={stopListening}
-              disabled={!listening}
-              className="rounded-xl bg-red-500 px-5 py-3 font-bold text-white disabled:opacity-40"
-            >
-              Detener
-            </button>
+            <p className="mt-2 text-sm text-gray-400">
+              Personaje activo: {activeCharacter || "ninguno"}
+            </p>
 
-            <button
-              onClick={sleepNow}
-              disabled={!activeCharacter}
-              className="rounded-xl bg-zinc-700 px-5 py-3 font-bold text-white disabled:opacity-40"
-            >
-              Dormir personaje activo
-            </button>
+            <p className="mt-1 text-sm text-gray-500">
+              No hay botones. Solo habla: Bob, Lina o Felencho.
+            </p>
           </div>
-
-          <p className="mt-4 text-sm text-gray-400">
-            Estado: {listening ? "Escuchando" : "Detenido"}
-          </p>
-
-          <p className="mt-1 text-sm text-gray-400">
-            Personaje activo: {activeCharacter || "ninguno"}
-          </p>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
@@ -345,7 +330,7 @@ export default function StudioListenerPage() {
 
           <div className="mt-4 max-h-96 overflow-auto rounded-2xl bg-black p-4 text-sm text-gray-300">
             {logs.length === 0 ? (
-              <p className="text-gray-500">Sin eventos todavía.</p>
+              <p className="text-gray-500">Esperando eventos del estudio...</p>
             ) : (
               logs.map((log, index) => <p key={index}>{log}</p>)
             )}
