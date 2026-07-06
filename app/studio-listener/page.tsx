@@ -7,15 +7,16 @@ const studioId = "new_york_physical";
 const characters = ["bob", "lina", "felencho"];
 
 const wakeWords = [
-  { character: "bob", words: ["bob", "oye bob", "hola bob"] },
-  { character: "lina", words: ["lina", "oye lina", "hola lina"] },
-  { character: "felencho", words: ["felencho", "felencho virtual"] },
+  { character: "bob", words: ["oye bob", "hola bob", "bob"] },
+  { character: "lina", words: ["oye lina", "hola lina", "lina"] },
+  { character: "felencho", words: ["felencho virtual", "felencho"] },
 ];
 
 export default function StudioListenerPage() {
   const recognitionRef = useRef<any>(null);
   const syncRef = useRef<StudioSync | null>(null);
   const activeCharacterRef = useRef<string | null>(null);
+  const processingRef = useRef(false);
 
   const [listening, setListening] = useState(false);
   const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export default function StudioListenerPage() {
 
   function addLog(message: string) {
     setLogs((prev) =>
-      [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 80)
+      [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 100)
     );
   }
 
@@ -79,6 +80,73 @@ export default function StudioListenerPage() {
     setActiveCharacter(null);
   }
 
+  async function playAudioFromUrl(audioUrl: string) {
+    return new Promise<void>((resolve, reject) => {
+      const audio = new Audio(audioUrl);
+
+      audio.onplay = () => {
+        addLog("🔊 Audio saliendo desde La Bestia.");
+      };
+
+      audio.onended = () => {
+        resolve();
+      };
+
+      audio.onerror = () => {
+        reject(new Error("No se pudo reproducir el audio."));
+      };
+
+      audio.play().catch(reject);
+    });
+  }
+
+  async function sendToGateway(character: string, question: string) {
+    if (processingRef.current) {
+      addLog("⏳ Ya hay una respuesta en proceso. Ignorando entrada duplicada.");
+      return;
+    }
+
+    processingRef.current = true;
+
+    try {
+      addLog(`🧠 Enviando a FelenchoGateway: ${character} → ${question}`);
+
+      const response = await fetch("/api/felencho-gateway", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          studioId,
+          character,
+          message: question,
+          source: "studio_listener",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Error llamando FelenchoGateway.");
+      }
+
+      if (data?.text) {
+        addLog(`💬 Respuesta: ${data.text}`);
+      }
+
+      if (data?.audioUrl) {
+        await playAudioFromUrl(data.audioUrl);
+      } else {
+        addLog("⚠️ FelenchoGateway respondió sin audioUrl.");
+      }
+    } catch (error: any) {
+      addLog(`❌ Error Gateway: ${error.message}`);
+    } finally {
+      processingRef.current = false;
+      await sleepActiveCharacter();
+    }
+  }
+
   async function handleTranscript(text: string) {
     const clean = normalize(text);
 
@@ -95,6 +163,7 @@ export default function StudioListenerPage() {
 
       if (command.question) {
         addLog(`Pregunta detectada para ${command.character}: ${command.question}`);
+        await sendToGateway(command.character, command.question);
       } else {
         addLog(`Esperando pregunta para ${command.character}...`);
       }
@@ -103,13 +172,8 @@ export default function StudioListenerPage() {
     }
 
     if (activeCharacterRef.current) {
-      addLog(
-        `Pregunta para ${activeCharacterRef.current}: ${clean}`
-      );
-
-      // Próximo ladrillo:
-      // aquí enviaremos la pregunta al FelenchoGateway.
-      // Cuando el personaje termine de hablar, llamaremos sleepActiveCharacter().
+      addLog(`Pregunta para ${activeCharacterRef.current}: ${clean}`);
+      await sendToGateway(activeCharacterRef.current, clean);
       return;
     }
   }
@@ -201,9 +265,7 @@ export default function StudioListenerPage() {
           <p className="mt-2 text-gray-400">
             Escucha la Rode desde La Bestia y despierta personajes por voz.
           </p>
-          <p className="mt-2 text-sm text-gray-500">
-            Studio: {studioId}
-          </p>
+          <p className="mt-2 text-sm text-gray-500">Studio: {studioId}</p>
         </header>
 
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
