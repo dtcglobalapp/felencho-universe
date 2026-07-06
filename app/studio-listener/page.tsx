@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import StudioSync from "@/lib/StudioSync";
 
 const studioId = "new_york_physical";
+const characters = ["bob", "lina", "felencho"];
 
 const wakeWords = [
   { character: "bob", words: ["bob", "oye bob", "hola bob"] },
@@ -14,13 +15,15 @@ const wakeWords = [
 export default function StudioListenerPage() {
   const recognitionRef = useRef<any>(null);
   const syncRef = useRef<StudioSync | null>(null);
+  const activeCharacterRef = useRef<string | null>(null);
 
   const [listening, setListening] = useState(false);
+  const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
 
   function addLog(message: string) {
     setLogs((prev) =>
-      [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 60)
+      [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 80)
     );
   }
 
@@ -34,22 +37,80 @@ export default function StudioListenerPage() {
       .trim();
   }
 
-  async function handleTranscript(text: string) {
+  function findWakeCommand(text: string) {
     const clean = normalize(text);
-    addLog(`Escuché: ${clean}`);
 
     for (const item of wakeWords) {
-      const found = item.words.some((word) => clean.includes(word));
+      const word = item.words.find((wakeWord) => clean.includes(wakeWord));
 
-      if (found) {
-        addLog(`🐸 Wake word detectada: ${item.character}`);
-        await syncRef.current?.wakeOnly(item.character, [
-          "bob",
-          "lina",
-          "felencho",
-        ]);
-        return;
+      if (word) {
+        const question = clean.replace(word, "").trim();
+
+        return {
+          character: item.character,
+          wakeWord: word,
+          question,
+        };
       }
+    }
+
+    return null;
+  }
+
+  async function wakeCharacter(character: string) {
+    activeCharacterRef.current = character;
+    setActiveCharacter(character);
+
+    await syncRef.current?.wakeOnly(character, characters);
+
+    addLog(`🐸 ${character} despertó.`);
+  }
+
+  async function sleepActiveCharacter() {
+    const character = activeCharacterRef.current;
+
+    if (!character) return;
+
+    await syncRef.current?.setPresence(character);
+
+    addLog(`😴 ${character} volvió a Presence.`);
+
+    activeCharacterRef.current = null;
+    setActiveCharacter(null);
+  }
+
+  async function handleTranscript(text: string) {
+    const clean = normalize(text);
+
+    if (!clean) return;
+
+    addLog(`Escuché: ${clean}`);
+
+    const command = findWakeCommand(clean);
+
+    if (command) {
+      addLog(`🐸 Wake word detectada: ${command.character}`);
+
+      await wakeCharacter(command.character);
+
+      if (command.question) {
+        addLog(`Pregunta detectada para ${command.character}: ${command.question}`);
+      } else {
+        addLog(`Esperando pregunta para ${command.character}...`);
+      }
+
+      return;
+    }
+
+    if (activeCharacterRef.current) {
+      addLog(
+        `Pregunta para ${activeCharacterRef.current}: ${clean}`
+      );
+
+      // Próximo ladrillo:
+      // aquí enviaremos la pregunta al FelenchoGateway.
+      // Cuando el personaje termine de hablar, llamaremos sleepActiveCharacter().
+      return;
     }
   }
 
@@ -69,10 +130,12 @@ export default function StudioListenerPage() {
     });
 
     syncRef.current = sync;
+
     sync.loadInitialState();
     sync.subscribe();
 
     const recognition = new SpeechRecognition();
+
     recognition.lang = "es-US";
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -104,7 +167,7 @@ export default function StudioListenerPage() {
     recognition.start();
   }
 
-  function stopListening() {
+  async function stopListening() {
     setListening(false);
 
     try {
@@ -113,10 +176,19 @@ export default function StudioListenerPage() {
 
     recognitionRef.current = null;
 
+    await syncRef.current?.sleepAll(characters);
+
     syncRef.current?.unsubscribe();
     syncRef.current = null;
 
-    addLog("StudioListener detenido.");
+    activeCharacterRef.current = null;
+    setActiveCharacter(null);
+
+    addLog("StudioListener detenido. Todos volvieron a Presence.");
+  }
+
+  async function sleepNow() {
+    await sleepActiveCharacter();
   }
 
   return (
@@ -128,6 +200,9 @@ export default function StudioListenerPage() {
           </h1>
           <p className="mt-2 text-gray-400">
             Escucha la Rode desde La Bestia y despierta personajes por voz.
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            Studio: {studioId}
           </p>
         </header>
 
@@ -148,10 +223,22 @@ export default function StudioListenerPage() {
             >
               Detener
             </button>
+
+            <button
+              onClick={sleepNow}
+              disabled={!activeCharacter}
+              className="rounded-xl bg-zinc-700 px-5 py-3 font-bold text-white disabled:opacity-40"
+            >
+              Dormir personaje activo
+            </button>
           </div>
 
           <p className="mt-4 text-sm text-gray-400">
             Estado: {listening ? "Escuchando" : "Detenido"}
+          </p>
+
+          <p className="mt-1 text-sm text-gray-400">
+            Personaje activo: {activeCharacter || "ninguno"}
           </p>
         </div>
 
