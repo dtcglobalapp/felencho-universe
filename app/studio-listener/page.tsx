@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import StudioSync from "@/lib/StudioSync";
+import StudioAudio from "@/lib/StudioAudio";
 
 const studioId = "new_york_physical";
 const characters = ["bob", "lina", "felencho"];
@@ -81,23 +82,11 @@ export default function StudioListenerPage() {
   }
 
   async function playAudioFromUrl(audioUrl: string) {
-    return new Promise<void>((resolve, reject) => {
-      const audio = new Audio(audioUrl);
-
-      audio.onplay = () => {
-        addLog("🔊 Audio saliendo desde La Bestia.");
-      };
-
-      audio.onended = () => {
-        resolve();
-      };
-
-      audio.onerror = () => {
-        reject(new Error("No se pudo reproducir el audio."));
-      };
-
-      audio.play().catch(reject);
+    StudioAudio.configure({
+      onLog: addLog,
     });
+
+    await StudioAudio.play(audioUrl);
   }
 
   async function sendToGateway(character: string, question: string) {
@@ -240,6 +229,8 @@ export default function StudioListenerPage() {
 
     recognitionRef.current = null;
 
+    StudioAudio.stop();
+
     await syncRef.current?.sleepAll(characters);
 
     syncRef.current?.unsubscribe();
@@ -252,6 +243,7 @@ export default function StudioListenerPage() {
   }
 
   async function sleepNow() {
+    StudioAudio.stop();
     await sleepActiveCharacter();
   }
 
