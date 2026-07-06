@@ -10,7 +10,18 @@ const characters = ["bob", "lina", "felencho"];
 const wakeWords = [
   {
     character: "bob",
-    words: ["oye bob", "hola bob", "hey bob", "bob", "bo", "bot", "bop", "vos", "voz", "box"],
+    words: [
+      "oye bob",
+      "hola bob",
+      "hey bob",
+      "bob",
+      "bo",
+      "bot",
+      "bop",
+      "vos",
+      "voz",
+      "box",
+    ],
   },
   {
     character: "lina",
@@ -31,6 +42,8 @@ const wakeWords = [
       "selenio",
       "selencho",
       "selencio",
+      "femencho",
+      "fe lencho",
     ],
   },
 ];
@@ -41,9 +54,12 @@ export default function StudioListenerPage() {
   const activeCharacterRef = useRef<string | null>(null);
   const processingRef = useRef(false);
   const listeningRef = useRef(false);
+  const pausedRef = useRef(false);
   const autoStartedRef = useRef(false);
+  const reconnectTimerRef = useRef<number | null>(null);
 
   const [listening, setListening] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
 
@@ -160,10 +176,16 @@ export default function StudioListenerPage() {
     } finally {
       processingRef.current = false;
       await sleepActiveCharacter();
+
+      activeCharacterRef.current = null;
+      setActiveCharacter(null);
     }
   }
 
   async function handleTranscript(text: string) {
+    if (pausedRef.current) return;
+    if (processingRef.current) return;
+
     const clean = normalize(text);
 
     if (!clean) return;
@@ -172,28 +194,38 @@ export default function StudioListenerPage() {
 
     const command = findWakeCommand(clean);
 
-    if (command) {
-      addLog(`🐸 Wake word detectada: ${command.character} (${command.wakeWord})`);
-
-      await wakeCharacter(command.character);
-
-      if (command.question) {
-        addLog(`Pregunta detectada para ${command.character}: ${command.question}`);
-        await sendToGateway(command.character, command.question);
-      } else {
-        addLog(`Esperando pregunta para ${command.character}...`);
-      }
-
+    if (!command) {
+      addLog("Sin wake word detectada.");
       return;
     }
 
-    if (activeCharacterRef.current) {
-      addLog(`Pregunta para ${activeCharacterRef.current}: ${clean}`);
-      await sendToGateway(activeCharacterRef.current, clean);
-      return;
+    addLog(`🐸 Wake word detectada: ${command.character} (${command.wakeWord})`);
+
+    await wakeCharacter(command.character);
+
+    if (command.question) {
+      addLog(`Pregunta detectada para ${command.character}: ${command.question}`);
+      await sendToGateway(command.character, command.question);
+    } else {
+      addLog(`Esperando pregunta para ${command.character}...`);
+    }
+  }
+
+  function scheduleReconnect(recognition: any) {
+    if (!listeningRef.current || pausedRef.current) return;
+
+    if (reconnectTimerRef.current) {
+      window.clearTimeout(reconnectTimerRef.current);
     }
 
-    addLog("Sin wake word detectada.");
+    reconnectTimerRef.current = window.setTimeout(() => {
+      if (!listeningRef.current || pausedRef.current) return;
+
+      try {
+        addLog("🎙 Reconectando micrófono...");
+        recognition.start();
+      } catch {}
+    }, 2500);
   }
 
   function startListening() {
@@ -237,16 +269,15 @@ export default function StudioListenerPage() {
     };
 
     recognition.onerror = (event: any) => {
+      if (event.error === "no-speech") {
+        return;
+      }
+
       addLog(`Error micrófono: ${event.error}`);
     };
 
     recognition.onend = () => {
-      if (listeningRef.current) {
-        addLog("🎙 Reconectando micrófono...");
-        try {
-          recognition.start();
-        } catch {}
-      }
+      scheduleReconnect(recognition);
     };
 
     recognitionRef.current = recognition;
@@ -258,7 +289,14 @@ export default function StudioListenerPage() {
 
   async function stopListening() {
     listeningRef.current = false;
+    pausedRef.current = true;
     setListening(false);
+    setPaused(true);
+
+    if (reconnectTimerRef.current) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
 
     try {
       recognitionRef.current?.stop();
@@ -276,7 +314,17 @@ export default function StudioListenerPage() {
     activeCharacterRef.current = null;
     setActiveCharacter(null);
 
-    addLog("StudioListener detenido. Todos volvieron a Presence.");
+    addLog("⏸ StudioListener pausado. Todos volvieron a Presence.");
+  }
+
+  function resumeListening() {
+    pausedRef.current = false;
+    setPaused(false);
+    listeningRef.current = false;
+
+    addLog("▶️ Reanudando StudioListener.");
+
+    startListening();
   }
 
   useEffect(() => {
@@ -285,12 +333,28 @@ export default function StudioListenerPage() {
     autoStartedRef.current = true;
 
     const timer = window.setTimeout(() => {
+      pausedRef.current = false;
+      setPaused(false);
       startListening();
     }, 800);
 
     return () => {
       window.clearTimeout(timer);
-      stopListening();
+
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+
+      listeningRef.current = false;
+
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+
+      StudioAudio.stop();
+
+      syncRef.current?.sleepAll(characters);
+      syncRef.current?.unsubscribe();
     };
   }, []);
 
@@ -312,7 +376,11 @@ export default function StudioListenerPage() {
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
           <div className="rounded-2xl border border-cyan-500/20 bg-black p-5">
             <p className="text-lg font-bold text-cyan-300">
-              {listening ? "🎙 Escuchando automáticamente" : "⏳ Iniciando escucha..."}
+              {paused
+                ? "⏸ Escucha pausada"
+                : listening
+                  ? "🎙 Escuchando automáticamente"
+                  : "⏳ Iniciando escucha..."}
             </p>
 
             <p className="mt-2 text-sm text-gray-400">
@@ -320,8 +388,26 @@ export default function StudioListenerPage() {
             </p>
 
             <p className="mt-1 text-sm text-gray-500">
-              No hay botones. Solo habla: Bob, Lina o Felencho.
+              Habla naturalmente: Bob, Lina o Felencho.
             </p>
+
+            <div className="mt-4 flex gap-3">
+              {paused ? (
+                <button
+                  onClick={resumeListening}
+                  className="rounded-xl bg-green-400 px-4 py-2 text-sm font-bold text-black"
+                >
+                  Reanudar escucha
+                </button>
+              ) : (
+                <button
+                  onClick={stopListening}
+                  className="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-white"
+                >
+                  Pausar escucha
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
