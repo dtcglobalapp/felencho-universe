@@ -28,16 +28,22 @@ const wakeWords = [
     words: ["oye lina", "hola lina", "hey lina", "lina", "linda"],
   },
   {
-    character: "felencho",
-    words: [
-      "felencho virtual",
-      "hola felencho",
-      "oye felencho",
-      "felencho",
-      "felenche",
-      "felencio",
-    ],
-  },
+  character: "felencho",
+  words: [
+    "felencho virtual",
+    "hola felencho",
+    "oye felencho",
+    "felencho",
+    "felenche",
+    "felencio",
+    "felincho",
+    "fencho",
+    "el fencho",
+    "selenio",
+    "selencho",
+    "selencio",
+  ],
+},
 ];
 
 export default function StudioListenerPage() {
