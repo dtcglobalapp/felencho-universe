@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import StudioSync from "@/lib/StudioSync";
 import StudioAudio from "@/lib/StudioAudio";
 
@@ -53,13 +53,10 @@ export default function StudioListenerPage() {
   const syncRef = useRef<StudioSync | null>(null);
   const activeCharacterRef = useRef<string | null>(null);
   const processingRef = useRef(false);
-  const listeningRef = useRef(false);
-  const pausedRef = useRef(false);
-  const autoStartedRef = useRef(false);
+  const studioOnRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
 
-  const [listening, setListening] = useState(false);
-  const [paused, setPaused] = useState(false);
+  const [studioOn, setStudioOn] = useState(false);
   const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
 
@@ -100,6 +97,23 @@ export default function StudioListenerPage() {
     }
 
     return null;
+  }
+
+  function isShutdownCommand(text: string) {
+    const clean = normalize(text);
+
+    const commands = [
+      "apaga el estudio",
+      "apagar estudio",
+      "deten el estudio",
+      "detener estudio",
+      "pausa estudio",
+      "silencio estudio",
+      "studio off",
+      "stop studio",
+    ];
+
+    return commands.some((cmd) => clean.includes(cmd));
   }
 
   async function wakeCharacter(character: string) {
@@ -183,7 +197,7 @@ export default function StudioListenerPage() {
   }
 
   async function handleTranscript(text: string) {
-    if (pausedRef.current) return;
+    if (!studioOnRef.current) return;
     if (processingRef.current) return;
 
     const clean = normalize(text);
@@ -191,6 +205,12 @@ export default function StudioListenerPage() {
     if (!clean) return;
 
     addLog(`Escuché: ${clean}`);
+
+    if (isShutdownCommand(clean)) {
+      addLog("🛑 Comando de apagado detectado.");
+      await powerOffStudio();
+      return;
+    }
 
     const command = findWakeCommand(clean);
 
@@ -212,14 +232,14 @@ export default function StudioListenerPage() {
   }
 
   function scheduleReconnect(recognition: any) {
-    if (!listeningRef.current || pausedRef.current) return;
+    if (!studioOnRef.current) return;
 
     if (reconnectTimerRef.current) {
       window.clearTimeout(reconnectTimerRef.current);
     }
 
     reconnectTimerRef.current = window.setTimeout(() => {
-      if (!listeningRef.current || pausedRef.current) return;
+      if (!studioOnRef.current) return;
 
       try {
         addLog("🎙 Reconectando micrófono...");
@@ -228,8 +248,8 @@ export default function StudioListenerPage() {
     }, 2500);
   }
 
-  function startListening() {
-    if (listeningRef.current) return;
+  async function powerOnStudio() {
+    if (studioOnRef.current) return;
 
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -240,6 +260,9 @@ export default function StudioListenerPage() {
       return;
     }
 
+    studioOnRef.current = true;
+    setStudioOn(true);
+
     const sync = new StudioSync({
       studioId,
       onLog: addLog,
@@ -247,7 +270,8 @@ export default function StudioListenerPage() {
 
     syncRef.current = sync;
 
-    sync.loadInitialState();
+    await sync.sleepAll(characters);
+    await sync.loadInitialState();
     sync.subscribe();
 
     const recognition = new SpeechRecognition();
@@ -257,9 +281,7 @@ export default function StudioListenerPage() {
     recognition.interimResults = false;
 
     recognition.onstart = () => {
-      listeningRef.current = true;
-      setListening(true);
-      addLog("🎙 StudioListener activo automáticamente. El estudio está escuchando.");
+      addLog("🟢 Studio ON. El estudio está escuchando.");
     };
 
     recognition.onresult = async (event: any) => {
@@ -269,10 +291,7 @@ export default function StudioListenerPage() {
     };
 
     recognition.onerror = (event: any) => {
-      if (event.error === "no-speech") {
-        return;
-      }
-
+      if (event.error === "no-speech") return;
       addLog(`Error micrófono: ${event.error}`);
     };
 
@@ -285,13 +304,13 @@ export default function StudioListenerPage() {
     try {
       recognition.start();
     } catch {}
+
+    addLog("⚡ Felencho Studio OS encendido.");
   }
 
-  async function stopListening() {
-    listeningRef.current = false;
-    pausedRef.current = true;
-    setListening(false);
-    setPaused(true);
+  async function powerOffStudio() {
+    studioOnRef.current = false;
+    setStudioOn(false);
 
     if (reconnectTimerRef.current) {
       window.clearTimeout(reconnectTimerRef.current);
@@ -313,50 +332,17 @@ export default function StudioListenerPage() {
 
     activeCharacterRef.current = null;
     setActiveCharacter(null);
+    processingRef.current = false;
 
-    addLog("⏸ StudioListener pausado. Todos volvieron a Presence.");
+    addLog("🔴 Studio OFF. Micrófono apagado, personajes en Presence, cero consumo.");
   }
 
-  function resumeListening() {
-    pausedRef.current = false;
-    setPaused(false);
-    listeningRef.current = false;
-
-    addLog("▶️ Reanudando StudioListener.");
-
-    startListening();
+  function characterLabel(character: string) {
+    if (character === "bob") return "Bob";
+    if (character === "lina") return "Lina";
+    if (character === "felencho") return "Felencho Virtual";
+    return character;
   }
-
-  useEffect(() => {
-    if (autoStartedRef.current) return;
-
-    autoStartedRef.current = true;
-
-    const timer = window.setTimeout(() => {
-      pausedRef.current = false;
-      setPaused(false);
-      startListening();
-    }, 800);
-
-    return () => {
-      window.clearTimeout(timer);
-
-      if (reconnectTimerRef.current) {
-        window.clearTimeout(reconnectTimerRef.current);
-      }
-
-      listeningRef.current = false;
-
-      try {
-        recognitionRef.current?.stop();
-      } catch {}
-
-      StudioAudio.stop();
-
-      syncRef.current?.sleepAll(characters);
-      syncRef.current?.unsubscribe();
-    };
-  }, []);
 
   return (
     <main className="min-h-screen bg-black p-6 text-white">
@@ -367,7 +353,7 @@ export default function StudioListenerPage() {
           </h1>
 
           <p className="mt-2 text-gray-400">
-            El estudio está vivo. Escucha desde La Bestia y despierta personajes por voz.
+            Switch principal del estudio. Encendido escucha; apagado no consume.
           </p>
 
           <p className="mt-2 text-sm text-gray-500">Studio: {studioId}</p>
@@ -375,39 +361,66 @@ export default function StudioListenerPage() {
 
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
           <div className="rounded-2xl border border-cyan-500/20 bg-black p-5">
-            <p className="text-lg font-bold text-cyan-300">
-              {paused
-                ? "⏸ Escucha pausada"
-                : listening
-                  ? "🎙 Escuchando automáticamente"
-                  : "⏳ Iniciando escucha..."}
-            </p>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-lg font-bold text-cyan-300">
+                  {studioOn ? "🟢 STUDIO ON" : "🔴 STUDIO OFF"}
+                </p>
 
-            <p className="mt-2 text-sm text-gray-400">
-              Personaje activo: {activeCharacter || "ninguno"}
-            </p>
+                <p className="mt-2 text-sm text-gray-400">
+                  Personaje activo: {activeCharacter || "ninguno"}
+                </p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Habla naturalmente: Bob, Lina o Felencho.
-            </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  {studioOn
+                    ? "Habla naturalmente: Bob, Lina o Felencho."
+                    : "Los personajes quedan en loop Presence. No hay micrófono activo."}
+                </p>
+              </div>
 
-            <div className="mt-4 flex gap-3">
-              {paused ? (
-                <button
-                  onClick={resumeListening}
-                  className="rounded-xl bg-green-400 px-4 py-2 text-sm font-bold text-black"
-                >
-                  Reanudar escucha
-                </button>
-              ) : (
-                <button
-                  onClick={stopListening}
-                  className="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-white"
-                >
-                  Pausar escucha
-                </button>
-              )}
+              <button
+                onClick={studioOn ? powerOffStudio : powerOnStudio}
+                className={
+                  studioOn
+                    ? "rounded-2xl bg-red-600 px-8 py-4 text-xl font-black text-white shadow-lg shadow-red-900/30"
+                    : "rounded-2xl bg-green-400 px-8 py-4 text-xl font-black text-black shadow-lg shadow-green-900/30"
+                }
+              >
+                {studioOn ? "APAGAR ESTUDIO" : "ENCENDER ESTUDIO"}
+              </button>
             </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+              {characters.map((character) => {
+                const isOn = studioOn && activeCharacter === character;
+
+                return (
+                  <div
+                    key={character}
+                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3"
+                  >
+                    <span className="font-bold text-white">
+                      {characterLabel(character)}
+                    </span>
+
+                    <span className="flex items-center gap-2 text-sm text-gray-300">
+                      <span
+                        className={
+                          isOn
+                            ? "h-3 w-3 rounded-full bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]"
+                            : "h-3 w-3 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.7)]"
+                        }
+                      />
+                      {isOn ? "ON" : "OFF"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="mt-4 text-xs text-gray-500">
+              También puedes apagar por voz diciendo: “Apaga el estudio” o “Silencio estudio”.
+            </p>
           </div>
         </div>
 
