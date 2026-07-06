@@ -3,13 +3,14 @@
 import { useRef, useState } from "react";
 import StudioSync from "@/lib/StudioSync";
 import StudioAudio from "@/lib/StudioAudio";
+import { detectDirectedTurn, StudioCharacter } from "@/lib/StudioDirector";
 
 const studioId = "new_york_physical";
-const characters = ["bob", "lina", "felencho"];
+const characters: StudioCharacter[] = ["bob", "lina", "felencho"];
 
 const wakeWords = [
   {
-    character: "bob",
+    character: "bob" as StudioCharacter,
     words: [
       "oye bob",
       "hola bob",
@@ -24,11 +25,11 @@ const wakeWords = [
     ],
   },
   {
-    character: "lina",
+    character: "lina" as StudioCharacter,
     words: ["oye lina", "hola lina", "hey lina", "lina", "linda"],
   },
   {
-    character: "felencho",
+    character: "felencho" as StudioCharacter,
     words: [
       "felencho virtual",
       "hola felencho",
@@ -51,13 +52,13 @@ const wakeWords = [
 export default function StudioListenerPage() {
   const recognitionRef = useRef<any>(null);
   const syncRef = useRef<StudioSync | null>(null);
-  const activeCharacterRef = useRef<string | null>(null);
+  const activeCharacterRef = useRef<StudioCharacter | null>(null);
   const processingRef = useRef(false);
   const studioOnRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
 
   const [studioOn, setStudioOn] = useState(false);
-  const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
+  const [activeCharacter, setActiveCharacter] = useState<StudioCharacter | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
 
   function addLog(message: string) {
@@ -116,13 +117,20 @@ export default function StudioListenerPage() {
     return commands.some((cmd) => clean.includes(cmd));
   }
 
-  async function wakeCharacter(character: string) {
+  function characterLabel(character: string) {
+    if (character === "bob") return "Bob";
+    if (character === "lina") return "Lina";
+    if (character === "felencho") return "Felencho Virtual";
+    return character;
+  }
+
+  async function wakeCharacter(character: StudioCharacter) {
     activeCharacterRef.current = character;
     setActiveCharacter(character);
 
     await syncRef.current?.wakeOnly(character, characters);
 
-    addLog(`🐸 ${character} despertó.`);
+    addLog(`🐸 ${characterLabel(character)} despertó.`);
   }
 
   async function sleepActiveCharacter() {
@@ -132,7 +140,7 @@ export default function StudioListenerPage() {
 
     await syncRef.current?.setPresence(character);
 
-    addLog(`😴 ${character} volvió a Presence.`);
+    addLog(`😴 ${characterLabel(character)} volvió a Presence.`);
 
     activeCharacterRef.current = null;
     setActiveCharacter(null);
@@ -146,7 +154,7 @@ export default function StudioListenerPage() {
     await StudioAudio.play(audioUrl);
   }
 
-  async function sendToGateway(character: string, question: string) {
+  async function sendToGateway(character: StudioCharacter, question: string) {
     if (processingRef.current) {
       addLog("⏳ Ya hay una respuesta en proceso. Ignorando entrada duplicada.");
       return;
@@ -196,6 +204,27 @@ export default function StudioListenerPage() {
     }
   }
 
+  async function runDirectedTurn(from: StudioCharacter, to: StudioCharacter, message: string) {
+    addLog(
+      `🎬 StudioDirector: ${characterLabel(from)} → ${characterLabel(to)} | ${message}`
+    );
+
+    await wakeCharacter(from);
+
+    await sendToGateway(
+      from,
+      `Dile a ${characterLabel(to)} de forma breve y natural: ${message}`
+    );
+
+    if (!studioOnRef.current) return;
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    await wakeCharacter(to);
+
+    await sendToGateway(to, message);
+  }
+
   async function handleTranscript(text: string) {
     if (!studioOnRef.current) return;
     if (processingRef.current) return;
@@ -221,14 +250,27 @@ export default function StudioListenerPage() {
 
     addLog(`🐸 Wake word detectada: ${command.character} (${command.wakeWord})`);
 
+    if (!command.question) {
+      await wakeCharacter(command.character);
+      addLog(`Esperando pregunta para ${command.character}...`);
+      return;
+    }
+
+    const directedTurn = detectDirectedTurn(command.character, command.question);
+
+    if (directedTurn) {
+      await runDirectedTurn(
+        directedTurn.from,
+        directedTurn.to,
+        directedTurn.message
+      );
+      return;
+    }
+
     await wakeCharacter(command.character);
 
-    if (command.question) {
-      addLog(`Pregunta detectada para ${command.character}: ${command.question}`);
-      await sendToGateway(command.character, command.question);
-    } else {
-      addLog(`Esperando pregunta para ${command.character}...`);
-    }
+    addLog(`Pregunta detectada para ${command.character}: ${command.question}`);
+    await sendToGateway(command.character, command.question);
   }
 
   function scheduleReconnect(recognition: any) {
@@ -286,8 +328,8 @@ export default function StudioListenerPage() {
 
     recognition.onresult = async (event: any) => {
       const last = event.results[event.results.length - 1];
-      const text = last[0]?.transcript || "";
-      await handleTranscript(text);
+      const transcript = last[0]?.transcript || "";
+      await handleTranscript(transcript);
     };
 
     recognition.onerror = (event: any) => {
@@ -335,13 +377,6 @@ export default function StudioListenerPage() {
     processingRef.current = false;
 
     addLog("🔴 Studio OFF. Micrófono apagado, personajes en Presence, cero consumo.");
-  }
-
-  function characterLabel(character: string) {
-    if (character === "bob") return "Bob";
-    if (character === "lina") return "Lina";
-    if (character === "felencho") return "Felencho Virtual";
-    return character;
   }
 
   return (
@@ -419,7 +454,7 @@ export default function StudioListenerPage() {
             </div>
 
             <p className="mt-4 text-xs text-gray-500">
-              También puedes apagar por voz diciendo: “Apaga el estudio” o “Silencio estudio”.
+              Prueba: “Bob pregúntale a Lina quién fue Alan Turing”.
             </p>
           </div>
         </div>
