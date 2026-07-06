@@ -2,14 +2,42 @@
 
 import { useRef, useState } from "react";
 import StudioSync from "@/lib/StudioSync";
+import StudioAudio from "@/lib/StudioAudio";
 
 const studioId = "new_york_physical";
 const characters = ["bob", "lina", "felencho"];
 
 const wakeWords = [
-  { character: "bob", words: ["oye bob", "hola bob", "bob"] },
-  { character: "lina", words: ["oye lina", "hola lina", "lina"] },
-  { character: "felencho", words: ["felencho virtual", "felencho"] },
+  {
+    character: "bob",
+    words: [
+      "oye bob",
+      "hola bob",
+      "hey bob",
+      "bob",
+      "bo",
+      "bot",
+      "bop",
+      "vos",
+      "voz",
+      "box",
+    ],
+  },
+  {
+    character: "lina",
+    words: ["oye lina", "hola lina", "hey lina", "lina", "linda"],
+  },
+  {
+    character: "felencho",
+    words: [
+      "felencho virtual",
+      "hola felencho",
+      "oye felencho",
+      "felencho",
+      "felenche",
+      "felencio",
+    ],
+  },
 ];
 
 export default function StudioListenerPage() {
@@ -17,6 +45,7 @@ export default function StudioListenerPage() {
   const syncRef = useRef<StudioSync | null>(null);
   const activeCharacterRef = useRef<string | null>(null);
   const processingRef = useRef(false);
+  const listeningRef = useRef(false);
 
   const [listening, setListening] = useState(false);
   const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
@@ -24,7 +53,7 @@ export default function StudioListenerPage() {
 
   function addLog(message: string) {
     setLogs((prev) =>
-      [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 100)
+      [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 120)
     );
   }
 
@@ -42,10 +71,13 @@ export default function StudioListenerPage() {
     const clean = normalize(text);
 
     for (const item of wakeWords) {
-      const word = item.words.find((wakeWord) => clean.includes(wakeWord));
+      const word = item.words.find((wakeWord) => {
+        const normalizedWakeWord = normalize(wakeWord);
+        return clean === normalizedWakeWord || clean.includes(normalizedWakeWord);
+      });
 
       if (word) {
-        const question = clean.replace(word, "").trim();
+        const question = clean.replace(normalize(word), "").trim();
 
         return {
           character: item.character,
@@ -81,23 +113,11 @@ export default function StudioListenerPage() {
   }
 
   async function playAudioFromUrl(audioUrl: string) {
-    return new Promise<void>((resolve, reject) => {
-      const audio = new Audio(audioUrl);
-
-      audio.onplay = () => {
-        addLog("🔊 Audio saliendo desde La Bestia.");
-      };
-
-      audio.onended = () => {
-        resolve();
-      };
-
-      audio.onerror = () => {
-        reject(new Error("No se pudo reproducir el audio."));
-      };
-
-      audio.play().catch(reject);
+    StudioAudio.configure({
+      onLog: addLog,
     });
+
+    await StudioAudio.play(audioUrl);
   }
 
   async function sendToGateway(character: string, question: string) {
@@ -157,7 +177,9 @@ export default function StudioListenerPage() {
     const command = findWakeCommand(clean);
 
     if (command) {
-      addLog(`🐸 Wake word detectada: ${command.character}`);
+      addLog(
+        `🐸 Wake word detectada: ${command.character} (${command.wakeWord})`
+      );
 
       await wakeCharacter(command.character);
 
@@ -176,6 +198,8 @@ export default function StudioListenerPage() {
       await sendToGateway(activeCharacterRef.current, clean);
       return;
     }
+
+    addLog("Sin wake word detectada.");
   }
 
   function startListening() {
@@ -205,6 +229,7 @@ export default function StudioListenerPage() {
     recognition.interimResults = false;
 
     recognition.onstart = () => {
+      listeningRef.current = true;
       setListening(true);
       addLog("🎙 StudioListener activo. Di: Bob, Lina o Felencho.");
     };
@@ -220,7 +245,8 @@ export default function StudioListenerPage() {
     };
 
     recognition.onend = () => {
-      if (listening) {
+      if (listeningRef.current) {
+        addLog("🎙 Reconectando micrófono...");
         try {
           recognition.start();
         } catch {}
@@ -232,6 +258,7 @@ export default function StudioListenerPage() {
   }
 
   async function stopListening() {
+    listeningRef.current = false;
     setListening(false);
 
     try {
@@ -239,6 +266,8 @@ export default function StudioListenerPage() {
     } catch {}
 
     recognitionRef.current = null;
+
+    StudioAudio.stop();
 
     await syncRef.current?.sleepAll(characters);
 
@@ -252,6 +281,7 @@ export default function StudioListenerPage() {
   }
 
   async function sleepNow() {
+    StudioAudio.stop();
     await sleepActiveCharacter();
   }
 
