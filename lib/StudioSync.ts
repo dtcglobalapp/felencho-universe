@@ -95,15 +95,21 @@ export default class StudioSync {
   }
 
   async sleepAll(characterIds: string[]) {
-    await Promise.all(characterIds.map((id) => this.setPresence(id)));
+    for (const id of characterIds) {
+      await this.setPresence(id);
+    }
   }
 
   async wakeOnly(characterId: string, allCharacterIds: string[]) {
-    await Promise.all(
-      allCharacterIds.map((id) =>
-        id === characterId ? this.setLive(id) : this.setPresence(id)
-      )
-    );
+    for (const id of allCharacterIds) {
+      if (id !== characterId) {
+        await this.setPresence(id);
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    await this.setLive(characterId);
   }
 
   private async update(
@@ -111,20 +117,18 @@ export default class StudioSync {
     mode: PresenceMode,
     state: PresenceState
   ) {
-    const { error } = await supabase
-      .from("felencho_studio_presence")
-      .upsert(
-        {
-          studio_id: this.studioId,
-          character_id: characterId,
-          mode,
-          state,
-          updated_by: "studio-control",
-        },
-        {
-          onConflict: "studio_id,character_id",
-        }
-      );
+    const { error } = await supabase.from("felencho_studio_presence").upsert(
+      {
+        studio_id: this.studioId,
+        character_id: characterId,
+        mode,
+        state,
+        updated_by: "studio-control",
+      },
+      {
+        onConflict: "studio_id,character_id",
+      }
+    );
 
     if (error) {
       this.log(`Error actualizando ${characterId}: ${error.message}`);
@@ -153,9 +157,7 @@ export default class StudioSync {
       presenceController.sleep(status.character_id);
     }
 
-    this.log(
-      `Aplicado ${status.character_id}: ${status.mode}/${status.state}`
-    );
+    this.log(`Aplicado ${status.character_id}: ${status.mode}/${status.state}`);
   }
 
   private log(message: string) {
