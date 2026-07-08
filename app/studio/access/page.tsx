@@ -1,28 +1,38 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 export default function StudioAccessPage() {
   const [mode, setMode] = useState<"login" | "request">("login");
 
   return (
-    <div className="flex min-h-[70vh] items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b0b0c] px-4 text-white">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111214] p-8 shadow-2xl">
-        <h1 className="text-center text-3xl font-bold text-white">
-          Felencho Studio OS
-        </h1>
+        <div className="flex flex-col items-center">
+          <Image
+            src="/brand/lion/lion-icon.png"
+            alt="Felencho"
+            width={72}
+            height={72}
+            className="mb-4 rounded-xl"
+            priority
+          />
 
-        <p className="mt-3 text-center text-sm text-zinc-500">
-          Entrada privada autorizada solamente.
-        </p>
+          <h1 className="text-center text-3xl font-bold">
+            Felencho Studio OS
+          </h1>
+
+          <p className="mt-3 text-center text-sm text-zinc-500">
+            Entrada privada autorizada solamente.
+          </p>
+        </div>
 
         <div className="mt-6 grid grid-cols-2 rounded-xl bg-black p-1">
           <button
             onClick={() => setMode("login")}
             className={`rounded-lg py-2 text-sm font-bold ${
-              mode === "login"
-                ? "bg-cyan-500 text-black"
-                : "text-zinc-400"
+              mode === "login" ? "bg-cyan-500 text-black" : "text-zinc-400"
             }`}
           >
             Entrar
@@ -31,9 +41,7 @@ export default function StudioAccessPage() {
           <button
             onClick={() => setMode("request")}
             className={`rounded-lg py-2 text-sm font-bold ${
-              mode === "request"
-                ? "bg-cyan-500 text-black"
-                : "text-zinc-400"
+              mode === "request" ? "bg-cyan-500 text-black" : "text-zinc-400"
             }`}
           >
             Solicitar
