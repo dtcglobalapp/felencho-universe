@@ -5,115 +5,95 @@ export const metadata = {
   description: "Private Creative Operating System",
 };
 
-export default function StudioLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+const menuItems = [
+  ["🏠", "Home", "/studio"],
+  ["🎬", "Producer", "/studio/producer"],
+  ["🎙", "Podcast", "/studio/podcast"],
+  ["🎵", "Music", "/studio/music"],
+  ["🤖", "AI", "/studio/ai"],
+  ["👥", "Humans", "/studio/avatars"],
+  ["🎥", "Live", "/studio/live"],
+  ["📁", "Assets", "/studio/assets"],
+  ["🧠", "Core", "/studio/core"],
+  ["📊", "Analytics", "/studio/analytics"],
+  ["🔐", "Security", "/studio/security"],
+  ["⚙", "Settings", "/studio/settings"],
+];
+
+export default function StudioLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="flex h-screen bg-[#0b0b0c] text-white overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-72 shrink-0 border-r border-white/10 bg-[#111214]">
-        <div className="flex h-16 items-center border-b border-white/10 px-6">
-          <div>
-            <h1 className="text-lg font-bold tracking-wide">
-              Felencho Studio OS
-            </h1>
-            <p className="text-xs text-zinc-500">
-              Creative Operating System
-            </p>
-          </div>
-        </div>
+    <main className="min-h-screen bg-[#0b0b0c] text-white">
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-[#111214] lg:block">
+          <StudioBrand />
 
-        <nav className="p-4 space-y-2 text-sm">
+          <nav className="p-4 space-y-2 text-sm">
+            {menuItems.map(([icon, label, href]) => (
+              <a
+                key={href}
+                href={href}
+                className="flex items-center gap-3 rounded-lg px-4 py-3 transition hover:bg-white/10"
+              >
+                <span>{icon}</span>
+                <span>{label}</span>
+              </a>
+            ))}
+          </nav>
+        </aside>
 
-          <MenuItem title="🏠 Home" href="/studio" />
+        <section className="flex min-h-screen flex-1 flex-col">
+          <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#141517] px-4 sm:px-6">
+            <div>
+              <h2 className="text-base font-semibold sm:text-lg">
+                Felencho Studio OS
+              </h2>
+              <p className="hidden text-xs text-zinc-500 sm:block">
+                Private Creative Workspace
+              </p>
+            </div>
 
-          <MenuItem title="🎬 Producer" href="/studio/producer" />
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <div className="h-2 w-2 rounded-full bg-zinc-500" />
+              <span className="text-zinc-400">Sleeping</span>
+            </div>
+          </header>
 
-          <MenuItem title="🎙 Podcast" href="/studio/podcast" />
+          <nav className="flex gap-2 overflow-x-auto border-b border-white/10 bg-[#111214] px-3 py-3 lg:hidden">
+            {menuItems.map(([icon, label, href]) => (
+              <a
+                key={href}
+                href={href}
+                className="flex shrink-0 items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-300"
+              >
+                <span>{icon}</span>
+                <span>{label}</span>
+              </a>
+            ))}
+          </nav>
 
-          <MenuItem title="🎵 Music" href="/studio/music" />
-
-          <MenuItem title="🤖 AI" href="/studio/ai" />
-
-          <MenuItem title="👥 Virtual Humans" href="/studio/avatars" />
-
-          <MenuItem title="🎥 Live" href="/studio/live" />
-
-          <MenuItem title="📁 Assets" href="/studio/assets" />
-
-          <MenuItem title="🧠 Core" href="/studio/core" />
-
-          <MenuItem title="📊 Analytics" href="/studio/analytics" />
-
-          <MenuItem title="🔐 Security" href="/studio/security" />
-
-          <MenuItem title="⚙ Settings" href="/studio/settings" />
-
-        </nav>
-      </aside>
-
-      {/* Workspace */}
-      <section className="flex flex-1 flex-col">
-
-        {/* Top Bar */}
-        <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#141517] px-6">
-
-          <div>
-            <h2 className="text-lg font-semibold">
-              Workspace
-            </h2>
-
-            <p className="text-xs text-zinc-500">
-              Welcome to Felencho Studio OS
-            </p>
+          <div className="flex-1 overflow-auto bg-[#18191b] p-4 sm:p-6 lg:p-8">
+            {children}
           </div>
 
-          <div className="flex items-center gap-3">
-
-            <div className="h-2 w-2 rounded-full bg-green-500" />
-
-            <span className="text-sm text-zinc-400">
-              Bob Online
-            </span>
-
-          </div>
-
-        </header>
-
-        {/* Content */}
-        <div className="flex-1 overflow-auto bg-[#18191b] p-8">
-          {children}
-        </div>
-
-        {/* Status Bar */}
-        <footer className="flex h-8 items-center justify-between border-t border-white/10 bg-[#111214] px-4 text-xs text-zinc-500">
-
-          <span>Felencho Studio OS v1.0</span>
-
-          <span>Private Workspace</span>
-
-        </footer>
-
-      </section>
+          <footer className="flex h-8 items-center justify-between border-t border-white/10 bg-[#111214] px-3 text-[10px] text-zinc-500 sm:px-4 sm:text-xs">
+            <span>Studio OS v1.0</span>
+            <span>Private Workspace</span>
+          </footer>
+        </section>
+      </div>
     </main>
   );
 }
 
-function MenuItem({
-  title,
-  href,
-}: {
-  title: string;
-  href: string;
-}) {
+function StudioBrand() {
   return (
-    <a
-      href={href}
-      className="block rounded-lg px-4 py-3 transition hover:bg-white/10"
-    >
-      {title}
-    </a>
+    <div className="flex h-16 items-center border-b border-white/10 px-6">
+      <div>
+        <h1 className="text-lg font-bold tracking-wide">
+          Felencho Studio OS
+        </h1>
+        <p className="text-xs text-zinc-500">Creative Operating System</p>
+      </div>
+    </div>
   );
 }
