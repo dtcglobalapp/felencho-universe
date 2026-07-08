@@ -1,75 +1,137 @@
-"use client";
+export default function StudioHomePage() {
+  const modules = [
+    {
+      title: "Producer",
+      description: "Podcast, guiones y producción.",
+      color: "from-cyan-500 to-blue-600",
+    },
+    {
+      title: "Virtual Humans",
+      description: "Bob, Lina y Felencho Virtual.",
+      color: "from-green-500 to-emerald-600",
+    },
+    {
+      title: "Music",
+      description: "Canciones, álbumes y distribución.",
+      color: "from-pink-500 to-rose-600",
+    },
+    {
+      title: "Live",
+      description: "Streaming y control del estudio.",
+      color: "from-yellow-500 to-orange-600",
+    },
+  ];
 
-const screens = [
-  {
-    name: "Bob",
-    status: "Listo para prueba",
-    route: "/lumina/liveavatar-test",
-    description: "Bob conectado a LiveAvatar + Felencho Brain.",
-  },
-  {
-    name: "Lina",
-    status: "Pantalla temporal",
-    route: "/lumina",
-    description: "Lina estará aquí mientras conectamos su LiveAvatar.",
-  },
-  {
-    name: "Felencho Virtual",
-    status: "Gateway activo",
-    route: "/felencho-live/felencho",
-    description: "Felencho Virtual usando FelenchoGateway.",
-  },
-];
-
-export default function StudioPage() {
   return (
-    <main className="min-h-screen bg-black p-6 text-white">
-      <section className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-black via-slate-950 to-black p-8 text-center">
-          <h1 className="text-5xl font-black text-cyan-300">
-            Felencho Studio
-          </h1>
-          <p className="mt-3 text-gray-300">
-            Live control room for Bob, Lina and Felencho Virtual.
-          </p>
-        </header>
+    <div className="space-y-8">
+      {/* Header */}
 
-        <section className="grid gap-6 lg:grid-cols-3">
-          {screens.map((screen) => (
+      <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-[#0a0f1d] to-[#081018] p-8">
+
+        <h1 className="text-5xl font-bold text-cyan-300">
+          Bienvenido al Studio
+        </h1>
+
+        <p className="mt-3 max-w-2xl text-zinc-400">
+          Centro de operaciones de Felencho Studio OS.
+          Desde aquí administraremos producción,
+          inteligencia artificial, música,
+          podcast y transmisiones en vivo.
+        </p>
+
+      </div>
+
+      {/* Estado */}
+
+      <div className="grid gap-6 md:grid-cols-3">
+
+        <StatusCard
+          title="Bob"
+          value="Online"
+          color="bg-green-500"
+        />
+
+        <StatusCard
+          title="Lina"
+          value="Preparando conexión"
+          color="bg-yellow-500"
+        />
+
+        <StatusCard
+          title="Felencho Virtual"
+          value="Gateway activo"
+          color="bg-cyan-500"
+        />
+
+      </div>
+
+      {/* Módulos */}
+
+      <div>
+
+        <h2 className="mb-5 text-2xl font-semibold">
+          Workspace
+        </h2>
+
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+
+          {modules.map((module) => (
+
             <div
-              key={screen.name}
-              className="rounded-3xl border border-white/10 bg-zinc-950 p-5 shadow-2xl"
+              key={module.title}
+              className="rounded-2xl border border-white/10 bg-[#151618] p-6 transition hover:-translate-y-1 hover:border-cyan-400"
             >
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-yellow-300">
-                  {screen.name}
-                </h2>
-                <span className="rounded-full bg-green-500/20 px-3 py-1 text-sm text-green-300">
-                  {screen.status}
-                </span>
-              </div>
 
-              <div className="flex aspect-[9/16] items-center justify-center rounded-2xl border border-cyan-500/20 bg-black">
-                <div className="text-center">
-                  <p className="text-6xl">🎙️</p>
-                  <p className="mt-4 text-xl font-bold">{screen.name}</p>
-                  <p className="mt-2 px-6 text-sm text-gray-400">
-                    {screen.description}
-                  </p>
-                </div>
-              </div>
+              <div
+                className={`mb-6 h-3 w-20 rounded-full bg-gradient-to-r ${module.color}`}
+              />
 
-              <a
-                href={screen.route}
-                target="_blank"
-                className="mt-5 block rounded-xl bg-cyan-400 px-5 py-3 text-center font-bold text-black"
-              >
-                Abrir pantalla
-              </a>
+              <h3 className="text-xl font-bold">
+                {module.title}
+              </h3>
+
+              <p className="mt-3 text-sm text-zinc-500">
+                {module.description}
+              </p>
+
             </div>
+
           ))}
-        </section>
-      </section>
-    </main>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+function StatusCard({
+  title,
+  value,
+  color,
+}: {
+  title: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#141517] p-6">
+
+      <div className="flex items-center justify-between">
+
+        <h3 className="font-semibold">
+          {title}
+        </h3>
+
+        <div className={`h-3 w-3 rounded-full ${color}`} />
+
+      </div>
+
+      <p className="mt-6 text-2xl font-bold">
+        {value}
+      </p>
+
+    </div>
   );
 }
