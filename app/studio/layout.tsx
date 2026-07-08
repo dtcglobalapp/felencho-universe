@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 
 export const metadata = {
   title: "Felencho Studio OS",
@@ -43,13 +44,24 @@ export default function StudioLayout({ children }: { children: ReactNode }) {
 
         <section className="flex min-h-screen flex-1 flex-col">
           <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#141517] px-4 sm:px-6">
-            <div>
-              <h2 className="text-base font-semibold sm:text-lg">
-                Felencho Studio OS
-              </h2>
-              <p className="hidden text-xs text-zinc-500 sm:block">
-                Private Creative Workspace
-              </p>
+            <div className="flex items-center gap-3">
+              <Image
+                src="/brand/lion/lion-icon.png"
+                alt="Felencho"
+                width={34}
+                height={34}
+                className="rounded-md"
+                priority
+              />
+
+              <div>
+                <h2 className="text-base font-semibold sm:text-lg">
+                  Felencho Studio OS
+                </h2>
+                <p className="hidden text-xs text-zinc-500 sm:block">
+                  Private Creative Workspace
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -87,7 +99,16 @@ export default function StudioLayout({ children }: { children: ReactNode }) {
 
 function StudioBrand() {
   return (
-    <div className="flex h-16 items-center border-b border-white/10 px-6">
+    <div className="flex items-center gap-3 border-b border-white/10 p-5">
+      <Image
+        src="/brand/lion/lion-icon.png"
+        alt="Felencho"
+        width={48}
+        height={48}
+        className="rounded-lg"
+        priority
+      />
+
       <div>
         <h1 className="text-lg font-bold tracking-wide">
           Felencho Studio OS
