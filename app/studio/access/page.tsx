@@ -7,15 +7,15 @@ export default function StudioAccessPage() {
   const [mode, setMode] = useState<"login" | "request">("login");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b0b0c] px-4 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111214] p-8 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070708] px-4 text-white">
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111214]/95 p-8 shadow-2xl shadow-cyan-950/20">
         <div className="flex flex-col items-center">
           <Image
             src="/brand/lion/lion-icon.png"
-            alt="Felencho"
-            width={72}
-            height={72}
-            className="mb-4 rounded-xl"
+            alt="Felencho Studio OS"
+            width={100}
+            height={100}
+            className="mb-2 rounded-2xl"
             priority
           />
 
@@ -23,8 +23,12 @@ export default function StudioAccessPage() {
             Felencho Studio OS
           </h1>
 
+          <p className="mt-2 text-center text-xs uppercase tracking-[0.22em] text-cyan-400/80">
+            Creative Operating System
+          </p>
+
           <p className="mt-3 text-center text-sm text-zinc-500">
-            Entrada privada autorizada solamente.
+            Acceso privado para miembros autorizados.
           </p>
         </div>
 
@@ -44,7 +48,7 @@ export default function StudioAccessPage() {
               mode === "request" ? "bg-cyan-500 text-black" : "text-zinc-400"
             }`}
           >
-            Solicitar
+            Pedir acceso
           </button>
         </div>
 
@@ -67,9 +71,7 @@ function LoginForm() {
 
     const res = await fetch("/api/studio/access", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, code }),
     });
 
@@ -113,7 +115,7 @@ function LoginForm() {
         disabled={loading}
         className="w-full rounded-xl bg-cyan-500 px-4 py-3 font-bold text-black transition hover:bg-cyan-400 disabled:opacity-50"
       >
-        {loading ? "Verificando..." : "Entrar al Studio"}
+        {loading ? "Verificando..." : "Entrar al Sistema"}
       </button>
     </form>
   );
@@ -135,9 +137,7 @@ function RequestForm() {
 
     const res = await fetch("/api/studio/request-access", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fullName, email, reason }),
     });
 
@@ -198,7 +198,7 @@ function RequestForm() {
         disabled={loading}
         className="w-full rounded-xl bg-cyan-500 px-4 py-3 font-bold text-black transition hover:bg-cyan-400 disabled:opacity-50"
       >
-        {loading ? "Enviando..." : "Solicitar acceso"}
+        {loading ? "Enviando..." : "Enviar solicitud"}
       </button>
     </form>
   );
