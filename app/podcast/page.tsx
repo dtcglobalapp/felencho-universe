@@ -18,7 +18,7 @@ type Episode = {
 };
 
 export default async function PodcastPage() {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("podcast_episodes")
     .select("*")
     .in("status", ["published", "live"])
@@ -47,6 +47,18 @@ export default async function PodcastPage() {
             Studio OS
           </a>
         </header>
+
+        {error && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-300">
+            Error cargando episodios: {error.message}
+          </div>
+        )}
+
+        {!featured && !error && (
+          <div className="rounded-2xl border border-white/10 bg-[#111214] p-8 text-zinc-400">
+            No hay episodios publicados todavía.
+          </div>
+        )}
 
         {featured && (
           <section className="rounded-3xl border border-cyan-500/30 bg-[#101114] p-4 shadow-2xl shadow-cyan-950/20">
@@ -119,7 +131,6 @@ export default async function PodcastPage() {
                 >
                   <div className="mb-4 aspect-video overflow-hidden rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
                     {episode.thumbnail_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={episode.thumbnail_url}
                         alt={episode.title}
