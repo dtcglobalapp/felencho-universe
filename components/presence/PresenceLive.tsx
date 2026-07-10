@@ -34,7 +34,7 @@ export default function PresenceLive({
   useEffect(() => {
     let cancelled = false;
 
-    async function connectBob() {
+    async function connectAvatar() {
       if (character !== "bob") {
         setStatus(
           `${character} todavía no tiene su endpoint LiveAvatar conectado.`
@@ -45,20 +45,16 @@ export default function PresenceLive({
       try {
         setStatus("Solicitando sesión de Bob...");
 
-        const response = await fetch(
-          "/api/liveavatar/session-token",
-          {
-            method: "POST",
-            cache: "no-store",
-          }
-        );
+        const response = await fetch("/api/liveavatar/session-token", {
+          method: "POST",
+          cache: "no-store",
+        });
 
         const data = (await response.json()) as SessionResponse;
 
         if (!response.ok) {
           throw new Error(
-            data.error ||
-              "No se pudo crear la sesión LiveAvatar."
+            data.error || "No se pudo crear la sesión LiveAvatar."
           );
         }
 
@@ -127,9 +123,7 @@ export default function PresenceLive({
         });
 
         room.on(RoomEvent.MediaDevicesError, (deviceError) => {
-          setError(
-            `Error de micrófono: ${deviceError.message}`
-          );
+          setError(`Error de micrófono: ${deviceError.message}`);
         });
 
         setStatus("Conectando con LiveKit...");
@@ -163,7 +157,7 @@ export default function PresenceLive({
       }
     }
 
-    void connectBob();
+    void connectAvatar();
 
     return () => {
       cancelled = true;
