@@ -1,6 +1,6 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -19,9 +19,9 @@ function createToken() {
   return crypto.randomBytes(48).toString("hex");
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { email, code } = await req.json();
+    const { email, code } = await request.json();
 
     if (!email || !code) {
       return NextResponse.json(
@@ -42,12 +42,12 @@ export async function POST(req: Request) {
 
     if (inviteError || !invite) {
       return NextResponse.json(
-        { error: "Llave inválida." },
+        { error: "Llave inválida o inactiva." },
         { status: 401 }
       );
     }
 
-    if (new Date(invite.expires_at).getTime() < Date.now()) {
+    if (new Date(invite.expires_at).getTime() <= Date.now()) {
       return NextResponse.json(
         { error: "Esta llave ya expiró." },
         { status: 401 }
@@ -56,47 +56,74 @@ export async function POST(req: Request) {
 
     if (invite.used_count >= invite.max_uses) {
       return NextResponse.json(
-        { error: "Esta llave ya fue usada." },
+        { error: "Esta llave alcanzó su límite de usos." },
         { status: 401 }
       );
     }
 
-    if (invite.email && invite.email.toLowerCase() !== cleanEmail) {
+    if (
+      invite.email &&
+      String(invite.email).trim().toLowerCase() !== cleanEmail
+    ) {
       return NextResponse.json(
-        { error: "Este email no coincide con la invitación." },
+        { error: "El email no coincide con esta invitación." },
         { status: 401 }
       );
     }
 
-    await supabase.from("studio_members").upsert(
-      {
+    const { error: memberError } = await supabase
+      .from("studio_members")
+      .upsert(
+        {
+          email: cleanEmail,
+          role: invite.role,
+          is_active: true,
+        },
+        {
+          onConflict: "email",
+        }
+      );
+
+    if (memberError) {
+      return NextResponse.json(
+        { error: memberError.message },
+        { status: 500 }
+      );
+    }
+
+    const token = createToken();
+    const tokenHash = sha256(token);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    const { error: sessionError } = await supabase
+      .from("studio_access_sessions")
+      .insert({
+        session_token_hash: tokenHash,
+        invitation_id: invite.id,
         email: cleanEmail,
         role: invite.role,
+        expires_at: expiresAt.toISOString(),
         is_active: true,
-      },
-      { onConflict: "email" }
-    );
+      });
+
+    if (sessionError) {
+      return NextResponse.json(
+        { error: sessionError.message },
+        { status: 500 }
+      );
+    }
+
+    const nextUsedCount = invite.used_count + 1;
 
     await supabase
       .from("studio_invitations")
       .update({
-        used_count: invite.used_count + 1,
-        is_active: invite.used_count + 1 < invite.max_uses,
+        used_count: nextUsedCount,
+        is_active: nextUsedCount < invite.max_uses,
       })
       .eq("id", invite.id);
-
-    const token = createToken();
-    const tokenHash = sha256(token);
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 8);
-
-    await supabase.from("studio_access_sessions").insert({
-      session_token_hash: tokenHash,
-      invitation_id: invite.id,
-      email: cleanEmail,
-      role: invite.role,
-      expires_at: expiresAt.toISOString(),
-      is_active: true,
-    });
 
     await supabase.from("studio_access_logs").insert({
       email: cleanEmail,
@@ -104,13 +131,16 @@ export async function POST(req: Request) {
       action: "studio_access_granted",
     });
 
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json({
+      ok: true,
+      redirectTo: "/studio/podcast",
+    });
 
     response.cookies.set({
       name: COOKIE_NAME,
       value: token,
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       expires: expiresAt,
@@ -119,7 +149,7 @@ export async function POST(req: Request) {
     return response;
   } catch {
     return NextResponse.json(
-      { error: "Error interno validando acceso." },
+      { error: "Error interno validando el acceso." },
       { status: 500 }
     );
   }
