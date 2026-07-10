@@ -3,16 +3,15 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const COOKIE_NAME = "felencho_studio_session";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 function sha256(value: string) {
-  return crypto.createHash("sha256").update(value).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(value, "utf8")
+    .digest("hex");
 }
 
 function createToken() {
@@ -21,52 +20,127 @@ function createToken() {
 
 export async function POST(request: Request) {
   try {
-    const { email, code } = await request.json();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!email || !code) {
+    if (!supabaseUrl) {
+      return NextResponse.json(
+        {
+          error:
+            "Vercel no tiene configurada NEXT_PUBLIC_SUPABASE_URL.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        {
+          error:
+            "Vercel no tiene configurada SUPABASE_SERVICE_ROLE_KEY.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+
+    const body = await request.json();
+
+    const cleanEmail = String(body.email || "")
+      .trim()
+      .toLowerCase();
+
+    const cleanCode = String(body.code || "").trim();
+
+    if (!cleanEmail || !cleanCode) {
       return NextResponse.json(
         { error: "Email y llave requeridos." },
         { status: 400 }
       );
     }
 
-    const cleanEmail = String(email).trim().toLowerCase();
-    const codeHash = sha256(String(code).trim());
+    /*
+     * Primero buscamos por email.
+     * Así sabremos si Vercel está consultando la base de datos correcta.
+     */
+    const { data: invitations, error: invitationQueryError } =
+      await supabase
+        .from("studio_invitations")
+        .select(
+          "id,email,role,invite_code_hash,expires_at,max_uses,used_count,is_active"
+        )
+        .ilike("email", cleanEmail)
+        .order("created_at", { ascending: false });
 
-    const { data: invite, error: inviteError } = await supabase
-      .from("studio_invitations")
-      .select("*")
-      .eq("invite_code_hash", codeHash)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (inviteError || !invite) {
+    if (invitationQueryError) {
       return NextResponse.json(
-        { error: "Llave inválida o inactiva." },
+        {
+          error: `Supabase rechazó la consulta: ${invitationQueryError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!invitations || invitations.length === 0) {
+      let projectHost = "desconocido";
+
+      try {
+        projectHost = new URL(supabaseUrl).hostname;
+      } catch {
+        // Conserva el valor por defecto.
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            `No existe una invitación para ${cleanEmail} en el proyecto Supabase conectado por Vercel (${projectHost}).`,
+        },
+        { status: 401 }
+      );
+    }
+
+    const codeHash = sha256(cleanCode);
+
+    const invite = invitations.find(
+      (item) => item.invite_code_hash === codeHash
+    );
+
+    if (!invite) {
+      return NextResponse.json(
+        {
+          error:
+            "La invitación existe, pero la llave escrita no coincide con el hash guardado.",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!invite.is_active) {
+      return NextResponse.json(
+        { error: "La invitación existe, pero está inactiva." },
         { status: 401 }
       );
     }
 
     if (new Date(invite.expires_at).getTime() <= Date.now()) {
       return NextResponse.json(
-        { error: "Esta llave ya expiró." },
+        { error: "La invitación existe, pero ya expiró." },
         { status: 401 }
       );
     }
 
     if (invite.used_count >= invite.max_uses) {
       return NextResponse.json(
-        { error: "Esta llave alcanzó su límite de usos." },
-        { status: 401 }
-      );
-    }
-
-    if (
-      invite.email &&
-      String(invite.email).trim().toLowerCase() !== cleanEmail
-    ) {
-      return NextResponse.json(
-        { error: "El email no coincide con esta invitación." },
+        {
+          error:
+            "La invitación existe, pero alcanzó su límite de usos.",
+        },
         { status: 401 }
       );
     }
@@ -86,7 +160,9 @@ export async function POST(request: Request) {
 
     if (memberError) {
       return NextResponse.json(
-        { error: memberError.message },
+        {
+          error: `No se pudo crear o actualizar el miembro: ${memberError.message}`,
+        },
         { status: 500 }
       );
     }
@@ -110,20 +186,31 @@ export async function POST(request: Request) {
 
     if (sessionError) {
       return NextResponse.json(
-        { error: sessionError.message },
+        {
+          error: `No se pudo crear la sesión: ${sessionError.message}`,
+        },
         { status: 500 }
       );
     }
 
     const nextUsedCount = invite.used_count + 1;
 
-    await supabase
+    const { error: invitationUpdateError } = await supabase
       .from("studio_invitations")
       .update({
         used_count: nextUsedCount,
         is_active: nextUsedCount < invite.max_uses,
       })
       .eq("id", invite.id);
+
+    if (invitationUpdateError) {
+      return NextResponse.json(
+        {
+          error: `La sesión se creó, pero no se pudo actualizar la invitación: ${invitationUpdateError.message}`,
+        },
+        { status: 500 }
+      );
+    }
 
     await supabase.from("studio_access_logs").insert({
       email: cleanEmail,
@@ -147,9 +234,14 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error desconocido.";
+
     return NextResponse.json(
-      { error: "Error interno validando el acceso." },
+      {
+        error: `Error interno validando el acceso: ${message}`,
+      },
       { status: 500 }
     );
   }
