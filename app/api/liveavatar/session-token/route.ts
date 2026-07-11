@@ -49,6 +49,11 @@ export async function POST() {
 
     const tokenData = await tokenResponse.json();
 
+    console.log(
+      "LIVEAVATAR TOKEN DATA:",
+      JSON.stringify(tokenData, null, 2)
+    );
+
     if (!tokenResponse.ok) {
       return NextResponse.json(
         {
@@ -87,6 +92,11 @@ export async function POST() {
     );
 
     const startData = await startResponse.json();
+
+    console.log(
+      "LIVEAVATAR START DATA:",
+      JSON.stringify(startData, null, 2)
+    );
 
     if (!startResponse.ok) {
       return NextResponse.json(
@@ -138,6 +148,8 @@ export async function POST() {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error desconocido.";
+
+    console.error("LIVEAVATAR SESSION ERROR:", message);
 
     return NextResponse.json(
       {
