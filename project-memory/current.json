@@ -5,19 +5,20 @@
     "owner_name": "Felencho",
     "legal_name": "Martin F. Duran",
     "updated_at": "2026-07-11",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "purpose": "Memoria técnica persistente para continuar el proyecto entre chats sin perder arquitectura, decisiones, archivos, estado ni próximos pasos.",
     "absolute_rule": "Nunca rehacer, reemplazar, desmontar o rediseñar algo que ya funciona sin comprobar primero el estado real del proyecto."
   },
   "current_priority": {
-    "phase": "LiveAvatar Production Integration",
+    "phase": "Felencho Avatar Engine - Phase 0 Foundation",
     "priority_level": "URGENT",
-    "objective": "Producir contenido inmediatamente con Bob, Lina y Felencho Virtual desde el estudio físico.",
+    "objective": "Construir un motor propietario de avatares inteligentes para Bob, Lina y Felencho Virtual, comenzando por Bob y eliminando la dependencia operativa de LiveAvatar y HeyGen.",
     "focus_character": "bob",
     "do_not_open_other_modules": true,
-    "next_result": "Bob debe escuchar, responder, mover la boca y enviar todo el audio únicamente desde La Bestia hacia Rodecaster Pro II mientras la PC de la TV funciona solo como pantalla.",
+    "next_result": "Bob debe poder permanecer vivo visualmente, escuchar mediante La Bestia, responder con su voz, mover la boca de forma sincronizada y aparecer en su TV sin consumir créditos externos por minuto.",
     "credit_preservation_rule": "No iniciar sesiones LiveAvatar para pruebas de interfaz, depuración pasiva o experimentos no cronometrados.",
-    "strategic_parallel_track": "Diseñar progresivamente Felencho Avatar Engine como reemplazo visual propio, sin interrumpir la misión urgente de completar a Bob."
+    "strategic_parallel_track": "Diseñar progresivamente Felencho Avatar Engine como reemplazo visual propio, sin interrumpir la misión urgente de completar a Bob.",
+    "immediate_engine_goal": "Crear la base técnica de Felencho Avatar Engine dentro de felencho-universe usando TypeScript para orquestación, Python para procesamiento audiovisual y render local en las PCs de las TVs."
   },
   "operating_rules": [
     "Trabajar un solo objetivo a la vez.",
@@ -206,6 +207,36 @@
       "id": "DEC-014",
       "title": "Creación del Banco Visual Oficial",
       "decision": "Felencho Studio OS desarrollará una biblioteca audiovisual propia compuesta por material original, recursos licenciados de Storyblocks, creaciones con inteligencia artificial y colaboraciones autorizadas. Cada recurso deberá conservar procedencia, licencia, archivo fuente y proyectos donde fue utilizado."
+    },
+    {
+      "id": "DEC-015",
+      "title": "Felencho Avatar Engine es prioridad oficial",
+      "decision": "El desarrollo del motor propietario de avatares sustituye a LiveAvatar Production Integration como prioridad técnica urgente."
+    },
+    {
+      "id": "DEC-016",
+      "title": "HeyGen y LiveAvatar dejan de ser arquitectura principal",
+      "decision": "HeyGen y LiveAvatar se conservarán únicamente como referencia, respaldo excepcional y comparación visual. No se continuará dependiendo de su modelo de créditos para la producción diaria."
+    },
+    {
+      "id": "DEC-017",
+      "title": "Render local en las PCs de las TVs",
+      "decision": "La Bestia enviará estados, emociones, movimientos y visemas. Cada PC de personaje renderizará localmente su representación visual sin actuar como cerebro ni fuente principal de audio."
+    },
+    {
+      "id": "DEC-018",
+      "title": "Arquitectura híbrida TypeScript y Python",
+      "decision": "TypeScript y Next.js administrarán el control, las pantallas y los eventos; Python administrará procesamiento audiovisual, visemas y futuros modelos de inteligencia visual."
+    },
+    {
+      "id": "DEC-019",
+      "title": "Bob será el primer avatar propietario",
+      "decision": "Bob será construido y verificado completamente antes de copiar el patrón a Lina y Felencho Virtual."
+    },
+    {
+      "id": "DEC-020",
+      "title": "La producción no pagará por minuto de existencia visual",
+      "decision": "El motor debe permitir ensayos, pruebas y programas largos sin cargos externos por cada minuto que el personaje permanezca activo."
     }
   ],
   "current_files": {
@@ -289,7 +320,18 @@
     "No conectar cámaras independientes a Bob, Lina o Felencho Virtual.",
     "Crear Vision Engine después de completar la integración LiveAvatar de los tres personajes.",
     "Usar la visión para identificar quién habla y aportar contexto seguro a los avatares.",
-    "Coordinar en el futuro OBSBOT, cámaras PTZ y YoloBox desde Studio OS."
+    "Coordinar en el futuro OBSBOT, cámaras PTZ y YoloBox desde Studio OS.",
+    "Crear la estructura oficial avatar-engine dentro de felencho-universe.",
+    "Crear contratos de estados, eventos, visemas y emociones.",
+    "Crear bob.config.ts como primera definición de personaje.",
+    "Crear AvatarStateMachine.",
+    "Crear AvatarEventBus.",
+    "Crear pantalla local de Bob MVP.",
+    "Conectar estados sleeping, waking, listening, thinking y speaking.",
+    "Crear movimiento de boca basado inicialmente en amplitud de audio.",
+    "Mantener todo el audio únicamente en La Bestia.",
+    "No iniciar nuevas pruebas LiveAvatar durante esta fase.",
+    "Actualizar project-memory después de cada milestone verificado."
   ],
   "new_chat_instruction": {
     "mandatory": true,
@@ -418,11 +460,11 @@
   "studio_log": {
     "name": "Bitácora Oficial de Felencho Studio OS",
     "last_verified": "2026-07-11",
-    "current_phase": "LiveAvatar Production Integration",
-    "current_mission": "Completar a Bob antes de copiar el patrón a Lina y Felencho Virtual.",
-    "last_verified_milestone": "La memoria persistente del proyecto fue publicada correctamente en /api/project-memory.",
-    "next_mission": "Consolidar una sola sesión conversacional de Bob controlada por La Bestia, con audio hacia Rodecaster y representación visual en la TV.",
-    "strategic_note": "LiveAvatar será una tecnología puente. Se protegerán estrictamente los créditos mientras se diseña Felencho Avatar Engine como reemplazo visual progresivo.",
+    "current_phase": "Felencho Avatar Engine - Phase 0 Foundation",
+    "current_mission": "Crear la base técnica del motor propietario y construir primero el Bob MVP.",
+    "last_verified_milestone": "Se demostró que La Bestia puede enviar la imagen de Bob a la TV, pero el consumo de créditos confirmó que LiveAvatar no es sostenible como motor permanente.",
+    "next_mission": "Crear contratos, estados, configuración de Bob, motor de eventos y primer render local sin LiveAvatar.",
+    "strategic_note": "HeyGen y LiveAvatar quedan como referencia y respaldo, no como infraestructura principal.",
     "content_note": "El Libro Azul y el Banco Visual Oficial fueron creados sin cambiar la prioridad urgente de completar a Bob."
   },
   "history": [
@@ -440,10 +482,15 @@
       "date": "2026-07-11",
       "title": "LiveAvatar, Libro Azul y Banco Visual",
       "description": "LiveAvatar fue definido como tecnología puente debido al consumo de créditos. Se aprobó el futuro Felencho Avatar Engine, nació el Libro Azul de Felencho Mundial y se formalizó el Banco Visual Oficial con Storyblocks, producciones originales y recursos creados con inteligencia artificial."
+    },
+    {
+      "date": "2026-07-11",
+      "title": "Nacimiento oficial de Felencho Avatar Engine",
+      "description": "Después de verificar el alto consumo de créditos de LiveAvatar, se aprobó construir un motor propietario de avatares. Se definió una arquitectura híbrida con TypeScript, Python, render local, visemas, emociones y control central desde La Bestia."
     }
   ],
   "liveavatar_exit_strategy": {
-    "status": "approved",
+    "status": "approved_and_in_execution",
     "decision_date": "2026-07-11",
     "urgency": "high",
     "reason": "El consumo observado de créditos durante pruebas demuestra que LiveAvatar no es económicamente sostenible como motor permanente para producir conversaciones largas con Bob, Lina y Felencho Virtual.",
@@ -541,7 +588,12 @@
       "Sincronización facial y labial",
       "Video local hacia la TV del personaje"
     ],
-    "immediate_rule": "La misión actual continúa siendo completar a Bob. No comenzar una reconstrucción masiva del motor de avatares antes de terminar, medir y documentar la prueba actual."
+    "immediate_rule": "La misión actual continúa siendo completar a Bob. No comenzar una reconstrucción masiva del motor de avatares antes de terminar, medir y documentar la prueba actual.",
+    "operational_decision": "No continuar invirtiendo tiempo técnico ni créditos en convertir LiveAvatar en la arquitectura principal del estudio.",
+    "usage_status": "LiveAvatar y HeyGen quedan únicamente como referencia visual temporal, respaldo excepcional y herramienta comparativa.",
+    "no_more_blind_tests": true,
+    "replacement_project": "Felencho Avatar Engine",
+    "reason_update": "Una prueba breve redujo el saldo observado de 141 a 135.2 créditos, confirmando que el modelo de consumo no es sostenible para podcasts de larga duración, ensayos, producción diaria y múltiples personajes."
   },
   "podcast_blue_book": {
     "name": "Libro Azul de Felencho Mundial",
@@ -885,5 +937,441 @@
         "Respaldo local y en la nube"
       ]
     }
+  },
+  "felencho_avatar_engine_bible": {
+    "name": "La Biblia del Felencho Avatar Engine",
+    "acronym": "FAE",
+    "status": "approved",
+    "created_at": "2026-07-11",
+    "current_phase": "Phase 0 - Foundation",
+    "owner": "Felencho",
+    "ecosystem": "Felencho Studio OS / Felencho Forever / Felencho Mundial The Podcast",
+    "declaration": "Ningún personaje de Felencho Studio OS dependerá permanentemente de una plataforma externa para existir. Las plataformas externas podrán acelerar el desarrollo, pero la identidad, la inteligencia y la presencia de nuestros personajes pertenecerán siempre al ecosistema Felencho.",
+    "mission": "Construir un motor propietario, modular y escalable capaz de representar personajes digitales inteligentes en tiempo real, sincronizados con voz, emociones, memoria y contexto del estudio, sin consumo de créditos externos por minuto.",
+    "first_character": "Bob",
+    "future_characters": [
+      "Lina",
+      "Felencho Virtual",
+      "Invitados digitales autorizados",
+      "Personajes históricos",
+      "Personajes educativos",
+      "Personajes animados"
+    ],
+    "fundamental_problem": {
+      "description": "Los servicios comerciales de avatares cobran por sesión o por minuto, dificultando ensayos, pruebas, programas largos, producción continua y operación simultánea de varios personajes.",
+      "verified_observations": [
+        "LiveAvatar permitió demostrar movimiento labial y video en tiempo real.",
+        "La TV pudo funcionar como visor de una sesión controlada desde La Bestia.",
+        "La prueba breve consumió una cantidad de créditos desproporcionada para un estudio de producción continua.",
+        "El costo crecería rápidamente al operar Bob, Lina y Felencho Virtual durante programas largos.",
+        "La dependencia externa limita la libertad técnica y comercial del proyecto."
+      ]
+    },
+    "strategic_decision": "Felencho Avatar Engine sustituirá progresivamente la capa visual y de sincronización facial actualmente proporcionada por LiveAvatar. El cerebro, la memoria, las voces, el Gateway, Presence, Realtime y la arquitectura de audio permanecerán independientes y reutilizables.",
+    "non_destructive_rule": "No borrar las integraciones anteriores. Se conservarán como referencia, respaldo y evidencia histórica, pero el nuevo desarrollo se realizará en módulos separados.",
+    "ownership_principles": [
+      "Los personajes pertenecen al ecosistema Felencho.",
+      "Los archivos fuente deben conservarse.",
+      "Los componentes deben poder sustituirse sin reconstruir todo el sistema.",
+      "Ningún proveedor externo debe controlar la existencia del personaje.",
+      "El sistema debe poder operar localmente durante horas.",
+      "La producción real tiene prioridad sobre una perfección visual prematura.",
+      "Cada avance debe acercar al primer episodio completo."
+    ],
+    "studio_rules": [
+      "La Bestia continúa siendo el único cerebro del estudio.",
+      "La Bestia continúa siendo la única fuente principal de audio hacia Rodecaster Pro II.",
+      "Las PCs conectadas a las TVs continúan siendo pantallas visuales.",
+      "Las PCs de las TVs no deben abrir micrófonos conversacionales independientes.",
+      "Las PCs de las TVs no deben ejecutar modelos de lenguaje independientes.",
+      "Las TVs no reproducirán el audio principal de los avatares.",
+      "La visión central seguirá perteneciendo a La Bestia.",
+      "Bob se completará antes de copiar el patrón a Lina."
+    ],
+    "design_philosophy": {
+      "principle": "No copiar HeyGen. Construir un motor diseñado específicamente para un estudio audiovisual con varios personajes.",
+      "difference": {
+        "commercial_avatar_services": "Un navegador, una sesión, un avatar completo administrado por un proveedor.",
+        "felencho_avatar_engine": "Un cerebro central, múltiples personajes modulares, render local, control del estudio y costos previsibles."
+      }
+    },
+    "technical_stack": {
+      "development_environment": "VS Code",
+      "repository": "felencho-universe",
+      "control_plane": {
+        "language": "TypeScript",
+        "framework": "Next.js",
+        "responsibilities": [
+          "Estados de personajes",
+          "Rutas de las pantallas",
+          "Studio Director",
+          "Presence Controller",
+          "Eventos de conversación",
+          "Sincronización entre computadoras",
+          "Paneles de prueba",
+          "Telemetría",
+          "Registro de sesiones"
+        ]
+      },
+      "engine_runtime": {
+        "language": "Python",
+        "initial_framework": "FastAPI",
+        "responsibilities": [
+          "Análisis de audio",
+          "Detección de amplitud",
+          "Extracción de fonemas",
+          "Generación de visemas",
+          "Cálculo de expresiones",
+          "Procesamiento de modelos visuales futuros",
+          "Servicios locales de IA"
+        ]
+      },
+      "display_runtime": {
+        "initial_technology": "Next.js client components, Canvas, CSS, WebGL or equivalent browser rendering",
+        "responsibilities": [
+          "Renderizar al personaje localmente",
+          "Reproducir respiración",
+          "Parpadear",
+          "Mover cabeza y ojos",
+          "Cambiar boca según visemas",
+          "Mostrar emociones",
+          "Cambiar entre sleeping, waking, listening, thinking y speaking"
+        ]
+      },
+      "realtime_transport": {
+        "phase_1": "Supabase Realtime para estados, comandos y sincronización inicial",
+        "phase_2": "WebSocket local dedicado para menor latencia",
+        "phase_3": "WebRTC cuando sea necesario transmitir medios o datos de alta frecuencia"
+      },
+      "audio": {
+        "master": "La Bestia",
+        "primary_output": "Rodecaster Pro II",
+        "current_voice_provider": "ElevenLabs",
+        "future_rule": "El proveedor de voz debe poder cambiarse sin modificar el motor visual."
+      },
+      "media_tools": [
+        "FFmpeg",
+        "Web Audio API",
+        "Canvas",
+        "WebGL",
+        "Python audio processing",
+        "Modelos locales o abiertos cuando sean útiles"
+      ]
+    },
+    "core_architecture": {
+      "flow": [
+        "Felencho habla al micrófono",
+        "La Bestia reconoce la voz",
+        "Wake word identifica el personaje",
+        "Felencho Gateway prepara la consulta",
+        "Felencho Forever Brain genera la respuesta",
+        "El proveedor de voz genera el audio",
+        "La Bestia reproduce el audio hacia Rodecaster",
+        "Lip Sync Engine analiza el audio",
+        "Viseme Timeline genera movimientos de boca",
+        "Emotion Engine decide expresión y comportamiento",
+        "Avatar State Bus transmite estados y visemas",
+        "La PC del personaje renderiza localmente",
+        "La TV muestra al personaje sincronizado"
+      ],
+      "major_advantage": "La TV no necesita recibir video continuo. Recibe estados pequeños, tiempos y visemas, y genera la representación visual localmente."
+    },
+    "modules": {
+      "avatar_director": {
+        "name": "Avatar Director",
+        "responsibility": "Coordinar qué personaje duerme, escucha, piensa, habla, reacciona o interrumpe.",
+        "inputs": [
+          "Wake words",
+          "Studio Director",
+          "Felencho Gateway",
+          "Vision Engine",
+          "Eventos manuales"
+        ],
+        "outputs": [
+          "Estado del personaje",
+          "Prioridad de turno",
+          "Emoción",
+          "Comandos visuales"
+        ]
+      },
+      "character_runtime": {
+        "name": "Character Runtime",
+        "responsibility": "Mantener la identidad visual y conductual de cada personaje.",
+        "character_data": [
+          "Nombre",
+          "Personalidad",
+          "Voz",
+          "Modelo visual",
+          "Movimientos permitidos",
+          "Expresiones",
+          "Reglas de participación",
+          "Paleta visual"
+        ]
+      },
+      "lip_sync_engine": {
+        "name": "Lip Sync Engine",
+        "responsibility": "Convertir el audio hablado en una línea temporal de visemas.",
+        "initial_capabilities": [
+          "Detectar inicio y final del habla",
+          "Calcular apertura de boca",
+          "Generar movimientos simples de mandíbula",
+          "Sincronizar animación con audio"
+        ],
+        "advanced_capabilities": [
+          "Fonemas reales",
+          "Visemas por idioma",
+          "Coarticulación",
+          "Movimiento de labios",
+          "Movimiento de lengua",
+          "Expresividad según intensidad"
+        ]
+      },
+      "emotion_engine": {
+        "name": "Emotion Engine",
+        "responsibility": "Traducir intención, texto, voz y contexto en comportamiento visual.",
+        "emotions": [
+          "neutral",
+          "happy",
+          "serious",
+          "concerned",
+          "surprised",
+          "thinking",
+          "amused",
+          "sad",
+          "inspired"
+        ]
+      },
+      "motion_engine": {
+        "name": "Motion Engine",
+        "responsibility": "Generar respiración, parpadeo, ojos, cabeza, postura y movimientos naturales.",
+        "rules": [
+          "Evitar ciclos mecánicos obvios.",
+          "Usar variaciones de tiempo.",
+          "No mover todo simultáneamente.",
+          "Permitir pausas naturales.",
+          "Responder a emociones y conversación."
+        ]
+      },
+      "render_engine": {
+        "name": "Render Engine",
+        "responsibility": "Dibujar al personaje en tiempo real usando recursos locales.",
+        "initial_render_mode": "Avatar 2D o 2.5D compuesto por capas, videos, imágenes, máscaras y estados.",
+        "future_render_modes": [
+          "Rostro neuronal en tiempo real",
+          "Modelo 3D",
+          "MetaHuman o equivalente",
+          "Motor Unity",
+          "Motor Unreal",
+          "Render híbrido"
+        ]
+      },
+      "avatar_state_bus": {
+        "name": "Avatar State Bus",
+        "responsibility": "Transportar estados y eventos entre La Bestia y las PCs de las TVs.",
+        "event_examples": [
+          "presence.sleeping",
+          "live.waking",
+          "live.listening",
+          "live.thinking",
+          "live.speaking",
+          "emotion.serious",
+          "emotion.happy",
+          "viseme.A",
+          "viseme.O",
+          "viseme.M",
+          "blink",
+          "look.left",
+          "look.right",
+          "head.nod"
+        ]
+      },
+      "asset_manager": {
+        "name": "Avatar Asset Manager",
+        "responsibility": "Organizar imágenes, videos, capas faciales, fondos, sonidos, licencias y archivos fuente.",
+        "integration": "Se conectará en el futuro con el Banco Visual Oficial de Felencho Studio OS."
+      },
+      "telemetry": {
+        "name": "Avatar Telemetry",
+        "responsibility": "Medir latencia, errores, sincronización, estados y duración de las sesiones.",
+        "metrics": [
+          "Tiempo desde texto hasta audio",
+          "Tiempo desde audio hasta primer visema",
+          "Latencia entre La Bestia y TV",
+          "Desfase labial",
+          "Frames por segundo",
+          "Reconexiones",
+          "Errores"
+        ]
+      }
+    },
+    "character_state_machine": {
+      "states": [
+        "sleeping",
+        "waking",
+        "idle",
+        "listening",
+        "thinking",
+        "speaking",
+        "reacting",
+        "interrupting",
+        "returning_to_presence",
+        "error"
+      ],
+      "required_transitions": [
+        "sleeping -> waking",
+        "waking -> listening",
+        "listening -> thinking",
+        "thinking -> speaking",
+        "speaking -> listening",
+        "speaking -> reacting",
+        "reacting -> listening",
+        "listening -> returning_to_presence",
+        "returning_to_presence -> sleeping"
+      ]
+    },
+    "development_phases": {
+      "phase_0": {
+        "name": "Foundation",
+        "status": "active",
+        "objectives": [
+          "Crear la carpeta oficial avatar-engine.",
+          "Definir contratos TypeScript.",
+          "Definir estados y eventos.",
+          "Crear configuración de Bob.",
+          "Crear servidor local inicial.",
+          "Crear pantalla de diagnóstico.",
+          "No usar LiveAvatar."
+        ]
+      },
+      "phase_1": {
+        "name": "Bob Visual Prototype",
+        "objectives": [
+          "Bob respira.",
+          "Bob parpadea.",
+          "Bob mira al frente.",
+          "Bob cambia entre sleeping, listening, thinking y speaking.",
+          "Bob abre la boca según la amplitud de audio.",
+          "Bob funciona durante horas sin créditos externos."
+        ]
+      },
+      "phase_2": {
+        "name": "Bob Lip Sync",
+        "objectives": [
+          "Generar visemas.",
+          "Sincronizar labios con ElevenLabs.",
+          "Medir desfase.",
+          "Ajustar movimiento de mandíbula.",
+          "Soportar español e inglés."
+        ]
+      },
+      "phase_3": {
+        "name": "Bob Emotion and Presence",
+        "objectives": [
+          "Añadir expresiones.",
+          "Añadir movimientos naturales.",
+          "Añadir reacciones.",
+          "Conectar Vision Engine.",
+          "Responder a quién habla."
+        ]
+      },
+      "phase_4": {
+        "name": "Lina Integration",
+        "objectives": [
+          "Copiar el motor probado.",
+          "Aplicar identidad visual de Lina.",
+          "Aplicar voz y personalidad.",
+          "Ajustar movimientos femeninos y elegantes."
+        ]
+      },
+      "phase_5": {
+        "name": "Felencho Virtual Integration",
+        "objectives": [
+          "Aplicar identidad de Felencho.",
+          "Hablar siempre en primera persona.",
+          "Respetar reglas de participación.",
+          "Integrar rostro y gestos propios."
+        ]
+      },
+      "phase_6": {
+        "name": "Production Engine",
+        "objectives": [
+          "Operar los tres personajes.",
+          "Coordinar turnos.",
+          "Integrar cámaras.",
+          "Integrar YoloBox.",
+          "Grabar el primer episodio completo."
+        ]
+      },
+      "phase_7": {
+        "name": "Commercial Platform",
+        "objectives": [
+          "Permitir nuevos personajes.",
+          "Crear perfiles de avatar.",
+          "Empaquetar el motor.",
+          "Evaluar uso comercial.",
+          "Ofrecer tecnología a otros creadores."
+        ]
+      }
+    },
+    "bob_minimum_viable_avatar": {
+      "name": "Bob MVP",
+      "success_definition": "Bob aparece en su TV, permanece visualmente vivo, despierta por comando, escucha mediante La Bestia, responde con su voz, mueve la boca durante el audio y vuelve a dormir sin consumir créditos externos.",
+      "required_visual_assets": [
+        "Imagen maestra de Bob",
+        "Fondo oficial",
+        "Boca cerrada",
+        "Boca parcialmente abierta",
+        "Boca abierta",
+        "Parpadeo",
+        "Respiración",
+        "Movimiento sutil de cabeza"
+      ],
+      "first_test_phrase": "Hola Felencho. Estoy vivo dentro de nuestro propio motor."
+    },
+    "folder_plan": [
+      "avatar-engine/",
+      "avatar-engine/contracts/",
+      "avatar-engine/characters/",
+      "avatar-engine/runtime/",
+      "avatar-engine/server/",
+      "avatar-engine/lipsync/",
+      "avatar-engine/emotions/",
+      "avatar-engine/motion/",
+      "avatar-engine/render/",
+      "avatar-engine/telemetry/",
+      "avatar-engine/tests/",
+      "public/avatar-engine/bob/",
+      "app/avatar-engine/",
+      "app/avatar-engine/bob/",
+      "app/avatar-engine/diagnostics/"
+    ],
+    "first_files_planned": [
+      "avatar-engine/contracts/avatar-events.ts",
+      "avatar-engine/contracts/avatar-states.ts",
+      "avatar-engine/characters/bob.config.ts",
+      "avatar-engine/runtime/AvatarRuntime.ts",
+      "avatar-engine/runtime/AvatarStateMachine.ts",
+      "avatar-engine/runtime/AvatarEventBus.ts",
+      "components/avatar-engine/BobAvatar.tsx",
+      "app/avatar-engine/bob/page.tsx",
+      "app/avatar-engine/diagnostics/page.tsx"
+    ],
+    "testing_rules": [
+      "No usar créditos LiveAvatar.",
+      "Probar una función a la vez.",
+      "Conservar Presence funcionando.",
+      "No alterar Studio Listener.",
+      "No alterar Felencho Gateway.",
+      "No alterar el audio hacia Rodecaster.",
+      "Medir latencia antes de optimizar.",
+      "Registrar cada milestone verificado."
+    ],
+    "definition_of_done": {
+      "bob": "Bob puede participar en un episodio completo sin HeyGen ni LiveAvatar.",
+      "lina": "Lina puede participar usando el mismo motor sin duplicar arquitectura.",
+      "felencho_virtual": "Felencho Virtual puede participar bajo sus reglas de identidad.",
+      "studio": "El sistema puede operar durante horas con costos previsibles y sin cargos por minuto de render visual."
+    },
+    "long_term_vision": "Felencho Avatar Engine será una plataforma propia de personajes inteligentes para estudios, educación, música, entretenimiento, museos digitales, transmisiones y experiencias interactivas."
   }
 }
