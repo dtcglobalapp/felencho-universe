@@ -1,24 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Room,
-  RoomEvent,
-  Track,
-  type RemoteParticipant,
-  type RemoteTrack,
-  type RemoteTrackPublication,
-} from "livekit-client";
+  AgentEventsEnum,
+  LiveAvatarSession,
+  SessionEvent,
+  SessionState,
+  VoiceChatEvent,
+  VoiceChatState,
+} from "@heygen/liveavatar-web-sdk";
 
 type PresenceLiveProps = {
   character: string;
 };
 
-type SessionResponse = {
+type TokenResponse = {
   success?: boolean;
-  sessionId?: string;
-  livekitUrl?: string;
-  livekitClientToken?: string;
+  sessionToken?: string;
   error?: string;
   details?: unknown;
 };
@@ -26,126 +24,54 @@ type SessionResponse = {
 export default function PresenceLive({
   character,
 }: PresenceLiveProps) {
-  const roomRef = useRef<Room | null>(null);
-  const mediaRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const sessionRef = useRef<LiveAvatarSession | null>(null);
 
-  const [status, setStatus] = useState("Preparando conexión...");
+  const [status, setStatus] = useState("Preparando LiveAvatar...");
   const [error, setError] = useState("");
   const [needsActivation, setNeedsActivation] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const [userTalking, setUserTalking] = useState(false);
+  const [avatarTalking, setAvatarTalking] = useState(false);
 
-  const attachTrack = useCallback(
-    (
-      track: RemoteTrack,
-      _publication?: RemoteTrackPublication,
-      participant?: RemoteParticipant
-    ) => {
-      const container = mediaRef.current;
+  async function activateVoice() {
+    const session = sessionRef.current;
 
-      if (!container) return;
-
-      if (
-        track.kind !== Track.Kind.Video &&
-        track.kind !== Track.Kind.Audio
-      ) {
-        return;
-      }
-
-      const alreadyAttached = container.querySelector(
-        `[data-track-sid="${track.sid || ""}"]`
-      );
-
-      if (alreadyAttached) return;
-
-      const element = track.attach();
-
-      element.dataset.trackSid = track.sid || "";
-      element.dataset.participant = participant?.identity || "remote";
-
-      if (element instanceof HTMLVideoElement) {
-        element.autoplay = true;
-        element.playsInline = true;
-        element.muted = false;
-        element.style.position = "absolute";
-        element.style.inset = "0";
-        element.style.width = "100%";
-        element.style.height = "100%";
-        element.style.objectFit = "cover";
-        element.style.background = "#000";
-      }
-
-      if (element instanceof HTMLAudioElement) {
-        element.autoplay = true;
-        element.style.display = "none";
-      }
-
-      container.appendChild(element);
-
-      setStatus(
-        track.kind === Track.Kind.Video
-          ? "Video de Bob conectado"
-          : "Audio de Bob conectado"
-      );
-    },
-    []
-  );
-
-  const attachExistingTracks = useCallback(() => {
-    const room = roomRef.current;
-
-    if (!room) return;
-
-    room.remoteParticipants.forEach((participant) => {
-      participant.trackPublications.forEach((publication) => {
-        if (publication.track) {
-          attachTrack(
-            publication.track,
-            publication,
-            participant
-          );
-        }
-      });
-    });
-  }, [attachTrack]);
-
-  const activateAudioAndMicrophone = useCallback(async () => {
-    const room = roomRef.current;
-
-    if (!room) return;
+    if (!session) return;
 
     try {
       setError("");
-      setStatus("Activando audio y micrófono...");
+      setStatus("Activando conversación...");
 
-      await room.startAudio();
-      await room.localParticipant.setMicrophoneEnabled(true);
+      if (session.voiceChat.state === VoiceChatState.INACTIVE) {
+        await session.voiceChat.start();
+      }
 
-      attachExistingTracks();
+      await session.voiceChat.unmute();
 
       setNeedsActivation(false);
       setStatus("Bob está escuchando");
-    } catch (activationError) {
+    } catch (voiceError) {
       const message =
-        activationError instanceof Error
-          ? activationError.message
-          : "No se pudo activar el micrófono.";
+        voiceError instanceof Error
+          ? voiceError.message
+          : "No se pudo activar la conversación.";
 
       setError(message);
       setNeedsActivation(true);
     }
-  }, [attachExistingTracks]);
+  }
 
   useEffect(() => {
     if (character !== "bob") {
-      setStatus(`${character} todavía no está conectado a LiveAvatar.`);
+      setStatus(`${character} todavía no está conectado.`);
       return;
     }
 
     let cancelled = false;
 
-    async function connect() {
+    async function startBob() {
       try {
-        setStatus("Creando sesión de Bob...");
+        setStatus("Solicitando token de Bob...");
 
         const response = await fetch(
           "/api/liveavatar/session-token",
@@ -155,122 +81,149 @@ export default function PresenceLive({
           }
         );
 
-        const data = (await response.json()) as SessionResponse;
+        const data = (await response.json()) as TokenResponse;
 
-        if (!response.ok) {
+        if (!response.ok || !data.sessionToken) {
           throw new Error(
             data.error ||
               JSON.stringify(data.details) ||
-              "LiveAvatar rechazó la sesión."
-          );
-        }
-
-        if (!data.livekitUrl || !data.livekitClientToken) {
-          throw new Error(
-            "Faltan las credenciales de LiveKit."
+              "No se recibió el token de LiveAvatar."
           );
         }
 
         if (cancelled) return;
 
-        const room = new Room({
-          adaptiveStream: true,
-          dynacast: true,
-        });
-
-        roomRef.current = room;
-
-        room.on(
-          RoomEvent.TrackSubscribed,
-          (
-            track,
-            publication,
-            participant
-          ) => {
-            attachTrack(track, publication, participant);
-          }
-        );
-
-        room.on(RoomEvent.ParticipantConnected, (participant) => {
-          setStatus(`Conectado: ${participant.identity}`);
-        });
-
-        room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
-          if (!room.canPlaybackAudio) {
-            setNeedsActivation(true);
-            setStatus("Pulsa para activar el audio");
-          }
-        });
-
-        room.on(RoomEvent.Disconnected, () => {
-          setConnected(false);
-          setStatus("Sesión desconectada");
-        });
-
-        setStatus("Entrando a la sala LiveKit...");
-
-        await room.connect(
-          data.livekitUrl,
-          data.livekitClientToken,
+        const session = new LiveAvatarSession(
+          data.sessionToken,
           {
-            autoSubscribe: true,
+            voiceChat: true,
           }
         );
+
+        sessionRef.current = session;
+
+        session.on(
+          SessionEvent.SESSION_STATE_CHANGED,
+          (state) => {
+            setStatus(`Estado: ${String(state)}`);
+          }
+        );
+
+        session.on(
+          SessionEvent.SESSION_STREAM_READY,
+          () => {
+            if (videoRef.current) {
+              session.attach(videoRef.current);
+            }
+
+            setStatus("Video conectado. Activando voz...");
+          }
+        );
+
+        session.voiceChat.on(
+          VoiceChatEvent.STATE_CHANGED,
+          (state) => {
+            if (state === VoiceChatState.ACTIVE) {
+              setStatus("Bob está escuchando");
+            }
+          }
+        );
+
+        session.voiceChat.on(VoiceChatEvent.MUTED, () => {
+          setNeedsActivation(true);
+          setStatus("Micrófono silenciado");
+        });
+
+        session.voiceChat.on(VoiceChatEvent.UNMUTED, () => {
+          setNeedsActivation(false);
+          setStatus("Bob está escuchando");
+        });
+
+        session.on(
+          AgentEventsEnum.USER_SPEAK_STARTED,
+          () => {
+            setUserTalking(true);
+            setStatus("Bob te está escuchando...");
+          }
+        );
+
+        session.on(
+          AgentEventsEnum.USER_SPEAK_ENDED,
+          () => {
+            setUserTalking(false);
+            setStatus("Bob está pensando...");
+          }
+        );
+
+        session.on(
+          AgentEventsEnum.AVATAR_SPEAK_STARTED,
+          () => {
+            setAvatarTalking(true);
+            setStatus("Bob está hablando");
+          }
+        );
+
+        session.on(
+          AgentEventsEnum.AVATAR_SPEAK_ENDED,
+          () => {
+            setAvatarTalking(false);
+            setStatus("Bob está escuchando");
+          }
+        );
+
+        setStatus("Iniciando sesión oficial...");
+
+        await session.start();
 
         if (cancelled) {
-          await room.disconnect();
+          await session.stop();
           return;
         }
 
-        setConnected(true);
-        setStatus("Esperando a Bob...");
+        if (session.state !== SessionState.CONNECTED) {
+          setStatus(`Sesión: ${String(session.state)}`);
+        }
 
-        attachExistingTracks();
+        if (videoRef.current) {
+          session.attach(videoRef.current);
+        }
 
         try {
-          await room.localParticipant.setMicrophoneEnabled(true);
-          setStatus("Micrófono activo. Esperando a Bob...");
+          await session.voiceChat.start();
+          await session.voiceChat.unmute();
+
+          setNeedsActivation(false);
+          setStatus("Bob está escuchando");
         } catch {
           setNeedsActivation(true);
           setStatus("Pulsa para activar audio y micrófono");
         }
-
-        window.setTimeout(() => {
-          attachExistingTracks();
-        }, 1500);
-
-        window.setTimeout(() => {
-          attachExistingTracks();
-        }, 4000);
-      } catch (connectionError) {
+      } catch (startError) {
         const message =
-          connectionError instanceof Error
-            ? connectionError.message
-            : "Error desconocido.";
+          startError instanceof Error
+            ? startError.message
+            : "Error desconocido iniciando a Bob.";
 
         setError(message);
-        setStatus("No se pudo conectar");
+        setStatus("No se pudo iniciar a Bob");
       }
     }
 
-    void connect();
+    void startBob();
 
     return () => {
       cancelled = true;
 
-      const room = roomRef.current;
+      const session = sessionRef.current;
 
-      if (room) {
-        room.removeAllListeners();
-        void room.disconnect();
-        roomRef.current = null;
+      if (session) {
+        session.removeAllListeners();
+        session.voiceChat.removeAllListeners();
+        void session.stop();
+        sessionRef.current = null;
       }
-
-      mediaRef.current
-        ?.querySelectorAll("video, audio")
-        .forEach((element) => element.remove());
     };
-  }, [attachExistingTracks, attachTrack, character]);
+  }, [character]);
 
   return (
     <main
@@ -282,11 +235,17 @@ export default function PresenceLive({
         background: "#000",
       }}
     >
-      <div
-        ref={mediaRef}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        controls={false}
         style={{
           position: "absolute",
           inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
           background: "#000",
         }}
       />
@@ -294,17 +253,17 @@ export default function PresenceLive({
       {needsActivation && (
         <button
           type="button"
-          onClick={activateAudioAndMicrophone}
+          onClick={activateVoice}
           style={{
             position: "absolute",
             inset: 0,
             zIndex: 30,
+            width: 300,
+            height: 68,
             margin: "auto",
-            width: 280,
-            height: 64,
-            border: "1px solid rgba(34,211,238,.5)",
+            border: "1px solid rgba(34,211,238,.55)",
             borderRadius: 16,
-            background: "rgba(8,15,20,.92)",
+            background: "rgba(5,12,18,.94)",
             color: "#67e8f9",
             fontSize: 16,
             fontWeight: 800,
@@ -322,9 +281,9 @@ export default function PresenceLive({
           bottom: 18,
           zIndex: 40,
           maxWidth: "calc(100vw - 36px)",
-          border: "1px solid rgba(34,211,238,.25)",
+          border: "1px solid rgba(34,211,238,.3)",
           borderRadius: 12,
-          background: "rgba(0,0,0,.78)",
+          background: "rgba(0,0,0,.8)",
           padding: "10px 14px",
           color: error ? "#fca5a5" : "#67e8f9",
           fontFamily: "Arial, sans-serif",
@@ -332,13 +291,20 @@ export default function PresenceLive({
         }}
       >
         <strong>BOB</strong>
+
         <span style={{ marginLeft: 10 }}>
           {error || status}
         </span>
 
-        {connected && !error && (
-          <span style={{ marginLeft: 10, color: "#86efac" }}>
-            ● conectado
+        {userTalking && (
+          <span style={{ marginLeft: 10, color: "#93c5fd" }}>
+            ● Tú hablando
+          </span>
+        )}
+
+        {avatarTalking && (
+          <span style={{ marginLeft: 10, color: "#c4b5fd" }}>
+            ● Bob hablando
           </span>
         )}
       </div>

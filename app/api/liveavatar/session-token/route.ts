@@ -20,7 +20,7 @@ export async function POST() {
       );
     }
 
-    const tokenResponse = await fetch(
+    const response = await fetch(
       "https://api.liveavatar.com/v1/sessions/token",
       {
         method: "POST",
@@ -47,91 +47,29 @@ export async function POST() {
       }
     );
 
-    const tokenData = await tokenResponse.json();
+    const data = await response.json();
 
-    console.log(
-      "LIVEAVATAR TOKEN DATA:",
-      JSON.stringify(tokenData, null, 2)
-    );
-
-    if (!tokenResponse.ok) {
+    if (!response.ok) {
       return NextResponse.json(
         {
           error: "LiveAvatar rechazó la creación del token.",
-          details: tokenData,
+          details: data,
         },
-        { status: tokenResponse.status }
+        { status: response.status }
       );
     }
 
     const sessionToken =
-      tokenData?.data?.session_token ??
-      tokenData?.session_token ??
-      tokenData?.token ??
-      tokenData?.access_token;
+      data?.data?.session_token ??
+      data?.session_token ??
+      data?.token ??
+      data?.access_token;
 
     if (!sessionToken) {
       return NextResponse.json(
         {
           error: "LiveAvatar no devolvió session_token.",
-          details: tokenData,
-        },
-        { status: 500 }
-      );
-    }
-
-    const startResponse = await fetch(
-      "https://api.liveavatar.com/v1/sessions/start",
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${sessionToken}`,
-        },
-      }
-    );
-
-    const startData = await startResponse.json();
-
-    console.log(
-      "LIVEAVATAR START DATA:",
-      JSON.stringify(startData, null, 2)
-    );
-
-    if (!startResponse.ok) {
-      return NextResponse.json(
-        {
-          error: "LiveAvatar no pudo iniciar la sesión.",
-          details: startData,
-        },
-        { status: startResponse.status }
-      );
-    }
-
-    const livekitUrl =
-      startData?.data?.livekit_url ??
-      startData?.livekit_url ??
-      startData?.data?.livekitUrl ??
-      startData?.livekitUrl;
-
-    const livekitClientToken =
-      startData?.data?.livekit_client_token ??
-      startData?.livekit_client_token ??
-      startData?.data?.livekitClientToken ??
-      startData?.livekitClientToken;
-
-    const sessionId =
-      startData?.data?.session_id ??
-      startData?.session_id ??
-      tokenData?.data?.session_id ??
-      tokenData?.session_id ??
-      null;
-
-    if (!livekitUrl || !livekitClientToken) {
-      return NextResponse.json(
-        {
-          error: "La sesión inició, pero faltan las credenciales de LiveKit.",
-          details: startData,
+          details: data,
         },
         { status: 500 }
       );
@@ -140,20 +78,15 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       character: "bob",
-      sessionId,
       sessionToken,
-      livekitUrl,
-      livekitClientToken,
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error desconocido.";
 
-    console.error("LIVEAVATAR SESSION ERROR:", message);
-
     return NextResponse.json(
       {
-        error: "Error iniciando LiveAvatar de Bob.",
+        error: "Error creando el token de Bob.",
         details: message,
       },
       { status: 500 }
