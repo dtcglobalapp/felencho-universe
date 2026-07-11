@@ -5,7 +5,7 @@
     "owner_name": "Felencho",
     "legal_name": "Martin F. Duran",
     "updated_at": "2026-07-11",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "purpose": "Memoria técnica persistente para continuar el proyecto entre chats sin perder arquitectura, decisiones, archivos, estado ni próximos pasos.",
     "absolute_rule": "Nunca rehacer, reemplazar, desmontar o rediseñar algo que ya funciona sin comprobar primero el estado real del proyecto."
   },
@@ -15,7 +15,9 @@
     "objective": "Producir contenido inmediatamente con Bob, Lina y Felencho Virtual desde el estudio físico.",
     "focus_character": "bob",
     "do_not_open_other_modules": true,
-    "next_result": "Bob debe escuchar, responder, mover la boca y enviar todo el audio únicamente desde La Bestia hacia Rodecaster Pro II mientras la PC de la TV funciona solo como pantalla."
+    "next_result": "Bob debe escuchar, responder, mover la boca y enviar todo el audio únicamente desde La Bestia hacia Rodecaster Pro II mientras la PC de la TV funciona solo como pantalla.",
+    "credit_preservation_rule": "No iniciar sesiones LiveAvatar para pruebas de interfaz, depuración pasiva o experimentos no cronometrados.",
+    "strategic_parallel_track": "Diseñar progresivamente Felencho Avatar Engine como reemplazo visual propio, sin interrumpir la misión urgente de completar a Bob."
   },
   "operating_rules": [
     "Trabajar un solo objetivo a la vez.",
@@ -174,6 +176,36 @@
       "id": "DEC-008",
       "title": "Prioridad de producción",
       "decision": "Conectar los avatares y producir contenido tiene prioridad sobre dashboards, seguridad, Podcast Manager y otros módulos."
+    },
+    {
+      "id": "DEC-009",
+      "title": "LiveAvatar será una tecnología puente",
+      "decision": "LiveAvatar se conservará temporalmente como referencia y respaldo, pero no será el motor visual permanente del estudio debido a su costo y consumo por pruebas y sesiones."
+    },
+    {
+      "id": "DEC-010",
+      "title": "Creación de Felencho Avatar Engine",
+      "decision": "Se desarrollará progresivamente un motor visual propio para Bob, Lina y Felencho Virtual, manteniendo intactos Gateway, voz, memoria, audio, Presence y control del estudio."
+    },
+    {
+      "id": "DEC-011",
+      "title": "Protección estricta de créditos",
+      "decision": "Toda prueba LiveAvatar deberá estar planificada, cronometrada y registrada. Quedan prohibidas las sesiones duplicadas o abiertas sin objetivo."
+    },
+    {
+      "id": "DEC-012",
+      "title": "Nacimiento del Libro Azul",
+      "decision": "Las ideas de episodios se guardarán dentro de project-memory para no perderlas, sin interrumpir la prioridad urgente de completar los avatares."
+    },
+    {
+      "id": "DEC-013",
+      "title": "Originalidad y colaboración audiovisual",
+      "decision": "Felencho Mundial podrá inspirarse en temas encontrados en otros contenidos, pero deberá crear investigación, guiones y gráficos propios o negociar autorización y colaboración escrita con sus creadores."
+    },
+    {
+      "id": "DEC-014",
+      "title": "Creación del Banco Visual Oficial",
+      "decision": "Felencho Studio OS desarrollará una biblioteca audiovisual propia compuesta por material original, recursos licenciados de Storyblocks, creaciones con inteligencia artificial y colaboraciones autorizadas. Cada recurso deberá conservar procedencia, licencia, archivo fuente y proyectos donde fue utilizado."
     }
   ],
   "current_files": {
@@ -389,7 +421,9 @@
     "current_phase": "LiveAvatar Production Integration",
     "current_mission": "Completar a Bob antes de copiar el patrón a Lina y Felencho Virtual.",
     "last_verified_milestone": "La memoria persistente del proyecto fue publicada correctamente en /api/project-memory.",
-    "next_mission": "Consolidar una sola sesión conversacional de Bob controlada por La Bestia, con audio hacia Rodecaster y representación visual en la TV."
+    "next_mission": "Consolidar una sola sesión conversacional de Bob controlada por La Bestia, con audio hacia Rodecaster y representación visual en la TV.",
+    "strategic_note": "LiveAvatar será una tecnología puente. Se protegerán estrictamente los créditos mientras se diseña Felencho Avatar Engine como reemplazo visual progresivo.",
+    "content_note": "El Libro Azul y el Banco Visual Oficial fueron creados sin cambiar la prioridad urgente de completar a Bob."
   },
   "history": [
     {
@@ -401,6 +435,455 @@
       "date": "2026-07-11",
       "title": "Arquitectura de visión de los avatares",
       "description": "Se definió la OBSBOT conectada a La Bestia como cámara principal de visión inteligente para Bob, Lina y Felencho Virtual. Las cámaras PTZ y YoloBox quedan como sistema de producción multicámara."
+    },
+    {
+      "date": "2026-07-11",
+      "title": "LiveAvatar, Libro Azul y Banco Visual",
+      "description": "LiveAvatar fue definido como tecnología puente debido al consumo de créditos. Se aprobó el futuro Felencho Avatar Engine, nació el Libro Azul de Felencho Mundial y se formalizó el Banco Visual Oficial con Storyblocks, producciones originales y recursos creados con inteligencia artificial."
     }
-  ]
+  ],
+  "liveavatar_exit_strategy": {
+    "status": "approved",
+    "decision_date": "2026-07-11",
+    "urgency": "high",
+    "reason": "El consumo observado de créditos durante pruebas demuestra que LiveAvatar no es económicamente sostenible como motor permanente para producir conversaciones largas con Bob, Lina y Felencho Virtual.",
+    "observed_usage": {
+      "initial_credits": 160,
+      "remaining_credits_seen": 141,
+      "credits_consumed": 19,
+      "estimated_tests": 4,
+      "observation": "Se consumió aproximadamente el 11.9 por ciento de los créditos disponibles antes de completar una prueba conversacional estable de Bob."
+    },
+    "official_decision": "LiveAvatar pasa de ser considerado motor permanente del estudio a ser una solución temporal, de referencia y respaldo mientras se construye Felencho Avatar Engine.",
+    "non_destructive_rule": "No cancelar, desmontar ni reemplazar inmediatamente la integración actual. Primero completar y documentar el funcionamiento de Bob, conservar LiveAvatar como referencia y construir el reemplazo por etapas.",
+    "credit_preservation_rules": [
+      "No abrir LiveAvatar para revisar diseño, interfaces o código.",
+      "No dejar sesiones LiveAvatar abiertas durante depuración.",
+      "No crear dos sesiones conversacionales simultáneas para el mismo personaje.",
+      "La Bestia debe conservar la única sesión conversacional activa.",
+      "La PC de la TV debe recibir únicamente representación visual.",
+      "Cada prueba con créditos debe tener objetivo definido, duración cronometrada y criterio de éxito.",
+      "Cerrar explícitamente la sesión al terminar cada prueba.",
+      "Registrar créditos antes y después de cada prueba.",
+      "Usar Presence local mientras el personaje no esté hablando.",
+      "Reservar créditos para pruebas finales, demostraciones importantes o grabaciones que no puedan producirse todavía con el motor propio."
+    ],
+    "strategic_objective": "Construir un motor visual propio capaz de mantener a los personajes activos durante programas largos sin consumo de créditos por minuto.",
+    "replacement_scope": {
+      "systems_to_keep": [
+        "Wake words",
+        "Speech recognition",
+        "Felencho Gateway",
+        "OpenAI y Felencho Forever Brain",
+        "ElevenLabs",
+        "Supabase Realtime",
+        "PresenceController",
+        "Presence loops",
+        "Studio Control",
+        "Audio master desde La Bestia",
+        "Salida hacia Rodecaster Pro II"
+      ],
+      "system_to_replace_progressively": "La capa de renderización visual, movimiento facial y sincronización labial actualmente proporcionada por LiveAvatar."
+    },
+    "future_engine": {
+      "name": "Felencho Avatar Engine",
+      "status": "planned",
+      "development_rule": "No interrumpir la integración urgente de Bob. El motor propio se desarrollará como una ruta paralela y progresiva.",
+      "phase_1": {
+        "name": "Avatar local funcional",
+        "objectives": [
+          "Respiración visual continua",
+          "Parpadeo natural",
+          "Movimientos de cabeza predefinidos",
+          "Movimiento básico de boca impulsado por audio",
+          "Audio originado exclusivamente en La Bestia",
+          "Reproducción visual permanente en la TV",
+          "Operación durante horas sin créditos externos"
+        ]
+      },
+      "phase_2": {
+        "name": "Sincronización facial avanzada",
+        "objectives": [
+          "Visemas asociados a fonemas",
+          "Movimiento de mandíbula",
+          "Expresiones emocionales",
+          "Reacciones faciales",
+          "Contacto visual simulado",
+          "Movimientos naturales no repetitivos",
+          "Control de estado sleeping, listening, thinking y speaking"
+        ]
+      },
+      "phase_3": {
+        "name": "Servidor propio de avatares",
+        "objectives": [
+          "Bob Engine",
+          "Lina Engine",
+          "Felencho Virtual Engine",
+          "Audio Stream",
+          "Lip Sync Engine",
+          "Emotion Controller",
+          "Video Renderer",
+          "TV Display Gateway",
+          "Comunicación local por WebSocket, WebRTC o tecnología equivalente",
+          "Capacidad futura de ofrecer la tecnología comercialmente"
+        ]
+      }
+    },
+    "future_architecture": [
+      "Micrófono de Felencho",
+      "La Bestia",
+      "Speech Recognition",
+      "Felencho Gateway",
+      "OpenAI o Felencho Forever Brain",
+      "ElevenLabs",
+      "Audio hacia Rodecaster Pro II",
+      "Audio hacia Felencho Avatar Engine",
+      "Sincronización facial y labial",
+      "Video local hacia la TV del personaje"
+    ],
+    "immediate_rule": "La misión actual continúa siendo completar a Bob. No comenzar una reconstrucción masiva del motor de avatares antes de terminar, medir y documentar la prueba actual."
+  },
+  "podcast_blue_book": {
+    "name": "Libro Azul de Felencho Mundial",
+    "status": "active",
+    "created_at": "2026-07-11",
+    "purpose": "Repositorio permanente de ideas para episodios, investigaciones, preguntas, formatos, posibles invitados, recursos visuales y oportunidades de colaboración para Felencho Mundial The Podcast.",
+    "operating_rule": "Guardar las ideas cuando aparezcan, sin detener la prioridad técnica actual. El desarrollo completo de cada episodio se realizará cuando Bob, Lina y Felencho Virtual estén listos para producción.",
+    "editorial_principles": [
+      "Tratar asuntos educativos con profundidad y lenguaje comprensible.",
+      "No presentar afirmaciones médicas, científicas o históricas sin verificación.",
+      "Distinguir claramente hechos comprobados, hipótesis, opiniones y recursos dramáticos.",
+      "No copiar estructuras, guiones, gráficos, narraciones ni miniaturas de otros creadores.",
+      "Usar las fuentes originales como punto de investigación, no como material para reproducir.",
+      "Solicitar autorización escrita cuando se quiera reutilizar video, animaciones, voz, gráficos o fragmentos protegidos.",
+      "Crear gráficos propios cuando no exista licencia o colaboración.",
+      "Usar material licenciado de Storyblocks conforme a sus términos.",
+      "Acreditar correctamente a investigadores, instituciones, creadores e invitados.",
+      "Permitir debate entre Felencho, Bob y Lina sin sacrificar exactitud.",
+      "Cada episodio debe tener valor humano, educativo y audiovisual."
+    ],
+    "production_template": {
+      "fields": [
+        "ID del tema",
+        "Título provisional",
+        "Pregunta central",
+        "Razón por la que importa",
+        "Gancho inicial",
+        "Afirmaciones que deben verificarse",
+        "Fuentes primarias",
+        "Papel de Felencho",
+        "Papel de Bob",
+        "Papel de Lina",
+        "Papel de Felencho Virtual cuando corresponda",
+        "Ideas visuales",
+        "Posibles invitados",
+        "Riesgos editoriales",
+        "Oportunidades de colaboración",
+        "Estado del episodio"
+      ],
+      "statuses": [
+        "idea",
+        "research",
+        "fact_check",
+        "script",
+        "production",
+        "recorded",
+        "published",
+        "archived"
+      ]
+    },
+    "topics": [
+      {
+        "id": "BLUE-001",
+        "status": "idea",
+        "priority": "high after avatar production is operational",
+        "working_title": "El alcohol: la droga que aprendimos a llamar celebración",
+        "alternative_titles": [
+          "¿Qué ocurre en tu cerebro después del primer trago?",
+          "La falsa relajación",
+          "Alcohol: el enemigo que entra como amigo",
+          "Cuando el cerebro pierde el control"
+        ],
+        "category": [
+          "Educación",
+          "Ciencia",
+          "Neurología",
+          "Salud pública",
+          "Cultura"
+        ],
+        "central_question": "¿Qué ocurre realmente en el cerebro y en el cuerpo desde los primeros minutos del consumo de alcohol, y por qué la sociedad normaliza sus riesgos más que los de otras sustancias?",
+        "inspiration_source": {
+          "platform": "YouTube",
+          "url": "https://youtu.be/pPuosCRJQz0?si=2FYvOLMTnb4NqC9v",
+          "reported_publication_date": "2026-06-18",
+          "reported_views_when_saved": 41795,
+          "reported_hashtags": [
+            "alcoholismo",
+            "cienciaexplicada",
+            "neurologia"
+          ],
+          "usage_rule": "La URL se conserva como inspiración y referencia investigativa. No implica permiso para copiar, descargar, reutilizar o transformar sus gráficos, narración, música o estructura."
+        },
+        "initial_hook": "Lo que muchas personas describen como relajación puede ser, en realidad, la reducción progresiva de los sistemas cerebrales que controlan el juicio, la inhibición, la coordinación y la formación de recuerdos.",
+        "episode_objectives": [
+          "Explicar cómo el alcohol llega a la sangre y al cerebro.",
+          "Mostrar qué áreas cerebrales se afectan durante la intoxicación.",
+          "Explicar la relación entre alcohol, GABA, glutamato, dopamina y memoria.",
+          "Diferenciar relajación percibida de deterioro neurológico.",
+          "Explicar los efectos inmediatos y acumulativos.",
+          "Examinar por qué el alcohol está culturalmente normalizado.",
+          "Comparar riesgo individual, riesgo social y carga de mortalidad sin usar cifras engañosas.",
+          "Hablar del alcohol sin moralismo y sin ridiculizar a personas con dependencia.",
+          "Incluir información sobre prevención, reducción de daño y búsqueda de ayuda."
+        ],
+        "claims_requiring_verification": [
+          {
+            "claim": "Las neuronas cambian para siempre durante los primeros seis minutos después del primer sorbo.",
+            "status": "unverified and potentially misleading",
+            "editorial_rule": "No usar como hecho hasta localizar un estudio primario que defina exactamente qué cambia, en qué población, bajo qué dosis y si el efecto es realmente permanente."
+          },
+          {
+            "claim": "El alcohol mata seis veces más que todas las drogas ilegales juntas.",
+            "status": "requires definition and geographic context",
+            "editorial_rule": "No usar sin especificar país, periodo, metodología y si se comparan muertes directas, atribuibles, sobredosis o carga total de enfermedad."
+          },
+          {
+            "claim": "El alcohol encoge físicamente el cerebro.",
+            "status": "supported in certain patterns of heavy or prolonged consumption but requires careful wording",
+            "editorial_rule": "Explicar dosis, frecuencia, duración, reversibilidad parcial y límites de la evidencia."
+          },
+          {
+            "claim": "El alcohol destruye la memoria de forma irreversible.",
+            "status": "overgeneralized",
+            "editorial_rule": "Distinguir blackouts temporales, daño asociado al consumo crónico, trastornos neurocognitivos y posibles grados de recuperación después de reducir o abandonar el consumo."
+          }
+        ],
+        "character_distribution": {
+          "felencho": [
+            "Presentar la pregunta humana y cultural.",
+            "Hablar de celebraciones, música, vida nocturna y normalización social.",
+            "Hacer las preguntas directas que la audiencia suele evitar."
+          ],
+          "bob": [
+            "Explicar el funcionamiento cerebral y los conceptos científicos.",
+            "Separar evidencia de exageración.",
+            "Plantear la dimensión filosófica del control, la libertad y la dependencia."
+          ],
+          "lina": [
+            "Explicar efectos inmediatos en el cuerpo y diferencias individuales.",
+            "Presentar datos con empatía.",
+            "Recordar que la dependencia es un problema de salud y no una falta moral."
+          ],
+          "felencho_virtual": [
+            "Participar únicamente cuando Felencho Humano no esté en vivo o cuando sea llamado explícitamente.",
+            "Narrar segmentos audiovisuales o traducciones futuras."
+          ]
+        },
+        "visual_plan": [
+          "Crear un modelo 3D propio del cerebro y del recorrido del alcohol.",
+          "Mostrar animaciones originales del hipocampo, corteza prefrontal, cerebelo y sistema de recompensa.",
+          "Usar gráficos propios basados en fuentes públicas y estudios científicos.",
+          "Usar recursos correctamente licenciados de Storyblocks cuando sea apropiado.",
+          "Crear y conservar un banco de imágenes y videos propio para futuros episodios.",
+          "Representar visualmente los estados sobrio, percepción de relajación, juicio afectado, riesgo de blackout y exposición crónica.",
+          "No reproducir los gráficos del video inspirador sin licencia."
+        ],
+        "collaboration_options": [
+          {
+            "type": "guest collaboration",
+            "description": "Invitar al creador del video para analizar el tema junto a Felencho, Bob y Lina."
+          },
+          {
+            "type": "licensed excerpt",
+            "description": "Solicitar autorización escrita para mostrar fragmentos específicos del video durante el episodio."
+          },
+          {
+            "type": "co-production",
+            "description": "Proponer un episodio conjunto con reparto de ingresos, promoción cruzada y condiciones definidas por contrato."
+          },
+          {
+            "type": "independent production",
+            "description": "Investigar el tema desde fuentes primarias y crear completamente nuestros propios gráficos, guion, narración y enfoque."
+          }
+        ],
+        "tone": "Educativo, perturbador por la verdad de los datos, humano, respetuoso y visualmente impactante.",
+        "next_step": "Mantener guardado como idea. Después de completar la integración productiva de Bob, comenzar fact-check, fuentes primarias, estructura narrativa y propuesta de colaboración."
+      }
+    ]
+  },
+  "felencho_visual_library": {
+    "name": "Banco Visual Oficial de Felencho Studio OS",
+    "status": "active",
+    "created_at": "2026-07-11",
+    "purpose": "Construir una biblioteca audiovisual propia y organizada para Felencho Mundial The Podcast, Felencho.ai, documentales, música, redes sociales y futuras producciones.",
+    "strategic_value": [
+      "Reducir la dependencia de material audiovisual externo.",
+      "Acelerar la producción de episodios.",
+      "Crear una identidad visual reconocible.",
+      "Reutilizar recursos en múltiples idiomas y plataformas.",
+      "Conservar evidencia de licencias y procedencia.",
+      "Crear progresivamente un catálogo audiovisual propiedad del ecosistema Felencho."
+    ],
+    "current_sources": [
+      {
+        "source": "Storyblocks",
+        "status": "active paid subscription",
+        "subscription_period": "one year",
+        "usage": "Descarga de videos, imágenes, fondos, animaciones, efectos y otros recursos para producciones del estudio.",
+        "important_rule": "Guardar junto a cada recurso la fecha de descarga, enlace original, tipo de licencia y proyecto donde fue utilizado."
+      },
+      {
+        "source": "Original production",
+        "status": "active",
+        "usage": "Gráficos, fotografías, videos, animaciones, pinturas digitales y recursos creados directamente por Felencho."
+      },
+      {
+        "source": "AI generated media",
+        "status": "active",
+        "usage": "Imágenes, modelos, animaciones, fondos y secuencias creadas con herramientas de inteligencia artificial.",
+        "important_rule": "Registrar la herramienta utilizada, fecha de creación, prompt base cuando sea útil y condiciones comerciales de la plataforma."
+      },
+      {
+        "source": "Licensed collaborations",
+        "status": "future and optional",
+        "usage": "Material autorizado por creadores externos mediante licencia, colaboración o reparto contractual de ingresos."
+      }
+    ],
+    "asset_categories": [
+      "Cerebro y neurología",
+      "Cuerpo humano y medicina",
+      "Ciencia y tecnología",
+      "Historia",
+      "Música",
+      "Cultura dominicana",
+      "New York",
+      "Espacio y universo",
+      "Naturaleza",
+      "Ciudades del mundo",
+      "Alcohol y sustancias",
+      "Economía",
+      "Política y sociedad",
+      "Religión y espiritualidad",
+      "Fondos para avatares",
+      "Transiciones",
+      "Lower thirds",
+      "Mapas",
+      "Gráficos estadísticos",
+      "Texturas",
+      "Efectos visuales",
+      "Efectos de sonido",
+      "Música incidental"
+    ],
+    "asset_types": [
+      "video",
+      "image",
+      "animation",
+      "3d_render",
+      "illustration",
+      "diagram",
+      "chart",
+      "map",
+      "texture",
+      "background",
+      "transition",
+      "sound_effect",
+      "music_bed",
+      "project_file"
+    ],
+    "metadata_required": [
+      "asset_id",
+      "title",
+      "description",
+      "category",
+      "asset_type",
+      "source",
+      "creator",
+      "download_or_creation_date",
+      "license_type",
+      "license_document",
+      "original_url",
+      "commercial_use_allowed",
+      "modification_allowed",
+      "expiration_or_subscription_note",
+      "projects_used_in",
+      "keywords",
+      "language",
+      "file_location",
+      "backup_location"
+    ],
+    "organization_rule": "Ningún recurso importante debe quedar guardado únicamente en Downloads, Desktop o carpetas temporales. Todo material aprobado debe entrar al banco visual con nombre, categoría, licencia y respaldo.",
+    "recommended_structure": [
+      "Felencho Visual Library/01_Storyblocks",
+      "Felencho Visual Library/02_Originals",
+      "Felencho Visual Library/03_AI_Generated",
+      "Felencho Visual Library/04_3D_Models",
+      "Felencho Visual Library/05_Podcast_Graphics",
+      "Felencho Visual Library/06_Music_Videos",
+      "Felencho Visual Library/07_Sound_Effects",
+      "Felencho Visual Library/08_Licenses",
+      "Felencho Visual Library/09_Project_Files",
+      "Felencho Visual Library/10_Archive"
+    ],
+    "podcast_integration": {
+      "rule": "Cada tema del Libro Azul podrá vincularse con recursos existentes del Banco Visual o generar una lista de recursos nuevos que deben crearse.",
+      "workflow": [
+        "Seleccionar tema del Libro Azul.",
+        "Definir escenas y conceptos que necesitan apoyo visual.",
+        "Buscar primero en el Banco Visual.",
+        "Revisar Storyblocks para material licenciado complementario.",
+        "Crear gráficos propios cuando no exista el recurso necesario.",
+        "Generar material con IA cuando sea apropiado.",
+        "Guardar todos los recursos nuevos con metadata y licencia.",
+        "Insertar los recursos en el guion técnico del episodio."
+      ]
+    },
+    "blue_book_topic_links": [
+      {
+        "topic_id": "BLUE-001",
+        "topic": "Efectos del alcohol en el cerebro y el cuerpo",
+        "required_visual_assets": [
+          "Modelo 3D original del cerebro humano",
+          "Animación del alcohol entrando al torrente sanguíneo",
+          "Visualización de la barrera hematoencefálica",
+          "Animación de la corteza prefrontal",
+          "Animación del hipocampo",
+          "Animación del cerebelo",
+          "Representación de GABA y glutamato",
+          "Gráfico de concentración de alcohol en sangre",
+          "Comparación visual entre consumo ocasional, excesivo y crónico",
+          "Gráficos estadísticos con fuentes verificadas",
+          "Escenas de celebración social sin glorificar el consumo",
+          "Secuencias de reacción, coordinación y pérdida de memoria",
+          "Pantallas explicativas para Bob y Lina"
+        ],
+        "production_decision": "Los gráficos principales deberán ser originales o correctamente licenciados. El video inspirador no será copiado ni utilizado como plantilla visual."
+      }
+    ],
+    "ownership_principle": "Todo gráfico, composición, animación o edición creada directamente por Felencho Studio OS debe conservar archivos fuente y versiones finales para formar parte del patrimonio audiovisual del proyecto.",
+    "license_protection_rules": [
+      "Conservar comprobantes de suscripción y licencias.",
+      "Guardar capturas o documentos de licencia cuando se descargue cada recurso importante.",
+      "No redistribuir archivos originales de bancos de contenido como si fueran productos independientes.",
+      "Usar los recursos dentro de producciones terminadas conforme a la licencia aplicable.",
+      "No asumir que una suscripción activa hoy permite cualquier uso futuro sin revisar sus condiciones.",
+      "Cuando una licencia sea dudosa, sustituir el recurso por uno original."
+    ],
+    "future_system": {
+      "name": "Felencho Media Asset Manager",
+      "status": "planned",
+      "purpose": "Permitir buscar, filtrar, previsualizar y vincular imágenes, videos, sonidos y licencias desde Felencho Studio OS.",
+      "future_features": [
+        "Buscador por palabras clave",
+        "Filtros por licencia y categoría",
+        "Miniaturas y previsualización",
+        "Enlace con episodios del Libro Azul",
+        "Registro automático de uso",
+        "Alertas de licencias",
+        "Generación de listas de créditos",
+        "Etiquetado mediante inteligencia artificial",
+        "Detección de archivos duplicados",
+        "Respaldo local y en la nube"
+      ]
+    }
+  }
 }
