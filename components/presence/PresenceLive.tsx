@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Room,
   RoomEvent,
   Track,
+  type RemoteParticipant,
   type RemoteTrack,
   type RemoteTrackPublication,
-  type RemoteParticipant,
 } from "livekit-client";
 
 type PresenceLiveProps = {
@@ -16,6 +16,7 @@ type PresenceLiveProps = {
 
 type SessionResponse = {
   success?: boolean;
+  sessionId?: string;
   livekitUrl?: string;
   livekitClientToken?: string;
   error?: string;
@@ -25,42 +26,148 @@ type SessionResponse = {
 export default function PresenceLive({
   character,
 }: PresenceLiveProps) {
-  const mediaContainerRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef<Room | null>(null);
+  const mediaRef = useRef<HTMLDivElement | null>(null);
 
-  const [status, setStatus] = useState("Iniciando LiveAvatar...");
+  const [status, setStatus] = useState("Preparando conexión...");
   const [error, setError] = useState("");
+  const [needsActivation, setNeedsActivation] = useState(false);
+  const [connected, setConnected] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const attachTrack = useCallback(
+    (
+      track: RemoteTrack,
+      _publication?: RemoteTrackPublication,
+      participant?: RemoteParticipant
+    ) => {
+      const container = mediaRef.current;
 
-    async function connectAvatar() {
-      if (character !== "bob") {
-        setStatus(
-          `${character} todavía no tiene su endpoint LiveAvatar conectado.`
-        );
+      if (!container) return;
+
+      if (
+        track.kind !== Track.Kind.Video &&
+        track.kind !== Track.Kind.Audio
+      ) {
         return;
       }
 
-      try {
-        setStatus("Solicitando sesión de Bob...");
+      const alreadyAttached = container.querySelector(
+        `[data-track-sid="${track.sid || ""}"]`
+      );
 
-        const response = await fetch("/api/liveavatar/session-token", {
-          method: "POST",
-          cache: "no-store",
-        });
+      if (alreadyAttached) return;
+
+      const element = track.attach();
+
+      element.dataset.trackSid = track.sid || "";
+      element.dataset.participant = participant?.identity || "remote";
+
+      if (element instanceof HTMLVideoElement) {
+        element.autoplay = true;
+        element.playsInline = true;
+        element.muted = false;
+        element.style.position = "absolute";
+        element.style.inset = "0";
+        element.style.width = "100%";
+        element.style.height = "100%";
+        element.style.objectFit = "cover";
+        element.style.background = "#000";
+      }
+
+      if (element instanceof HTMLAudioElement) {
+        element.autoplay = true;
+        element.style.display = "none";
+      }
+
+      container.appendChild(element);
+
+      setStatus(
+        track.kind === Track.Kind.Video
+          ? "Video de Bob conectado"
+          : "Audio de Bob conectado"
+      );
+    },
+    []
+  );
+
+  const attachExistingTracks = useCallback(() => {
+    const room = roomRef.current;
+
+    if (!room) return;
+
+    room.remoteParticipants.forEach((participant) => {
+      participant.trackPublications.forEach((publication) => {
+        if (publication.track) {
+          attachTrack(
+            publication.track,
+            publication,
+            participant
+          );
+        }
+      });
+    });
+  }, [attachTrack]);
+
+  const activateAudioAndMicrophone = useCallback(async () => {
+    const room = roomRef.current;
+
+    if (!room) return;
+
+    try {
+      setError("");
+      setStatus("Activando audio y micrófono...");
+
+      await room.startAudio();
+      await room.localParticipant.setMicrophoneEnabled(true);
+
+      attachExistingTracks();
+
+      setNeedsActivation(false);
+      setStatus("Bob está escuchando");
+    } catch (activationError) {
+      const message =
+        activationError instanceof Error
+          ? activationError.message
+          : "No se pudo activar el micrófono.";
+
+      setError(message);
+      setNeedsActivation(true);
+    }
+  }, [attachExistingTracks]);
+
+  useEffect(() => {
+    if (character !== "bob") {
+      setStatus(`${character} todavía no está conectado a LiveAvatar.`);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function connect() {
+      try {
+        setStatus("Creando sesión de Bob...");
+
+        const response = await fetch(
+          "/api/liveavatar/session-token",
+          {
+            method: "POST",
+            cache: "no-store",
+          }
+        );
 
         const data = (await response.json()) as SessionResponse;
 
         if (!response.ok) {
           throw new Error(
-            data.error || "No se pudo crear la sesión LiveAvatar."
+            data.error ||
+              JSON.stringify(data.details) ||
+              "LiveAvatar rechazó la sesión."
           );
         }
 
         if (!data.livekitUrl || !data.livekitClientToken) {
           throw new Error(
-            "La API no devolvió livekitUrl y livekitClientToken."
+            "Faltan las credenciales de LiveKit."
           );
         }
 
@@ -73,60 +180,34 @@ export default function PresenceLive({
 
         roomRef.current = room;
 
-        function attachTrack(
-          track: RemoteTrack,
-          _publication: RemoteTrackPublication,
-          participant: RemoteParticipant
-        ) {
-          if (!mediaContainerRef.current) return;
-
-          if (
-            track.kind !== Track.Kind.Video &&
-            track.kind !== Track.Kind.Audio
-          ) {
-            return;
+        room.on(
+          RoomEvent.TrackSubscribed,
+          (
+            track,
+            publication,
+            participant
+          ) => {
+            attachTrack(track, publication, participant);
           }
+        );
 
-          const element = track.attach();
+        room.on(RoomEvent.ParticipantConnected, (participant) => {
+          setStatus(`Conectado: ${participant.identity}`);
+        });
 
-          element.setAttribute(
-            "data-participant",
-            participant.identity
-          );
-
-          if (element instanceof HTMLVideoElement) {
-            element.autoplay = true;
-            element.playsInline = true;
-            element.style.width = "100%";
-            element.style.height = "100%";
-            element.style.objectFit = "cover";
-            element.style.background = "#000";
+        room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+          if (!room.canPlaybackAudio) {
+            setNeedsActivation(true);
+            setStatus("Pulsa para activar el audio");
           }
-
-          if (element instanceof HTMLAudioElement) {
-            element.autoplay = true;
-            element.style.display = "none";
-          }
-
-          mediaContainerRef.current.appendChild(element);
-          setStatus("Bob LiveAvatar conectado");
-        }
-
-        room.on(RoomEvent.TrackSubscribed, attachTrack);
-
-        room.on(RoomEvent.TrackUnsubscribed, (track) => {
-          track.detach().forEach((element) => element.remove());
         });
 
         room.on(RoomEvent.Disconnected, () => {
-          setStatus("Bob LiveAvatar desconectado");
+          setConnected(false);
+          setStatus("Sesión desconectada");
         });
 
-        room.on(RoomEvent.MediaDevicesError, (deviceError) => {
-          setError(`Error de micrófono: ${deviceError.message}`);
-        });
-
-        setStatus("Conectando con LiveKit...");
+        setStatus("Entrando a la sala LiveKit...");
 
         await room.connect(
           data.livekitUrl,
@@ -141,23 +222,38 @@ export default function PresenceLive({
           return;
         }
 
-        setStatus("Activando micrófono...");
+        setConnected(true);
+        setStatus("Esperando a Bob...");
 
-        await room.localParticipant.setMicrophoneEnabled(true);
+        attachExistingTracks();
 
-        setStatus("Esperando video y audio de Bob...");
+        try {
+          await room.localParticipant.setMicrophoneEnabled(true);
+          setStatus("Micrófono activo. Esperando a Bob...");
+        } catch {
+          setNeedsActivation(true);
+          setStatus("Pulsa para activar audio y micrófono");
+        }
+
+        window.setTimeout(() => {
+          attachExistingTracks();
+        }, 1500);
+
+        window.setTimeout(() => {
+          attachExistingTracks();
+        }, 4000);
       } catch (connectionError) {
         const message =
           connectionError instanceof Error
             ? connectionError.message
-            : "Error desconocido conectando Bob.";
+            : "Error desconocido.";
 
         setError(message);
-        setStatus("No se pudo conectar LiveAvatar");
+        setStatus("No se pudo conectar");
       }
     }
 
-    void connectAvatar();
+    void connect();
 
     return () => {
       cancelled = true;
@@ -170,56 +266,81 @@ export default function PresenceLive({
         roomRef.current = null;
       }
 
-      if (mediaContainerRef.current) {
-        mediaContainerRef.current
-          .querySelectorAll("video, audio")
-          .forEach((element) => element.remove());
-      }
+      mediaRef.current
+        ?.querySelectorAll("video, audio")
+        .forEach((element) => element.remove());
     };
-  }, [character]);
+  }, [attachExistingTracks, attachTrack, character]);
 
   return (
     <main
       style={{
+        position: "relative",
         width: "100vw",
         height: "100vh",
-        background: "#000",
         overflow: "hidden",
-        position: "relative",
+        background: "#000",
       }}
     >
       <div
-        ref={mediaContainerRef}
+        ref={mediaRef}
         style={{
           position: "absolute",
           inset: 0,
-          width: "100%",
-          height: "100%",
           background: "#000",
         }}
       />
+
+      {needsActivation && (
+        <button
+          type="button"
+          onClick={activateAudioAndMicrophone}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 30,
+            margin: "auto",
+            width: 280,
+            height: 64,
+            border: "1px solid rgba(34,211,238,.5)",
+            borderRadius: 16,
+            background: "rgba(8,15,20,.92)",
+            color: "#67e8f9",
+            fontSize: 16,
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+        >
+          Activar audio y micrófono
+        </button>
+      )}
 
       <div
         style={{
           position: "absolute",
           left: 18,
           bottom: 18,
-          zIndex: 20,
-          maxWidth: "min(520px, calc(100vw - 36px))",
+          zIndex: 40,
+          maxWidth: "calc(100vw - 36px)",
+          border: "1px solid rgba(34,211,238,.25)",
           borderRadius: 12,
-          border: "1px solid rgba(103,232,249,.25)",
-          background: "rgba(0,0,0,.72)",
+          background: "rgba(0,0,0,.78)",
           padding: "10px 14px",
           color: error ? "#fca5a5" : "#67e8f9",
           fontFamily: "Arial, sans-serif",
           fontSize: 14,
-          backdropFilter: "blur(10px)",
         }}
       >
-        <strong>{character.toUpperCase()}</strong>
+        <strong>BOB</strong>
         <span style={{ marginLeft: 10 }}>
           {error || status}
         </span>
+
+        {connected && !error && (
+          <span style={{ marginLeft: 10, color: "#86efac" }}>
+            ● conectado
+          </span>
+        )}
       </div>
     </main>
   );
