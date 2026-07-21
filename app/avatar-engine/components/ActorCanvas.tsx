@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadActorRegistry } from "../lib/ActorRegistry";
 import { ACTOR_ENGINE } from "../lib/VERSION";
+import { loadActor } from "../lib/ActorLoader";
 import type {
   ActorRegistryDefinition,
   ActorRegistryEntry,
@@ -40,7 +41,16 @@ export default function ActorCanvas() {
     fps: 0,
   });
 
-  const [registry, setRegistry] = useState<RegistryState>({
+  
+const [activeActor,setActiveActor]=useState<any>(null);
+
+useEffect(()=>{
+loadActor("Bob")
+.then(setActiveActor)
+.catch(()=>{});
+},[]);
+
+const [registry, setRegistry] = useState<RegistryState>({
     loading: true,
     error: null,
     data: null,
@@ -268,6 +278,36 @@ export default function ActorCanvas() {
       drawGrid(width, height);
       drawStageCenter(width, height);
       drawPointer();
+      if(activeActor){
+
+        context.save();
+
+        context.fillStyle="rgba(0,200,255,.08)";
+        context.strokeStyle="#4fdfff";
+        context.lineWidth=2;
+
+        const w=180;
+        const h=220;
+
+        const x=width/2-w/2;
+        const y=height/2-h/2;
+
+        context.fillRect(x,y,w,h);
+        context.strokeRect(x,y,w,h);
+
+        context.fillStyle="#7fe7ff";
+        context.font="22px Arial";
+
+        context.fillText(
+          activeActor.name,
+          x+40,
+          y+h/2
+        );
+
+        context.restore();
+
+      }
+
 
       animationFrameId =
         window.requestAnimationFrame(render);
@@ -480,6 +520,34 @@ export default function ActorCanvas() {
               actor={actor}
             />
           ))}
+
+        {activeActor && (
+          <>
+            <div
+              style={{
+                height:1,
+                margin:"14px 0",
+                background:"rgba(104,215,255,.15)"
+              }}
+            />
+
+            <div
+              style={{
+                color:"#68d7ff",
+                marginBottom:10,
+                letterSpacing:".12em"
+              }}
+            >
+              ACTIVE ACTOR
+            </div>
+
+            <div><strong>{activeActor.name}</strong></div>
+            <div>Canvas {activeActor.width} x {activeActor.height}</div>
+            <div>FPS {activeActor.fps}</div>
+            <div>Layers {activeActor.layers.length}</div>
+            <div>Status READY</div>
+          </>
+        )}
       </aside>
 
       <footer
@@ -493,11 +561,13 @@ export default function ActorCanvas() {
           pointerEvents: "none",
         }}
       >
-        {registry.loading
-          ? "SCANNING ACTOR REGISTRY"
-          : registry.error
-            ? "ACTOR REGISTRY OFFLINE"
-            : `${actors.length} DIGITAL ACTORS RECOGNIZED`}
+        {activeActor
+? `ACTIVE ACTOR: ${activeActor.name}`
+: registry.loading
+? "SCANNING ACTOR REGISTRY"
+: registry.error
+? "ACTOR REGISTRY OFFLINE"
+: `${actors.length} DIGITAL ACTORS RECOGNIZED`}
       </footer>
     </section>
   );
