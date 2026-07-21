@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { loadActorRegistry } from "../lib/ActorRegistry";
 import { ACTOR_ENGINE } from "../lib/VERSION";
-import { loadActor } from "../lib/ActorLoader";
+import {
+  loadActor,
+  type LoadedActor,
+} from "../lib/ActorLoader";
 import type {
   ActorRegistryDefinition,
   ActorRegistryEntry,
@@ -29,6 +32,7 @@ type RegistryState = {
 export default function ActorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerRef = useRef<PointerPosition>({ x: 0, y: 0 });
+  const activeActorRef = useRef<LoadedActor | null>(null);
 
   const [pointer, setPointer] = useState<PointerPosition>({
     x: 0,
@@ -42,13 +46,29 @@ export default function ActorCanvas() {
   });
 
   
-const [activeActor,setActiveActor]=useState<any>(null);
+  const [activeActor, setActiveActor] =
+    useState<LoadedActor | null>(null);
 
-useEffect(()=>{
-loadActor("Bob")
-.then(setActiveActor)
-.catch(()=>{});
-},[]);
+  useEffect(() => {
+    let active = true;
+
+    loadActor("Bob")
+      .then((actor) => {
+        if (!active) {
+          return;
+        }
+
+        activeActorRef.current = actor;
+        setActiveActor(actor);
+      })
+      .catch((error: unknown) => {
+        console.error("Bob could not be loaded:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
 const [registry, setRegistry] = useState<RegistryState>({
     loading: true,
@@ -249,7 +269,9 @@ const [registry, setRegistry] = useState<RegistryState>({
       ) {
         setMetrics((current) => ({
           ...current,
-          fps: Math.round(fpsAccumulator / fpsFrames),
+          fps: Number.isFinite(fpsAccumulator / fpsFrames)
+            ? Math.round(fpsAccumulator / fpsFrames)
+            : 0,
         }));
 
         fpsAccumulator = 0;
@@ -278,34 +300,89 @@ const [registry, setRegistry] = useState<RegistryState>({
       drawGrid(width, height);
       drawStageCenter(width, height);
       drawPointer();
-      if(activeActor){
+      const actorOnStage = activeActorRef.current;
 
+      if (actorOnStage) {
         context.save();
 
-        context.fillStyle="rgba(0,200,255,.08)";
-        context.strokeStyle="#4fdfff";
-        context.lineWidth=2;
+        const actorWidth = 210;
+        const actorHeight = 270;
+        const actorX = width / 2 - actorWidth / 2;
+        const actorY = height / 2 - actorHeight / 2;
 
-        const w=180;
-        const h=220;
+        const glow = context.createLinearGradient(
+          actorX,
+          actorY,
+          actorX,
+          actorY + actorHeight,
+        );
 
-        const x=width/2-w/2;
-        const y=height/2-h/2;
+        glow.addColorStop(0, "rgba(79, 223, 255, 0.16)");
+        glow.addColorStop(1, "rgba(79, 223, 255, 0.035)");
 
-        context.fillRect(x,y,w,h);
-        context.strokeRect(x,y,w,h);
+        context.fillStyle = glow;
+        context.strokeStyle = "#4fdfff";
+        context.lineWidth = 2;
+        context.shadowColor = "rgba(79, 223, 255, 0.65)";
+        context.shadowBlur = 20;
 
-        context.fillStyle="#7fe7ff";
-        context.font="22px Arial";
+        context.fillRect(
+          actorX,
+          actorY,
+          actorWidth,
+          actorHeight,
+        );
+
+        context.strokeRect(
+          actorX,
+          actorY,
+          actorWidth,
+          actorHeight,
+        );
+
+        context.shadowBlur = 0;
+
+        context.strokeStyle = "rgba(79, 223, 255, 0.35)";
+        context.setLineDash([6, 6]);
+
+        context.strokeRect(
+          actorX + 12,
+          actorY + 12,
+          actorWidth - 24,
+          actorHeight - 24,
+        );
+
+        context.setLineDash([]);
+
+        context.fillStyle = "#7fe7ff";
+        context.textAlign = "center";
+        context.font = "700 26px Arial, sans-serif";
 
         context.fillText(
-          activeActor.name,
-          x+40,
-          y+h/2
+          actorOnStage.name.toUpperCase(),
+          width / 2,
+          height / 2 - 5,
+        );
+
+        context.fillStyle = "rgba(255, 255, 255, 0.55)";
+        context.font = "12px Arial, sans-serif";
+
+        context.fillText(
+          "ACTIVE DIGITAL ACTOR",
+          width / 2,
+          height / 2 + 24,
+        );
+
+        context.fillStyle = "#77f5bd";
+        context.font = "11px Arial, sans-serif";
+
+        context.fillText(
+          "LOADED · READY",
+          width / 2,
+          actorY + actorHeight - 24,
         );
 
         context.restore();
-
       }
 
 
