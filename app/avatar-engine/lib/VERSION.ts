@@ -1,9 +1,9 @@
 export const ACTOR_ENGINE = {
   name: "Felencho Actor Engine",
   shortName: "FAE",
-  version: "0.4.1",
+  version: "0.5.0",
   codename: "Genesis",
   author: "Felencho.ai",
-  renderer: "HTML5 Canvas 2D",
-  status: "Actor On Stage",
+  renderer: "Canvas 2D",
+  status: "First Sprite Online",
 } as const;

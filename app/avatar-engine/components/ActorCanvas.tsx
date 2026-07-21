@@ -33,6 +33,7 @@ export default function ActorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerRef = useRef<PointerPosition>({ x: 0, y: 0 });
   const activeActorRef = useRef<LoadedActor | null>(null);
+  const faceImageRef = useRef<HTMLImageElement | null>(null);
 
   const [pointer, setPointer] = useState<PointerPosition>({
     x: 0,
@@ -48,6 +49,23 @@ export default function ActorCanvas() {
   
   const [activeActor, setActiveActor] =
     useState<LoadedActor | null>(null);
+
+
+  useEffect(() => {
+
+    const faceImage=new Image();
+
+    faceImage.src="/actors/Bob/layers/face.png";
+
+    faceImage.onload=()=>{
+
+      faceImageRef.current=faceImage;
+
+      console.log("FACE PNG LOADED");
+
+    };
+
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +93,23 @@ const [registry, setRegistry] = useState<RegistryState>({
     error: null,
     data: null,
   });
+
+
+  useEffect(() => {
+
+    const faceImage=new Image();
+
+    faceImage.src="/actors/Bob/layers/face.png";
+
+    faceImage.onload=()=>{
+
+      faceImageRef.current=faceImage;
+
+      console.log("FACE PNG LOADED");
+
+    };
+
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -332,6 +367,25 @@ const [registry, setRegistry] = useState<RegistryState>({
           actorWidth,
           actorHeight,
         );
+
+        if(faceImageRef.current){
+
+          const img=faceImageRef.current;
+
+          const scale=0.12;
+
+          const w=img.width*scale;
+          const h=img.height*scale;
+
+          context.drawImage(
+            img,
+            width/2-w/2,
+            actorY-20,
+            w,
+            h
+          );
+
+        }
 
         context.strokeRect(
           actorX,
