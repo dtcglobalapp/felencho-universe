@@ -1,0 +1,406 @@
+{
+  "project": {
+    "name": "Felencho Studio OS",
+    "ecosystem": "Felencho.ai / Felencho Forever / Felencho Mundial The Podcast",
+    "owner_name": "Felencho",
+    "legal_name": "Martin F. Duran",
+    "updated_at": "2026-07-11",
+    "version": "1.1.0",
+    "purpose": "Memoria técnica persistente para continuar el proyecto entre chats sin perder arquitectura, decisiones, archivos, estado ni próximos pasos.",
+    "absolute_rule": "Nunca rehacer, reemplazar, desmontar o rediseñar algo que ya funciona sin comprobar primero el estado real del proyecto."
+  },
+  "current_priority": {
+    "phase": "LiveAvatar Production Integration",
+    "priority_level": "URGENT",
+    "objective": "Producir contenido inmediatamente con Bob, Lina y Felencho Virtual desde el estudio físico.",
+    "focus_character": "bob",
+    "do_not_open_other_modules": true,
+    "next_result": "Bob debe escuchar, responder, mover la boca y enviar todo el audio únicamente desde La Bestia hacia Rodecaster Pro II mientras la PC de la TV funciona solo como pantalla."
+  },
+  "operating_rules": [
+    "Trabajar un solo objetivo a la vez.",
+    "Entregar archivos completos, nunca fragmentos ni instrucciones de parches manuales.",
+    "No crear archivos vacíos.",
+    "No tocar sistemas que ya funcionan sin una razón comprobada.",
+    "Primero probar, luego confirmar, después continuar.",
+    "No abrir Podcast Manager, Studio OS, seguridad, bases de datos u otros módulos durante la fase LiveAvatar.",
+    "La prioridad económica es producir contenido cuanto antes.",
+    "No duplicar sesiones LiveAvatar para un mismo personaje.",
+    "La Bestia es el único cerebro y audio master del estudio.",
+    "Las PCs conectadas a las TVs son pantallas visuales, no cerebros conversacionales."
+  ],
+  "studio_architecture": {
+    "physical_location": "New York",
+    "audio_master": {
+      "name": "La Bestia",
+      "device": "MacBook Pro M4 Max",
+      "responsibilities": [
+        "Micrófono principal",
+        "Reconocimiento de voz",
+        "Wake words",
+        "Felencho Gateway",
+        "OpenAI",
+        "ElevenLabs",
+        "LiveAvatar conversational session",
+        "Única salida de audio hacia Rodecaster Pro II"
+      ]
+    },
+    "display_computers": {
+      "count": 3,
+      "responsibilities": [
+        "Mostrar a Bob",
+        "Mostrar a Lina",
+        "Mostrar a Felencho Virtual",
+        "Reproducir loops Presence mientras duermen",
+        "Mostrar video LiveAvatar cuando despiertan",
+        "No producir audio principal",
+        "No abrir micrófono conversacional independiente",
+        "No crear una segunda sesión LiveAvatar del mismo personaje"
+      ]
+    },
+    "audio_chain": [
+      "Micrófono de Felencho",
+      "La Bestia",
+      "Speech recognition",
+      "Felencho Gateway",
+      "OpenAI / Brain",
+      "ElevenLabs o LiveAvatar",
+      "Rodecaster Pro II",
+      "Programa / transmisión"
+    ],
+    "visual_chain": [
+      "Studio Control o wake word",
+      "Supabase Realtime",
+      "PresenceController",
+      "PresenceAvatar",
+      "Presence loop o PresenceLive",
+      "PC de personaje",
+      "TV del personaje"
+    ]
+  },
+  "characters": {
+    "bob": {
+      "name": "Bob",
+      "role": "Hermano digital sabio y místico",
+      "presence_route": "/presence/bob",
+      "presence_video": "/videos/bob.mp4",
+      "liveavatar_id": "23e0cc5a-d312-49cf-8248-c976eefdd989",
+      "elevenlabs_voice_id": "8mBRP99B2Ng2QwsJMFQl",
+      "liveavatar_session_voice_id_current": "605d25b3-b346-415a-a7c5-dd6d7ba75049",
+      "liveavatar_context_id": "92d107f5-9412-4cec-9f3c-a1873c542992",
+      "liveavatar_llm_configuration_id": "894f9688-e7fb-4e2f-8e5f-390be37199b3",
+      "wake_word": "Bob"
+    },
+    "lina": {
+      "name": "Lina",
+      "role": "Compañera digital futurista, elegante, empática y multilingüe",
+      "presence_route": "/presence/lina",
+      "presence_video": "/videos/lina.mp4",
+      "liveavatar_id": "a0aff90d-d195-4197-bdd5-298397376264",
+      "elevenlabs_voice_id": "imFXYz8XIletRKLZZQaA",
+      "wake_word": "Lina"
+    },
+    "felencho_virtual": {
+      "name": "Felencho Virtual",
+      "role": "Extensión digital de Felencho Humano",
+      "presence_route": "/presence/felencho",
+      "presence_video": "/videos/felencho.mp4",
+      "liveavatar_id": "5593a161-df04-4366-b1a9-a42fe600f239",
+      "elevenlabs_voice_id": "nJdcnZj8qIND9vBbqVQG",
+      "wake_word": "Felencho Virtual",
+      "identity_rule": "Debe hablar en primera persona.",
+      "participation_rule": "Si Felencho Humano está participando en vivo, Felencho Virtual no interviene salvo que sea llamado explícitamente."
+    }
+  },
+  "working_systems": {
+    "presence_controller": "working",
+    "presence_loops": "working",
+    "presence_video": "working",
+    "supabase_realtime": "working",
+    "studio_control": "working",
+    "studio_listener": "working",
+    "wake_words": "working",
+    "speech_recognition": "working",
+    "question_detection": "working",
+    "felencho_gateway": "working",
+    "openai_responses": "working",
+    "elevenlabs_audio": "working",
+    "rode_audio_output": "working",
+    "automatic_wake": "working",
+    "automatic_sleep": "working",
+    "bob_liveavatar_token_endpoint": "working",
+    "bob_livekit_connection": "working",
+    "bob_liveavatar_video": "working",
+    "bob_liveavatar_lip_movement": "working",
+    "bob_liveavatar_voice_conversation": "under_test"
+  },
+  "important_decisions": [
+    {
+      "id": "DEC-001",
+      "title": "La Bestia es cerebro y audio master",
+      "decision": "Todo el audio del programa sale únicamente desde La Bestia hacia Rodecaster Pro II."
+    },
+    {
+      "id": "DEC-002",
+      "title": "Las PCs de las TVs son pantallas",
+      "decision": "Las PCs muestran imagen de los personajes, pero no controlan la conversación ni el audio principal."
+    },
+    {
+      "id": "DEC-003",
+      "title": "Presence ahorra créditos",
+      "decision": "Los personajes permanecen en loops locales mientras duermen y LiveAvatar se inicia únicamente cuando despiertan."
+    },
+    {
+      "id": "DEC-004",
+      "title": "No duplicar LiveAvatar",
+      "decision": "No abrir simultáneamente una sesión conversacional completa en La Bestia y otra en la PC de la TV para el mismo personaje."
+    },
+    {
+      "id": "DEC-005",
+      "title": "Audio separado de video",
+      "decision": "La Bestia controla audio y conversación; la PC del personaje recibe únicamente la representación visual."
+    },
+    {
+      "id": "DEC-006",
+      "title": "Lumina descontinuado públicamente",
+      "decision": "La marca nueva es Felencho Forever / Felencho Studio OS. Las rutas Lumina existentes son legado pendiente de migración."
+    },
+    {
+      "id": "DEC-007",
+      "title": "No tocar lo que funciona",
+      "decision": "Wake words, ElevenLabs, Gateway, Presence, Studio Control y Realtime ya funcionaban y deben conservarse."
+    },
+    {
+      "id": "DEC-008",
+      "title": "Prioridad de producción",
+      "decision": "Conectar los avatares y producir contenido tiene prioridad sobre dashboards, seguridad, Podcast Manager y otros módulos."
+    }
+  ],
+  "current_files": {
+    "presence_avatar": "components/presence/PresenceAvatar.tsx",
+    "presence_live": "components/presence/PresenceLive.tsx",
+    "presence_video": "components/presence/PresenceVideo.tsx",
+    "bob_presence_page": "app/presence/bob/page.tsx",
+    "lina_presence_page": "app/presence/lina/page.tsx",
+    "felencho_presence_page": "app/presence/felencho/page.tsx",
+    "bob_session_endpoint": "app/api/liveavatar/session-token/route.ts",
+    "felencho_gateway_endpoint": "app/api/felencho-gateway/route.ts",
+    "studio_control": "app/studio-control",
+    "studio_listener": "app/studio-listener",
+    "presence_controller": "lib/PresenceController",
+    "studio_sync": "lib/StudioSync"
+  },
+  "installed_packages": {
+    "livekit_client": true,
+    "liveavatar_web_sdk": true,
+    "liveavatar_web_sdk_version_seen": "0.0.18"
+  },
+  "current_status": {
+    "bob": {
+      "presence_loop": "working",
+      "wake_sleep_realtime": "working",
+      "wake_word": "working",
+      "elevenlabs_voice": "working",
+      "audio_from_bestia_to_rodecaster": "working",
+      "liveavatar_token_creation": "working",
+      "liveavatar_session_start": "working",
+      "livekit_credentials": "working",
+      "liveavatar_video_on_tv": "working",
+      "liveavatar_mouth_movement": "working",
+      "liveavatar_audio_on_bestia": "heard working",
+      "liveavatar_microphone_reaction": "not consistently working",
+      "current_problem": "Consolidar una sola sesión conversacional en La Bestia y enviar la imagen de Bob a la TV sin crear otra sesión conversacional ni perder audio."
+    },
+    "lina": {
+      "presence_loop": "working",
+      "wake_sleep_realtime": "working",
+      "wake_word": "working",
+      "elevenlabs_voice": "working",
+      "liveavatar_integration": "pending until Bob is complete"
+    },
+    "felencho_virtual": {
+      "presence_loop": "working",
+      "wake_sleep_realtime": "working",
+      "wake_word": "working",
+      "elevenlabs_voice": "working",
+      "liveavatar_integration": "pending until Bob is complete"
+    }
+  },
+  "known_behavior": {
+    "bestia_browser_open": "Bob audio can be heard through Rodecaster.",
+    "bestia_browser_closed": "Bob may still move his mouth on the TV but no audio reaches Rodecaster.",
+    "meaning": "The Bestia browser session is currently the audio source. The TV session must not become an independent conversational session.",
+    "studio_control_logs": "Only show presence/live state changes; they do not prove microphone, audio playback or agent conversation state."
+  },
+  "paused_modules": {
+    "studio_os": "paused",
+    "podcast_manager": "paused",
+    "studio_security": "paused",
+    "public_podcast_page": "working but paused",
+    "music_manager": "not current priority",
+    "timeline": "future phase",
+    "audience_accounts": "future phase",
+    "multilingual_profiles": "future phase"
+  },
+  "next_actions": [
+    "Do not modify Studio OS, Podcast Manager, security or databases.",
+    "Inspect the current La Bestia session and TV session behavior before replacing more code.",
+    "Keep only one conversational LiveAvatar session for Bob.",
+    "Make La Bestia own microphone, agent conversation and audio output.",
+    "Make the Bob TV PC display video only.",
+    "Confirm end-to-end test: Felencho speaks, Bob hears, Bob answers, Bob mouth moves, audio exits through Rodecaster.",
+    "After Bob is complete, copy the proven pattern to Lina.",
+    "After Lina is complete, copy the proven pattern to Felencho Virtual.",
+    "Record the first complete Felencho The Podcast episode.",
+    "Update this project memory after every verified milestone.",
+    "Mantener la OBSBOT conectada a La Bestia como cámara principal de visión.",
+    "No conectar cámaras independientes a Bob, Lina o Felencho Virtual.",
+    "Crear Vision Engine después de completar la integración LiveAvatar de los tres personajes.",
+    "Usar la visión para identificar quién habla y aportar contexto seguro a los avatares.",
+    "Coordinar en el futuro OBSBOT, cámaras PTZ y YoloBox desde Studio OS."
+  ],
+  "new_chat_instruction": {
+    "mandatory": true,
+    "source_of_truth": "https://www.felencho.ai/api/project-memory",
+    "instruction": "Lee la memoria completa antes de proponer cambios. No preguntes nuevamente qué está construido. No reinicies la arquitectura. No reemplaces sistemas verificados. Continúa desde current_priority, current_status, known_behavior, studio_log y next_actions.",
+    "user_message_template": "Bob, lee https://www.felencho.ai/api/project-memory y continúa exactamente desde la fase actual. No reinicies ni rediseñes nada."
+  },
+  "vision_system": {
+    "status": "architecture_defined",
+    "principle": "La visión central del estudio pertenece a La Bestia. Los avatares reciben contexto visual procesado por el sistema y no dependen de cámaras individuales conectadas a sus TVs.",
+    "camera_master": {
+      "name": "OBSBOT AI Camera",
+      "connected_to": "La Bestia - MacBook Pro M4 Max",
+      "role": "Cámara principal de visión inteligente del estudio",
+      "responsibilities": [
+        "Capturar a Felencho Humano",
+        "Seguir automáticamente al anfitrión",
+        "Detectar movimientos y posiciones dentro del estudio",
+        "Proveer contexto visual a Bob, Lina y Felencho Virtual",
+        "Apoyar reconocimiento facial de invitados autorizados",
+        "Apoyar reconocimiento de gestos y lenguaje corporal",
+        "Permitir que los avatares sepan quién está hablando",
+        "Permitir saludos personalizados a personas reconocidas",
+        "Proveer una fuente visual unificada para el cerebro del estudio"
+      ],
+      "current_status": "connected_to_bestia",
+      "future_capabilities": [
+        "Reconocimiento facial con consentimiento",
+        "Identificación de invitados registrados",
+        "Seguimiento automático del anfitrión",
+        "Detección de quién levanta la mano",
+        "Detección de expresiones y reacciones",
+        "Contexto visual para respuestas de los avatares",
+        "Coordinación automática con cámaras PTZ",
+        "Selección inteligente de planos"
+      ]
+    },
+    "avatar_vision_flow": [
+      "OBSBOT captura el estudio",
+      "La Bestia recibe y procesa la imagen",
+      "Vision Engine detecta personas, posiciones y eventos",
+      "Felencho Gateway transforma la visión en contexto seguro",
+      "Bob, Lina y Felencho Virtual reciben solo el contexto necesario",
+      "Los avatares reaccionan sin controlar directamente la cámara"
+    ],
+    "privacy_rules": [
+      "No guardar rostros ni perfiles biométricos sin autorización.",
+      "Los invitados deben poder ser registrados con consentimiento.",
+      "La visión no debe transmitir datos privados innecesarios al modelo.",
+      "El sistema debe describir contexto, no exponer imágenes sin necesidad.",
+      "La cámara OBSBOT pertenece a la capa privada del Studio OS."
+    ]
+  },
+  "camera_system": {
+    "primary_ai_camera": {
+      "device": "OBSBOT AI Camera",
+      "controller": "La Bestia",
+      "purpose": "Visión inteligente, seguimiento y contexto para los avatares"
+    },
+    "ptz_cameras": {
+      "count": 3,
+      "quality": "4K",
+      "controller": "YoloBox",
+      "network": "Conectadas al router del estudio",
+      "purpose": [
+        "Producción multicámara",
+        "Planos de Felencho Humano",
+        "Planos de Bob",
+        "Planos de Lina",
+        "Planos de Felencho Virtual",
+        "Planos de invitados",
+        "Cambios automáticos de cámara",
+        "Grabación y transmisión en vivo"
+      ],
+      "current_status": "hardware_available"
+    },
+    "production_rule": "La OBSBOT aporta visión inteligente a La Bestia. Las cámaras PTZ y YoloBox producen los planos del programa."
+  },
+  "hardware_inventory": {
+    "brain": {
+      "name": "La Bestia",
+      "device": "MacBook Pro M4 Max",
+      "role": "Cerebro, visión, conversación y audio master"
+    },
+    "audio": {
+      "mixer": "Rodecaster Pro II",
+      "dj_system": "Denon DJ",
+      "rule": "Todo el audio de los avatares sale desde La Bestia"
+    },
+    "vision": {
+      "main_camera": "OBSBOT AI Camera",
+      "ptz_cameras": 3,
+      "ptz_quality": "4K",
+      "switcher": "YoloBox"
+    },
+    "computers": {
+      "bestia": 1,
+      "windows_display_computers": 3,
+      "total": 4
+    },
+    "displays": {
+      "character_tvs": 3,
+      "bob_orientation": "vertical 9:16",
+      "lina_orientation": "vertical 9:16",
+      "felencho_virtual_orientation": "horizontal 16:9"
+    },
+    "prompter": {
+      "device": "Tablet",
+      "position": "Centro del estudio"
+    }
+  },
+  "project_identity": {
+    "mission": "Construir un estudio audiovisual donde Felencho Humano, Bob, Lina y Felencho Virtual puedan conversar, producir y transmitir contenido en tiempo real desde New York.",
+    "commercial_priority": "Producir contenido constante que ayude a generar ingresos y sostener los costos mensuales del ecosistema Felencho.",
+    "core_principles": [
+      "La tecnología acompaña la esencia humana; no la reemplaza.",
+      "La historia y personalidad de Felencho son irrepetibles.",
+      "La producción real tiene prioridad sobre interfaces secundarias.",
+      "Cada avance debe acercar al primer episodio completo.",
+      "No rehacer sistemas que ya han sido verificados.",
+      "La Bestia es el cerebro central del estudio.",
+      "Las TVs representan a los personajes, pero no controlan el sistema.",
+      "La memoria del proyecto vive en Felencho.ai y no depende de un chat."
+    ]
+  },
+  "studio_log": {
+    "name": "Bitácora Oficial de Felencho Studio OS",
+    "last_verified": "2026-07-11",
+    "current_phase": "LiveAvatar Production Integration",
+    "current_mission": "Completar a Bob antes de copiar el patrón a Lina y Felencho Virtual.",
+    "last_verified_milestone": "La memoria persistente del proyecto fue publicada correctamente en /api/project-memory.",
+    "next_mission": "Consolidar una sola sesión conversacional de Bob controlada por La Bestia, con audio hacia Rodecaster y representación visual en la TV."
+  },
+  "history": [
+    {
+      "date": "2026-07-10",
+      "title": "Nacimiento de la memoria persistente",
+      "description": "Se creó project-memory/current.json y la ruta pública /api/project-memory para mantener continuidad entre chats, modelos y futuras plataformas."
+    },
+    {
+      "date": "2026-07-11",
+      "title": "Arquitectura de visión de los avatares",
+      "description": "Se definió la OBSBOT conectada a La Bestia como cámara principal de visión inteligente para Bob, Lina y Felencho Virtual. Las cámaras PTZ y YoloBox quedan como sistema de producción multicámara."
+    }
+  ]
+}
