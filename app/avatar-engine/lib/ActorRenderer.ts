@@ -87,28 +87,17 @@ export function renderActor(
       1,
     );
 
-    const pivotStageX =
+    const layerX =
       actorOriginX +
-      (
-        transform.pivotX +
-        transform.x +
-        runtimeOffsetX
-      ) *
+      (transform.x + runtimeOffsetX) *
         actorScale;
 
-    const pivotStageY =
+    const layerY =
       actorOriginY +
-      (
-        transform.pivotY +
-        transform.y +
-        runtimeOffsetY
-      ) *
+      (transform.y + runtimeOffsetY) *
         actorScale;
 
-    context.translate(
-      pivotStageX,
-      pivotStageY,
-    );
+    context.translate(layerX, layerY);
 
     context.rotate(
       (transform.rotation * Math.PI) / 180,
@@ -119,11 +108,7 @@ export function renderActor(
       actorScale * transform.scaleY,
     );
 
-    context.drawImage(
-      image,
-      -transform.pivotX,
-      -transform.pivotY,
-    );
+    context.drawImage(image, 0, 0);
 
     context.restore();
   }
