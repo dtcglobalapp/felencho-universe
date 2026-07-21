@@ -9,84 +9,41 @@ export interface ActorTransform {
   pivotY: number;
 }
 
-export interface ActorLayer {
-
+export interface ActorLayerDefinition {
   id: string;
-
   name: string;
-
   image: string;
-
   zIndex: number;
-
   visible: boolean;
-
   transform: ActorTransform;
-
 }
 
-export interface ActorRig {
-
-  jaw: string;
-
-  head: string;
-
-  neck?: string;
-
-  leftEye?: string;
-
-  rightEye?: string;
-
-  leftPupil?: string;
-
-  rightPupil?: string;
-
-  upperLip?: string;
-
-  lowerLip?: string;
-
-  tongue?: string;
-
-  upperTeeth?: string;
-
-  lowerTeeth?: string;
-
-  mustacheCenter?: string;
-
-  mustacheLeft?: string;
-
-  mustacheRight?: string;
-
-  beardLeft?: string;
-
-  beardCenter?: string;
-
-  beardRight?: string;
-
-  beardTip1?: string;
-
-  beardTip2?: string;
-
-  beardTip3?: string;
-
+export interface ActorDisplayDefinition {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  maxStageWidth: number;
+  maxStageHeight: number;
 }
 
 export interface ActorDefinition {
-
   id: string;
-
   name: string;
-
   version: string;
-
   width: number;
-
   height: number;
-
   fps: number;
+  display: ActorDisplayDefinition;
+  layers: ActorLayerDefinition[];
+  rig: Record<string, string>;
+}
 
-  layers: ActorLayer[];
+export interface LoadedActorLayer {
+  definition: ActorLayerDefinition;
+  image: HTMLImageElement;
+}
 
-  rig: ActorRig;
-
+export interface LoadedActor {
+  definition: ActorDefinition;
+  layers: LoadedActorLayer[];
 }

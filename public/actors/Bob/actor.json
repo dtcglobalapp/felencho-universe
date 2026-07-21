@@ -1,13 +1,37 @@
 {
-  "id": "bob",
+  "id": "Bob",
   "name": "Bob",
-  "version": "0.1.0",
-  "width": 2048,
-  "height": 2048,
+  "version": "0.2.0",
+  "width": 2160,
+  "height": 3840,
   "fps": 60,
-  "layers": [],
+  "display": {
+    "scale": 1,
+    "offsetX": 0,
+    "offsetY": 40,
+    "maxStageWidth": 0.48,
+    "maxStageHeight": 0.76
+  },
+  "layers": [
+    {
+      "id": "face",
+      "name": "Face",
+      "image": "/actors/Bob/layers/face.png",
+      "zIndex": 100,
+      "visible": true,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "opacity": 1,
+        "pivotX": 1080,
+        "pivotY": 1920
+      }
+    }
+  ],
   "rig": {
-    "head": "head",
-    "jaw": "jaw"
+    "face": "face"
   }
 }

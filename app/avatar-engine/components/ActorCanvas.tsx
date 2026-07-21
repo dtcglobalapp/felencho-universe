@@ -1,148 +1,96 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { loadActorRegistry } from "../lib/ActorRegistry";
-import { ACTOR_ENGINE } from "../lib/VERSION";
 import {
-  loadActor,
-  type LoadedActor,
-} from "../lib/ActorLoader";
-import type {
-  ActorRegistryDefinition,
-  ActorRegistryEntry,
-} from "../types/Registry";
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-type PointerPosition = {
-  x: number;
-  y: number;
-};
+import { loadActor } from "../lib/ActorLoader";
+import { renderActor } from "../lib/ActorRenderer";
+import { ACTOR_ENGINE } from "../lib/VERSION";
+import type { LoadedActor } from "../types/Actor";
 
-type CanvasMetrics = {
+interface StageMetrics {
   width: number;
   height: number;
   fps: number;
-};
+}
 
-type RegistryState = {
-  loading: boolean;
-  error: string | null;
-  data: ActorRegistryDefinition | null;
-};
+interface PointerPosition {
+  x: number;
+  y: number;
+}
+
+type ActorLoadStatus =
+  | "loading"
+  | "ready"
+  | "error";
 
 export default function ActorCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const pointerRef = useRef<PointerPosition>({ x: 0, y: 0 });
-  const activeActorRef = useRef<LoadedActor | null>(null);
-  const faceImageRef = useRef<HTMLImageElement | null>(null);
+  const canvasRef =
+    useRef<HTMLCanvasElement | null>(null);
 
-  const [pointer, setPointer] = useState<PointerPosition>({
-    x: 0,
-    y: 0,
-  });
+  const actorRef =
+    useRef<LoadedActor | null>(null);
 
-  const [metrics, setMetrics] = useState<CanvasMetrics>({
-    width: 0,
-    height: 0,
-    fps: 0,
-  });
+  const pointerRef =
+    useRef<PointerPosition>({
+      x: 0,
+      y: 0,
+    });
 
-  
+  const [metrics, setMetrics] =
+    useState<StageMetrics>({
+      width: 0,
+      height: 0,
+      fps: 0,
+    });
+
+  const [pointer, setPointer] =
+    useState<PointerPosition>({
+      x: 0,
+      y: 0,
+    });
+
+  const [actorStatus, setActorStatus] =
+    useState<ActorLoadStatus>("loading");
+
+  const [actorError, setActorError] =
+    useState<string | null>(null);
+
   const [activeActor, setActiveActor] =
     useState<LoadedActor | null>(null);
 
-
   useEffect(() => {
-
-    const faceImage=new Image();
-
-    faceImage.src="/actors/Bob/layers/face.png";
-
-    faceImage.onload=()=>{
-
-      faceImageRef.current=faceImage;
-
-      console.log("FACE PNG LOADED");
-
-    };
-
-  }, []);
-
-  useEffect(() => {
-    let active = true;
+    let mounted = true;
 
     loadActor("Bob")
       .then((actor) => {
-        if (!active) {
+        if (!mounted) {
           return;
         }
 
-        activeActorRef.current = actor;
+        actorRef.current = actor;
         setActiveActor(actor);
+        setActorStatus("ready");
       })
       .catch((error: unknown) => {
-        console.error("Bob could not be loaded:", error);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-const [registry, setRegistry] = useState<RegistryState>({
-    loading: true,
-    error: null,
-    data: null,
-  });
-
-
-  useEffect(() => {
-
-    const faceImage=new Image();
-
-    faceImage.src="/actors/Bob/layers/face.png";
-
-    faceImage.onload=()=>{
-
-      faceImageRef.current=faceImage;
-
-      console.log("FACE PNG LOADED");
-
-    };
-
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    loadActorRegistry()
-      .then((data) => {
-        if (!active) {
+        if (!mounted) {
           return;
         }
 
-        setRegistry({
-          loading: false,
-          error: null,
-          data,
-        });
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Error desconocido cargando a Bob.";
 
-        setRegistry({
-          loading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Unknown Actor Registry error.",
-          data: null,
-        });
+        setActorError(message);
+        setActorStatus("error");
       });
 
     return () => {
-      active = false;
+      mounted = false;
     };
   }, []);
 
@@ -159,24 +107,29 @@ const [registry, setRegistry] = useState<RegistryState>({
       return;
     }
 
-    let animationFrameId = 0;
-    let previousFrameTime = performance.now();
-    let fpsAccumulator = 0;
-    let fpsFrames = 0;
-    let lastFpsUpdate = previousFrameTime;
+    let frameRequest = 0;
+    let previousTime = performance.now();
+    let lastFpsUpdate = previousTime;
+    let accumulatedFps = 0;
+    let accumulatedFrames = 0;
 
     const resizeCanvas = () => {
-      const bounds = canvas.getBoundingClientRect();
-      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      const bounds =
+        canvas.getBoundingClientRect();
+
+      const pixelRatio = Math.min(
+        window.devicePixelRatio || 1,
+        2,
+      );
 
       canvas.width = Math.max(
         1,
-        Math.floor(bounds.width * pixelRatio),
+        Math.round(bounds.width * pixelRatio),
       );
 
       canvas.height = Math.max(
         1,
-        Math.floor(bounds.height * pixelRatio),
+        Math.round(bounds.height * pixelRatio),
       );
 
       context.setTransform(
@@ -195,18 +148,25 @@ const [registry, setRegistry] = useState<RegistryState>({
       }));
     };
 
-    const drawGrid = (width: number, height: number) => {
+    const drawGrid = (
+      width: number,
+      height: number,
+    ) => {
       const gridSize = 50;
 
       context.save();
       context.lineWidth = 1;
 
-      for (let x = 0; x <= width; x += gridSize) {
+      for (
+        let x = 0;
+        x <= width;
+        x += gridSize
+      ) {
         context.beginPath();
 
         context.strokeStyle =
-          x % (gridSize * 4) === 0
-            ? "rgba(90, 210, 255, 0.14)"
+          x % 200 === 0
+            ? "rgba(91, 216, 255, 0.16)"
             : "rgba(255, 255, 255, 0.045)";
 
         context.moveTo(x + 0.5, 0);
@@ -214,12 +174,16 @@ const [registry, setRegistry] = useState<RegistryState>({
         context.stroke();
       }
 
-      for (let y = 0; y <= height; y += gridSize) {
+      for (
+        let y = 0;
+        y <= height;
+        y += gridSize
+      ) {
         context.beginPath();
 
         context.strokeStyle =
-          y % (gridSize * 4) === 0
-            ? "rgba(90, 210, 255, 0.14)"
+          y % 200 === 0
+            ? "rgba(91, 216, 255, 0.16)"
             : "rgba(255, 255, 255, 0.045)";
 
         context.moveTo(0, y + 0.5);
@@ -238,44 +202,44 @@ const [registry, setRegistry] = useState<RegistryState>({
       const centerY = height / 2;
 
       context.save();
-      context.strokeStyle = "rgba(92, 220, 255, 0.75)";
-      context.fillStyle = "rgba(125, 225, 255, 0.9)";
+
+      context.strokeStyle =
+        "rgba(92, 220, 255, 0.55)";
+
       context.lineWidth = 1;
 
       context.beginPath();
-      context.moveTo(centerX - 30, centerY);
-      context.lineTo(centerX + 30, centerY);
-      context.moveTo(centerX, centerY - 30);
-      context.lineTo(centerX, centerY + 30);
+      context.moveTo(centerX - 25, centerY);
+      context.lineTo(centerX + 25, centerY);
+      context.moveTo(centerX, centerY - 25);
+      context.lineTo(centerX, centerY + 25);
       context.stroke();
 
       context.beginPath();
-      context.arc(centerX, centerY, 11, 0, Math.PI * 2);
-      context.stroke();
-
-      context.font = "12px Arial, sans-serif";
-      context.fillText(
-        `STAGE CENTER ${Math.round(centerX)}, ${Math.round(
-          centerY,
-        )}`,
-        centerX + 20,
-        centerY - 18,
+      context.arc(
+        centerX,
+        centerY,
+        9,
+        0,
+        Math.PI * 2,
       );
+      context.stroke();
 
       context.restore();
     };
 
     const drawPointer = () => {
-      const currentPointer = pointerRef.current;
+      const current = pointerRef.current;
 
       context.save();
-      context.strokeStyle = "rgba(255, 255, 255, 0.35)";
-      context.lineWidth = 1;
+
+      context.strokeStyle =
+        "rgba(255,255,255,0.28)";
 
       context.beginPath();
       context.arc(
-        currentPointer.x,
-        currentPointer.y,
+        current.x,
+        current.y,
         7,
         0,
         Math.PI * 2,
@@ -285,182 +249,124 @@ const [registry, setRegistry] = useState<RegistryState>({
       context.restore();
     };
 
-    const render = (currentTime: number) => {
-      const bounds = canvas.getBoundingClientRect();
+    const render = (time: number) => {
+      const bounds =
+        canvas.getBoundingClientRect();
+
       const width = bounds.width;
       const height = bounds.height;
 
-      const frameDuration = currentTime - previousFrameTime;
-      previousFrameTime = currentTime;
+      const elapsed = time - previousTime;
+      previousTime = time;
 
-      if (frameDuration > 0) {
-        fpsAccumulator += 1000 / frameDuration;
-        fpsFrames += 1;
+      if (elapsed > 0 && Number.isFinite(elapsed)) {
+        accumulatedFps += 1000 / elapsed;
+        accumulatedFrames += 1;
       }
 
       if (
-        currentTime - lastFpsUpdate >= 500 &&
-        fpsFrames > 0
+        time - lastFpsUpdate >= 500 &&
+        accumulatedFrames > 0
       ) {
+        const average =
+          accumulatedFps / accumulatedFrames;
+
         setMetrics((current) => ({
           ...current,
-          fps: Number.isFinite(fpsAccumulator / fpsFrames)
-            ? Math.round(fpsAccumulator / fpsFrames)
+          fps: Number.isFinite(average)
+            ? Math.round(average)
             : 0,
         }));
 
-        fpsAccumulator = 0;
-        fpsFrames = 0;
-        lastFpsUpdate = currentTime;
+        accumulatedFps = 0;
+        accumulatedFrames = 0;
+        lastFpsUpdate = time;
       }
 
-      context.clearRect(0, 0, width, height);
-
-      const background = context.createRadialGradient(
-        width / 2,
-        height / 2,
-        40,
-        width / 2,
-        height / 2,
-        Math.max(width, height) * 0.72,
+      context.clearRect(
+        0,
+        0,
+        width,
+        height,
       );
 
-      background.addColorStop(0, "#111b22");
-      background.addColorStop(0.52, "#080c10");
-      background.addColorStop(1, "#020304");
+      const background =
+        context.createRadialGradient(
+          width / 2,
+          height / 2,
+          20,
+          width / 2,
+          height / 2,
+          Math.max(width, height) * 0.8,
+        );
+
+      background.addColorStop(
+        0,
+        "#111c23",
+      );
+
+      background.addColorStop(
+        0.55,
+        "#080d11",
+      );
+
+      background.addColorStop(
+        1,
+        "#020304",
+      );
 
       context.fillStyle = background;
-      context.fillRect(0, 0, width, height);
+
+      context.fillRect(
+        0,
+        0,
+        width,
+        height,
+      );
 
       drawGrid(width, height);
       drawStageCenter(width, height);
-      drawPointer();
-      const actorOnStage = activeActorRef.current;
 
-      if (actorOnStage) {
-        context.save();
+      const actor = actorRef.current;
 
-        const actorWidth = 210;
-        const actorHeight = 270;
-        const actorX = width / 2 - actorWidth / 2;
-        const actorY = height / 2 - actorHeight / 2;
-
-        const glow = context.createLinearGradient(
-          actorX,
-          actorY,
-          actorX,
-          actorY + actorHeight,
+      if (actor) {
+        renderActor(
+          context,
+          actor,
+          { width, height },
         );
-
-        glow.addColorStop(0, "rgba(79, 223, 255, 0.16)");
-        glow.addColorStop(1, "rgba(79, 223, 255, 0.035)");
-
-        context.fillStyle = glow;
-        context.strokeStyle = "#4fdfff";
-        context.lineWidth = 2;
-        context.shadowColor = "rgba(79, 223, 255, 0.65)";
-        context.shadowBlur = 20;
-
-        context.fillRect(
-          actorX,
-          actorY,
-          actorWidth,
-          actorHeight,
-        );
-
-        if(faceImageRef.current){
-
-          const img=faceImageRef.current;
-
-          const scale=0.12;
-
-          const w=img.width*scale;
-          const h=img.height*scale;
-
-          context.drawImage(
-            img,
-            width/2-w/2,
-            actorY-20,
-            w,
-            h
-          );
-
-        }
-
-        context.strokeRect(
-          actorX,
-          actorY,
-          actorWidth,
-          actorHeight,
-        );
-
-        context.shadowBlur = 0;
-
-        context.strokeStyle = "rgba(79, 223, 255, 0.35)";
-        context.setLineDash([6, 6]);
-
-        context.strokeRect(
-          actorX + 12,
-          actorY + 12,
-          actorWidth - 24,
-          actorHeight - 24,
-        );
-
-        context.setLineDash([]);
-
-        context.fillStyle = "#7fe7ff";
-        context.textAlign = "center";
-        context.font = "700 26px Arial, sans-serif";
-
-        context.fillText(
-          actorOnStage.name.toUpperCase(),
-          width / 2,
-          height / 2 - 5,
-        );
-
-        context.fillStyle = "rgba(255, 255, 255, 0.55)";
-        context.font = "12px Arial, sans-serif";
-
-        context.fillText(
-          "ACTIVE DIGITAL ACTOR",
-          width / 2,
-          height / 2 + 24,
-        );
-
-        context.fillStyle = "#77f5bd";
-        context.font = "11px Arial, sans-serif";
-
-        context.fillText(
-          "LOADED · READY",
-          width / 2,
-          actorY + actorHeight - 24,
-        );
-
-        context.restore();
       }
 
+      drawPointer();
 
-      animationFrameId =
+      frameRequest =
         window.requestAnimationFrame(render);
     };
 
     const handlePointerMove = (
       event: PointerEvent,
     ) => {
-      const bounds = canvas.getBoundingClientRect();
+      const bounds =
+        canvas.getBoundingClientRect();
 
-      const nextPointer = {
-        x: Math.round(event.clientX - bounds.left),
-        y: Math.round(event.clientY - bounds.top),
+      const nextPosition = {
+        x: Math.round(
+          event.clientX - bounds.left,
+        ),
+        y: Math.round(
+          event.clientY - bounds.top,
+        ),
       };
 
-      pointerRef.current = nextPointer;
-      setPointer(nextPointer);
+      pointerRef.current = nextPosition;
+      setPointer(nextPosition);
     };
 
     resizeCanvas();
 
-    const resizeObserver = new ResizeObserver(resizeCanvas);
+    const resizeObserver =
+      new ResizeObserver(resizeCanvas);
+
     resizeObserver.observe(canvas);
 
     canvas.addEventListener(
@@ -468,11 +374,14 @@ const [registry, setRegistry] = useState<RegistryState>({
       handlePointerMove,
     );
 
-    animationFrameId =
+    frameRequest =
       window.requestAnimationFrame(render);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameId);
+      window.cancelAnimationFrame(
+        frameRequest,
+      );
+
       resizeObserver.disconnect();
 
       canvas.removeEventListener(
@@ -482,10 +391,8 @@ const [registry, setRegistry] = useState<RegistryState>({
     };
   }, []);
 
-  const actors = registry.data?.actors ?? [];
-  const readyActors = actors.filter(
-    (actor) => actor.status === "ready",
-  ).length;
+  const layerCount =
+    activeActor?.layers.length ?? 0;
 
   return (
     <section
@@ -494,13 +401,13 @@ const [registry, setRegistry] = useState<RegistryState>({
         width: "100%",
         height: "100vh",
         overflow: "hidden",
-        background: "#020304",
         color: "#ffffff",
+        background: "#020304",
       }}
     >
       <canvas
         ref={canvasRef}
-        aria-label="Felencho Actor Engine stage"
+        aria-label="Felencho Actor Engine Stage"
         style={{
           display: "block",
           width: "100%",
@@ -512,58 +419,54 @@ const [registry, setRegistry] = useState<RegistryState>({
       <header
         style={{
           position: "absolute",
-          top: 22,
-          left: 24,
+          top: 26,
+          left: 28,
           pointerEvents: "none",
         }}
       >
         <div
           style={{
+            color: "#68d7ff",
             fontSize: 11,
             letterSpacing: "0.25em",
-            color: "#68d7ff",
-            marginBottom: 7,
           }}
         >
-          {ACTOR_ENGINE.shortName} /{" "}
-          {ACTOR_ENGINE.codename.toUpperCase()}
+          FAE / GENESIS
         </div>
 
         <h1
           style={{
-            margin: 0,
-            fontSize: "clamp(22px, 3vw, 38px)",
-            fontWeight: 700,
-            letterSpacing: "-0.03em",
+            margin: "12px 0 0",
+            fontSize:
+              "clamp(25px, 3vw, 42px)",
           }}
         >
-          {ACTOR_ENGINE.name}
+          Felencho Actor Engine
         </h1>
 
         <p
           style={{
-            margin: "7px 0 0",
-            color: "rgba(255,255,255,0.55)",
-            fontSize: 13,
+            color:
+              "rgba(255,255,255,0.5)",
           }}
         >
-          Digital Actor Stage
+          Data-Driven Digital Actor Stage
         </p>
       </header>
 
       <aside
         style={{
           position: "absolute",
-          top: 22,
-          right: 24,
-          width: 290,
-          padding: "16px 18px",
+          top: 26,
+          right: 26,
+          width: 285,
+          padding: 18,
           border:
-            "1px solid rgba(104, 215, 255, 0.2)",
-          borderRadius: 12,
-          background: "rgba(3, 8, 12, 0.82)",
-          backdropFilter: "blur(12px)",
-          boxShadow: "0 15px 45px rgba(0,0,0,0.35)",
+            "1px solid rgba(104,215,255,0.24)",
+          borderRadius: 14,
+          background:
+            "rgba(2,7,10,0.86)",
+          backdropFilter: "blur(14px)",
           fontFamily:
             "ui-monospace, SFMono-Regular, Menlo, monospace",
           fontSize: 12,
@@ -578,105 +481,91 @@ const [registry, setRegistry] = useState<RegistryState>({
         <StatusRow
           label="STATUS"
           value={ACTOR_ENGINE.status}
-          active={!registry.error}
+          active={actorStatus === "ready"}
         />
 
-        <StatusRow label="RENDERER" value="Canvas 2D" />
+        <StatusRow
+          label="RENDERER"
+          value="Layer Renderer"
+        />
 
         <StatusRow
           label="RESOLUTION"
           value={`${metrics.width} x ${metrics.height}`}
         />
 
-        <StatusRow label="FPS" value={`${metrics.fps}`} />
-
         <StatusRow
-          label="ACTORS"
-          value={
-            registry.loading ? "SCANNING" : `${actors.length}`
-          }
+          label="FPS"
+          value={`${metrics.fps}`}
         />
 
         <StatusRow
-          label="READY"
-          value={`${readyActors}`}
+          label="POINTER"
+          value={`${pointer.x}, ${pointer.y}`}
         />
 
-        <StatusRow
-          label="POINTER X"
-          value={`${pointer.x}`}
-        />
-
-        <StatusRow
-          label="POINTER Y"
-          value={`${pointer.y}`}
-        />
+        <Divider />
 
         <div
           style={{
-            height: 1,
-            margin: "12px 0",
-            background:
-              "rgba(104, 215, 255, 0.14)",
-          }}
-        />
-
-        <div
-          style={{
+            color: "#68d7ff",
+            letterSpacing: "0.14em",
             marginBottom: 8,
-            color: "rgba(255,255,255,0.42)",
-            letterSpacing: "0.12em",
           }}
         >
-          ACTOR REGISTRY
+          ACTIVE ACTOR
         </div>
 
-        {registry.loading && (
-          <div style={{ color: "#68d7ff" }}>
-            Searching for digital actors...
+        {actorStatus === "loading" && (
+          <div style={{ color: "#ffd36a" }}>
+            Loading Bob...
           </div>
         )}
 
-        {registry.error && (
+        {actorStatus === "error" && (
           <div style={{ color: "#ff8f8f" }}>
-            Registry error: {registry.error}
+            {actorError}
           </div>
         )}
-
-        {!registry.loading &&
-          !registry.error &&
-          actors.map((actor) => (
-            <ActorRegistryRow
-              key={actor.id}
-              actor={actor}
-            />
-          ))}
 
         {activeActor && (
           <>
-            <div
-              style={{
-                height:1,
-                margin:"14px 0",
-                background:"rgba(104,215,255,.15)"
-              }}
+            <StatusRow
+              label="NAME"
+              value={activeActor.definition.name}
             />
 
-            <div
-              style={{
-                color:"#68d7ff",
-                marginBottom:10,
-                letterSpacing:".12em"
-              }}
-            >
-              ACTIVE ACTOR
-            </div>
+            <StatusRow
+              label="ACTOR VERSION"
+              value={
+                activeActor.definition.version
+              }
+            />
 
-            <div><strong>{activeActor.name}</strong></div>
-            <div>Canvas {activeActor.width} x {activeActor.height}</div>
-            <div>FPS {activeActor.fps}</div>
-            <div>Layers {activeActor.layers.length}</div>
-            <div>Status READY</div>
+            <StatusRow
+              label="SOURCE CANVAS"
+              value={`${activeActor.definition.width} x ${activeActor.definition.height}`}
+            />
+
+            <StatusRow
+              label="LAYERS"
+              value={`${layerCount}`}
+              active={layerCount > 0}
+            />
+
+            <StatusRow
+              label="FIRST LAYER"
+              value={
+                activeActor.layers[0]
+                  ?.definition.name ?? "NONE"
+              }
+            />
+
+            <StatusRow
+              label="RIG"
+              value="ONLINE"
+              active
+            />
           </>
         )}
       </aside>
@@ -684,23 +573,35 @@ const [registry, setRegistry] = useState<RegistryState>({
       <footer
         style={{
           position: "absolute",
-          left: 24,
-          bottom: 20,
-          color: "rgba(255,255,255,0.42)",
+          left: 28,
+          bottom: 22,
+          color:
+            "rgba(255,255,255,0.42)",
           fontSize: 12,
           letterSpacing: "0.08em",
           pointerEvents: "none",
         }}
       >
-        {activeActor
-? `ACTIVE ACTOR: ${activeActor.name}`
-: registry.loading
-? "SCANNING ACTOR REGISTRY"
-: registry.error
-? "ACTOR REGISTRY OFFLINE"
-: `${actors.length} DIGITAL ACTORS RECOGNIZED`}
+        {actorStatus === "ready"
+          ? `${layerCount} ACTOR LAYER RENDERED`
+          : actorStatus === "loading"
+            ? "LOADING ACTOR LAYERS"
+            : "ACTOR LOAD FAILED"}
       </footer>
     </section>
+  );
+}
+
+function Divider() {
+  return (
+    <div
+      style={{
+        height: 1,
+        margin: "13px 0",
+        background:
+          "rgba(104,215,255,0.15)",
+      }}
+    />
   );
 }
 
@@ -718,12 +619,13 @@ function StatusRow({
       style={{
         display: "flex",
         justifyContent: "space-between",
-        gap: 22,
+        gap: 18,
       }}
     >
       <span
         style={{
-          color: "rgba(255,255,255,0.42)",
+          color:
+            "rgba(255,255,255,0.43)",
         }}
       >
         {label}
@@ -731,78 +633,14 @@ function StatusRow({
 
       <span
         style={{
-          color: active ? "#77f5bd" : "#ffffff",
+          color: active
+            ? "#77f5bd"
+            : "#ffffff",
           textAlign: "right",
         }}
       >
         {active ? "● " : ""}
         {value}
-      </span>
-    </div>
-  );
-}
-
-function ActorRegistryRow({
-  actor,
-}: {
-  actor: ActorRegistryEntry;
-}) {
-  const statusColor =
-    actor.status === "ready"
-      ? "#77f5bd"
-      : actor.status === "development"
-        ? "#ffd36a"
-        : "#ff8f8f";
-
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "10px 1fr auto",
-        alignItems: "center",
-        gap: 9,
-        padding: "6px 0",
-        borderBottom:
-          "1px solid rgba(255,255,255,0.05)",
-      }}
-    >
-      <span
-        title={actor.status}
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: statusColor,
-          boxShadow: `0 0 9px ${statusColor}`,
-        }}
-      />
-
-      <span>
-        <strong
-          style={{
-            display: "block",
-            color: "#ffffff",
-            fontWeight: 600,
-          }}
-        >
-          {actor.name}
-        </strong>
-
-        <small
-          style={{
-            color: "rgba(255,255,255,0.42)",
-          }}
-        >
-          {actor.role}
-        </small>
-      </span>
-
-      <span
-        style={{
-          color: "rgba(255,255,255,0.5)",
-        }}
-      >
-        v{actor.version}
       </span>
     </div>
   );

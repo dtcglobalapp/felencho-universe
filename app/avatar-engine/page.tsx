@@ -1,8 +1,10 @@
 import ActorCanvas from "./components/ActorCanvas";
 
 export const metadata = {
-  title: "Felencho Actor Engine | Felencho.ai",
-  description: "The digital actor rendering engine of Felencho.ai.",
+  title:
+    "Felencho Actor Engine | Felencho.ai",
+  description:
+    "Data-driven digital actor engine created by Felencho.ai.",
 };
 
 export default function AvatarEnginePage() {
