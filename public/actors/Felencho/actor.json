@@ -1,0 +1,13 @@
+{
+  "id": "felencho",
+  "name": "Felencho Virtual",
+  "version": "0.1.0",
+  "width": 3840,
+  "height": 2160,
+  "fps": 60,
+  "layers": [],
+  "rig": {
+    "head": "head",
+    "jaw": "jaw"
+  }
+}

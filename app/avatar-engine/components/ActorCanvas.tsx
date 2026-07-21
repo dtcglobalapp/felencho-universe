@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { loadActorRegistry } from "../lib/ActorRegistry";
 import { ACTOR_ENGINE } from "../lib/VERSION";
+import type {
+  ActorRegistryDefinition,
+  ActorRegistryEntry,
+} from "../types/Registry";
 
 type PointerPosition = {
   x: number;
@@ -14,16 +19,67 @@ type CanvasMetrics = {
   fps: number;
 };
 
+type RegistryState = {
+  loading: boolean;
+  error: string | null;
+  data: ActorRegistryDefinition | null;
+};
+
 export default function ActorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerRef = useRef<PointerPosition>({ x: 0, y: 0 });
 
-  const [pointer, setPointer] = useState<PointerPosition>({ x: 0, y: 0 });
+  const [pointer, setPointer] = useState<PointerPosition>({
+    x: 0,
+    y: 0,
+  });
+
   const [metrics, setMetrics] = useState<CanvasMetrics>({
     width: 0,
     height: 0,
     fps: 0,
   });
+
+  const [registry, setRegistry] = useState<RegistryState>({
+    loading: true,
+    error: null,
+    data: null,
+  });
+
+  useEffect(() => {
+    let active = true;
+
+    loadActorRegistry()
+      .then((data) => {
+        if (!active) {
+          return;
+        }
+
+        setRegistry({
+          loading: false,
+          error: null,
+          data,
+        });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setRegistry({
+          loading: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unknown Actor Registry error.",
+          data: null,
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -48,10 +104,24 @@ export default function ActorCanvas() {
       const bounds = canvas.getBoundingClientRect();
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
-      canvas.width = Math.max(1, Math.floor(bounds.width * pixelRatio));
-      canvas.height = Math.max(1, Math.floor(bounds.height * pixelRatio));
+      canvas.width = Math.max(
+        1,
+        Math.floor(bounds.width * pixelRatio),
+      );
 
-      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      canvas.height = Math.max(
+        1,
+        Math.floor(bounds.height * pixelRatio),
+      );
+
+      context.setTransform(
+        pixelRatio,
+        0,
+        0,
+        pixelRatio,
+        0,
+        0,
+      );
 
       setMetrics((current) => ({
         ...current,
@@ -68,10 +138,12 @@ export default function ActorCanvas() {
 
       for (let x = 0; x <= width; x += gridSize) {
         context.beginPath();
+
         context.strokeStyle =
           x % (gridSize * 4) === 0
             ? "rgba(90, 210, 255, 0.14)"
             : "rgba(255, 255, 255, 0.045)";
+
         context.moveTo(x + 0.5, 0);
         context.lineTo(x + 0.5, height);
         context.stroke();
@@ -79,10 +151,12 @@ export default function ActorCanvas() {
 
       for (let y = 0; y <= height; y += gridSize) {
         context.beginPath();
+
         context.strokeStyle =
           y % (gridSize * 4) === 0
             ? "rgba(90, 210, 255, 0.14)"
             : "rgba(255, 255, 255, 0.045)";
+
         context.moveTo(0, y + 0.5);
         context.lineTo(width, y + 0.5);
         context.stroke();
@@ -91,13 +165,16 @@ export default function ActorCanvas() {
       context.restore();
     };
 
-    const drawStageCenter = (width: number, height: number) => {
+    const drawStageCenter = (
+      width: number,
+      height: number,
+    ) => {
       const centerX = width / 2;
       const centerY = height / 2;
 
       context.save();
-
       context.strokeStyle = "rgba(92, 220, 255, 0.75)";
+      context.fillStyle = "rgba(125, 225, 255, 0.9)";
       context.lineWidth = 1;
 
       context.beginPath();
@@ -111,10 +188,11 @@ export default function ActorCanvas() {
       context.arc(centerX, centerY, 11, 0, Math.PI * 2);
       context.stroke();
 
-      context.fillStyle = "rgba(125, 225, 255, 0.9)";
       context.font = "12px Arial, sans-serif";
       context.fillText(
-        `STAGE CENTER  ${Math.round(centerX)}, ${Math.round(centerY)}`,
+        `STAGE CENTER ${Math.round(centerX)}, ${Math.round(
+          centerY,
+        )}`,
         centerX + 20,
         centerY - 18,
       );
@@ -155,12 +233,13 @@ export default function ActorCanvas() {
         fpsFrames += 1;
       }
 
-      if (currentTime - lastFpsUpdate >= 500 && fpsFrames > 0) {
-        const averageFps = Math.round(fpsAccumulator / fpsFrames);
-
+      if (
+        currentTime - lastFpsUpdate >= 500 &&
+        fpsFrames > 0
+      ) {
         setMetrics((current) => ({
           ...current,
-          fps: averageFps,
+          fps: Math.round(fpsAccumulator / fpsFrames),
         }));
 
         fpsAccumulator = 0;
@@ -190,10 +269,13 @@ export default function ActorCanvas() {
       drawStageCenter(width, height);
       drawPointer();
 
-      animationFrameId = window.requestAnimationFrame(render);
+      animationFrameId =
+        window.requestAnimationFrame(render);
     };
 
-    const handlePointerMove = (event: PointerEvent) => {
+    const handlePointerMove = (
+      event: PointerEvent,
+    ) => {
       const bounds = canvas.getBoundingClientRect();
 
       const nextPointer = {
@@ -210,15 +292,29 @@ export default function ActorCanvas() {
     const resizeObserver = new ResizeObserver(resizeCanvas);
     resizeObserver.observe(canvas);
 
-    canvas.addEventListener("pointermove", handlePointerMove);
-    animationFrameId = window.requestAnimationFrame(render);
+    canvas.addEventListener(
+      "pointermove",
+      handlePointerMove,
+    );
+
+    animationFrameId =
+      window.requestAnimationFrame(render);
 
     return () => {
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
-      canvas.removeEventListener("pointermove", handlePointerMove);
+
+      canvas.removeEventListener(
+        "pointermove",
+        handlePointerMove,
+      );
     };
   }, []);
+
+  const actors = registry.data?.actors ?? [];
+  const readyActors = actors.filter(
+    (actor) => actor.status === "ready",
+  ).length;
 
   return (
     <section
@@ -258,7 +354,8 @@ export default function ActorCanvas() {
             marginBottom: 7,
           }}
         >
-          {ACTOR_ENGINE.shortName} / {ACTOR_ENGINE.codename.toUpperCase()}
+          {ACTOR_ENGINE.shortName} /{" "}
+          {ACTOR_ENGINE.codename.toUpperCase()}
         </div>
 
         <h1
@@ -288,30 +385,101 @@ export default function ActorCanvas() {
           position: "absolute",
           top: 22,
           right: 24,
-          minWidth: 230,
+          width: 290,
           padding: "16px 18px",
-          border: "1px solid rgba(104, 215, 255, 0.2)",
+          border:
+            "1px solid rgba(104, 215, 255, 0.2)",
           borderRadius: 12,
-          background: "rgba(3, 8, 12, 0.78)",
+          background: "rgba(3, 8, 12, 0.82)",
           backdropFilter: "blur(12px)",
           boxShadow: "0 15px 45px rgba(0,0,0,0.35)",
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontFamily:
+            "ui-monospace, SFMono-Regular, Menlo, monospace",
           fontSize: 12,
           lineHeight: 1.8,
-          pointerEvents: "none",
         }}
       >
-        <StatusRow label="ENGINE" value={ACTOR_ENGINE.version} />
-        <StatusRow label="STATUS" value={ACTOR_ENGINE.status} active />
+        <StatusRow
+          label="ENGINE"
+          value={ACTOR_ENGINE.version}
+        />
+
+        <StatusRow
+          label="STATUS"
+          value={ACTOR_ENGINE.status}
+          active={!registry.error}
+        />
+
         <StatusRow label="RENDERER" value="Canvas 2D" />
+
         <StatusRow
           label="RESOLUTION"
           value={`${metrics.width} x ${metrics.height}`}
         />
+
         <StatusRow label="FPS" value={`${metrics.fps}`} />
-        <StatusRow label="ACTORS" value="0" />
-        <StatusRow label="POINTER X" value={`${pointer.x}`} />
-        <StatusRow label="POINTER Y" value={`${pointer.y}`} />
+
+        <StatusRow
+          label="ACTORS"
+          value={
+            registry.loading ? "SCANNING" : `${actors.length}`
+          }
+        />
+
+        <StatusRow
+          label="READY"
+          value={`${readyActors}`}
+        />
+
+        <StatusRow
+          label="POINTER X"
+          value={`${pointer.x}`}
+        />
+
+        <StatusRow
+          label="POINTER Y"
+          value={`${pointer.y}`}
+        />
+
+        <div
+          style={{
+            height: 1,
+            margin: "12px 0",
+            background:
+              "rgba(104, 215, 255, 0.14)",
+          }}
+        />
+
+        <div
+          style={{
+            marginBottom: 8,
+            color: "rgba(255,255,255,0.42)",
+            letterSpacing: "0.12em",
+          }}
+        >
+          ACTOR REGISTRY
+        </div>
+
+        {registry.loading && (
+          <div style={{ color: "#68d7ff" }}>
+            Searching for digital actors...
+          </div>
+        )}
+
+        {registry.error && (
+          <div style={{ color: "#ff8f8f" }}>
+            Registry error: {registry.error}
+          </div>
+        )}
+
+        {!registry.loading &&
+          !registry.error &&
+          actors.map((actor) => (
+            <ActorRegistryRow
+              key={actor.id}
+              actor={actor}
+            />
+          ))}
       </aside>
 
       <footer
@@ -319,13 +487,17 @@ export default function ActorCanvas() {
           position: "absolute",
           left: 24,
           bottom: 20,
-          color: "rgba(255,255,255,0.38)",
+          color: "rgba(255,255,255,0.42)",
           fontSize: 12,
           letterSpacing: "0.08em",
           pointerEvents: "none",
         }}
       >
-        STAGE READY · WAITING FOR FIRST ACTOR
+        {registry.loading
+          ? "SCANNING ACTOR REGISTRY"
+          : registry.error
+            ? "ACTOR REGISTRY OFFLINE"
+            : `${actors.length} DIGITAL ACTORS RECOGNIZED`}
       </footer>
     </section>
   );
@@ -348,7 +520,13 @@ function StatusRow({
         gap: 22,
       }}
     >
-      <span style={{ color: "rgba(255,255,255,0.42)" }}>{label}</span>
+      <span
+        style={{
+          color: "rgba(255,255,255,0.42)",
+        }}
+      >
+        {label}
+      </span>
 
       <span
         style={{
@@ -358,6 +536,72 @@ function StatusRow({
       >
         {active ? "● " : ""}
         {value}
+      </span>
+    </div>
+  );
+}
+
+function ActorRegistryRow({
+  actor,
+}: {
+  actor: ActorRegistryEntry;
+}) {
+  const statusColor =
+    actor.status === "ready"
+      ? "#77f5bd"
+      : actor.status === "development"
+        ? "#ffd36a"
+        : "#ff8f8f";
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "10px 1fr auto",
+        alignItems: "center",
+        gap: 9,
+        padding: "6px 0",
+        borderBottom:
+          "1px solid rgba(255,255,255,0.05)",
+      }}
+    >
+      <span
+        title={actor.status}
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: statusColor,
+          boxShadow: `0 0 9px ${statusColor}`,
+        }}
+      />
+
+      <span>
+        <strong
+          style={{
+            display: "block",
+            color: "#ffffff",
+            fontWeight: 600,
+          }}
+        >
+          {actor.name}
+        </strong>
+
+        <small
+          style={{
+            color: "rgba(255,255,255,0.42)",
+          }}
+        >
+          {actor.role}
+        </small>
+      </span>
+
+      <span
+        style={{
+          color: "rgba(255,255,255,0.5)",
+        }}
+      >
+        v{actor.version}
       </span>
     </div>
   );

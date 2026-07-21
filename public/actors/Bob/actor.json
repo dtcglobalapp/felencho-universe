@@ -1,0 +1,13 @@
+{
+  "id": "bob",
+  "name": "Bob",
+  "version": "0.1.0",
+  "width": 2048,
+  "height": 2048,
+  "fps": 60,
+  "layers": [],
+  "rig": {
+    "head": "head",
+    "jaw": "jaw"
+  }
+}

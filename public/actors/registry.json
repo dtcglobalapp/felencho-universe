@@ -1,0 +1,34 @@
+{
+  "engine": "Felencho Actor Engine",
+  "registryVersion": "1.0.0",
+  "updatedAt": "2026-07-21",
+  "actors": [
+    {
+      "id": "bob",
+      "name": "Bob",
+      "role": "AI Co-Host",
+      "description": "Wise, curious and humorous digital actor of Felencho Mundial.",
+      "version": "0.1.0",
+      "status": "development",
+      "definition": "/actors/Bob/actor.json"
+    },
+    {
+      "id": "lina",
+      "name": "Lina",
+      "role": "Multilingual AI Host",
+      "description": "Futuristic multilingual digital actor and intelligent companion.",
+      "version": "0.1.0",
+      "status": "development",
+      "definition": "/actors/Lina/actor.json"
+    },
+    {
+      "id": "felencho",
+      "name": "Felencho Virtual",
+      "role": "Digital Host",
+      "description": "Digital continuation of Felencho for music, culture and conversation.",
+      "version": "0.1.0",
+      "status": "development",
+      "definition": "/actors/Felencho/actor.json"
+    }
+  ]
+}
