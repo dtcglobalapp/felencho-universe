@@ -26,6 +26,16 @@ export interface ActorDisplayDefinition {
   maxStageHeight: number;
 }
 
+export interface ActorRigDefinition {
+  root: string;
+  face?: string;
+  leftEye?: string;
+  rightEye?: string;
+  leftPupil?: string;
+  rightPupil?: string;
+  jaw?: string;
+}
+
 export interface ActorDefinition {
   id: string;
   name: string;
@@ -35,7 +45,7 @@ export interface ActorDefinition {
   fps: number;
   display: ActorDisplayDefinition;
   layers: ActorLayerDefinition[];
-  rig: Record<string, string>;
+  rig: ActorRigDefinition;
 }
 
 export interface LoadedActorLayer {
@@ -46,4 +56,9 @@ export interface LoadedActorLayer {
 export interface LoadedActor {
   definition: ActorDefinition;
   layers: LoadedActorLayer[];
+}
+
+export interface ActorRuntimeState {
+  eyeX: number;
+  eyeY: number;
 }

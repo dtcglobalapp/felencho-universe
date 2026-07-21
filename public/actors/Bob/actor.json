@@ -1,7 +1,7 @@
 {
   "id": "Bob",
   "name": "Bob",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "width": 2160,
   "height": 3840,
   "fps": 60,
@@ -29,9 +29,82 @@
         "pivotX": 1080,
         "pivotY": 1920
       }
+    },
+    {
+      "id": "left_eye",
+      "name": "Left Eye",
+      "image": "/actors/Bob/layers/left_eye.png",
+      "zIndex": 200,
+      "visible": true,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "opacity": 1,
+        "pivotX": 1080,
+        "pivotY": 1920
+      }
+    },
+    {
+      "id": "right_eye",
+      "name": "Right Eye",
+      "image": "/actors/Bob/layers/right_eye.png",
+      "zIndex": 210,
+      "visible": true,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "opacity": 1,
+        "pivotX": 1080,
+        "pivotY": 1920
+      }
+    },
+    {
+      "id": "left_pupil",
+      "name": "Left Pupil",
+      "image": "/actors/Bob/layers/left_pupil.png",
+      "zIndex": 300,
+      "visible": true,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "opacity": 1,
+        "pivotX": 1080,
+        "pivotY": 1920
+      }
+    },
+    {
+      "id": "right_pupil",
+      "name": "Right Pupil",
+      "image": "/actors/Bob/layers/right_pupil.png",
+      "zIndex": 310,
+      "visible": true,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "opacity": 1,
+        "pivotX": 1080,
+        "pivotY": 1920
+      }
     }
   ],
   "rig": {
-    "face": "face"
+    "root": "face",
+    "face": "face",
+    "leftEye": "left_eye",
+    "rightEye": "right_eye",
+    "leftPupil": "left_pupil",
+    "rightPupil": "right_pupil"
   }
 }

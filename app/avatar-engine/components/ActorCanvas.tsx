@@ -330,10 +330,29 @@ export default function ActorCanvas() {
       const actor = actorRef.current;
 
       if (actor) {
+        const pointerPosition =
+          pointerRef.current;
+
+        const eyeX =
+          width > 0
+            ? (pointerPosition.x - width / 2) /
+              (width / 2)
+            : 0;
+
+        const eyeY =
+          height > 0
+            ? (pointerPosition.y - height / 2) /
+              (height / 2)
+            : 0;
+
         renderActor(
           context,
           actor,
           { width, height },
+          {
+            eyeX,
+            eyeY,
+          },
         );
       }
 
