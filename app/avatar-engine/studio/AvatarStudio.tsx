@@ -8,6 +8,11 @@ import {
   useState,
 } from "react";
 
+import type {
+  CSSProperties,
+  ReactNode,
+} from "react";
+
 import { loadActor } from "../lib/ActorLoader";
 import { renderActor } from "../lib/ActorRenderer";
 
@@ -16,6 +21,7 @@ import type {
 } from "../types/Actor";
 
 const ACTOR_ID = "Bob";
+
 const STORAGE_KEY =
   "felencho-avatar-studio:bob:draft";
 
@@ -24,8 +30,37 @@ type ActorLayer =
 
 interface PointerState {
   dragging: boolean;
+  pointerId: number | null;
   lastX: number;
   lastY: number;
+}
+
+interface ActorLayout {
+  scale: number;
+  originX: number;
+  originY: number;
+}
+
+interface AlphaBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface SelectionGeometry {
+  corners: [
+    Point,
+    Point,
+    Point,
+    Point,
+  ];
+  center: Point;
 }
 
 function clamp(
@@ -39,11 +74,12 @@ function clamp(
   );
 }
 
-function calculateActorScale(
+function calculateActorLayout(
   actor: LoadedActor,
-  width: number,
-  height: number,
-): number {
+  stageWidth: number,
+  stageHeight: number,
+  zoom: number,
+): ActorLayout {
   const display =
     actor.definition.display;
 
@@ -55,17 +91,18 @@ function calculateActorScale(
 
   const availableWidth =
     configuredWidth <= 2
-      ? width * configuredWidth
+      ? stageWidth * configuredWidth
       : Math.min(
-          width,
+          stageWidth,
           configuredWidth,
         );
 
   const availableHeight =
     configuredHeight <= 2
-      ? height * configuredHeight
+      ? stageHeight *
+        configuredHeight
       : Math.min(
-          height,
+          stageHeight,
           configuredHeight,
         );
 
@@ -76,13 +113,35 @@ function calculateActorScale(
       actor.definition.height,
   );
 
-  const result =
-    fitScale * display.scale;
+  const calculatedScale =
+    fitScale *
+    display.scale *
+    zoom;
 
-  return Number.isFinite(result) &&
-    result > 0
-    ? result
-    : 1;
+  const scale =
+    Number.isFinite(
+      calculatedScale,
+    ) &&
+    calculatedScale > 0
+      ? calculatedScale
+      : 1;
+
+  return {
+    scale,
+    originX:
+      stageWidth / 2 -
+      (actor.definition.width *
+        scale) /
+        2 +
+      display.offsetX,
+
+    originY:
+      stageHeight / 2 -
+      (actor.definition.height *
+        scale) /
+        2 +
+      display.offsetY,
+  };
 }
 
 function applyStoredDefinition(
@@ -98,13 +157,15 @@ function applyStoredDefinition(
       return actor;
     }
 
-    const parsed = JSON.parse(
-      stored,
-    ) as LoadedActor["definition"];
+    const parsed =
+      JSON.parse(stored) as
+        LoadedActor["definition"];
 
     if (
       !parsed ||
-      !Array.isArray(parsed.layers)
+      !Array.isArray(
+        parsed.layers,
+      )
     ) {
       return actor;
     }
@@ -190,35 +251,642 @@ function synchronizeActorLayer(
   return {
     definition: {
       ...actor.definition,
-      layers: definitionLayers,
+      layers:
+        definitionLayers,
     },
+
     layers: loadedLayers,
   };
 }
 
+function rotatePoint(
+  point: Point,
+  angleRadians: number,
+): Point {
+  const cosine =
+    Math.cos(angleRadians);
+
+  const sine =
+    Math.sin(angleRadians);
+
+  return {
+    x:
+      point.x * cosine -
+      point.y * sine,
+
+    y:
+      point.x * sine +
+      point.y * cosine,
+  };
+}
+
+function localToStage(
+  localPoint: Point,
+  layer: ActorLayer,
+  layout: ActorLayout,
+): Point {
+  const transform =
+    layer.transform;
+
+  const scaledPoint = {
+    x:
+      localPoint.x *
+      layout.scale *
+      transform.scaleX,
+
+    y:
+      localPoint.y *
+      layout.scale *
+      transform.scaleY,
+  };
+
+  const rotated =
+    rotatePoint(
+      scaledPoint,
+      (transform.rotation *
+        Math.PI) /
+        180,
+    );
+
+  return {
+    x:
+      layout.originX +
+      transform.x *
+        layout.scale +
+      rotated.x,
+
+    y:
+      layout.originY +
+      transform.y *
+        layout.scale +
+      rotated.y,
+  };
+}
+
+function stageToLocal(
+  stagePoint: Point,
+  layer: ActorLayer,
+  layout: ActorLayout,
+): Point | null {
+  const transform =
+    layer.transform;
+
+  const scaleX =
+    layout.scale *
+    transform.scaleX;
+
+  const scaleY =
+    layout.scale *
+    transform.scaleY;
+
+  if (
+    Math.abs(scaleX) <
+      0.000001 ||
+    Math.abs(scaleY) <
+      0.000001
+  ) {
+    return null;
+  }
+
+  const translated = {
+    x:
+      stagePoint.x -
+      layout.originX -
+      transform.x *
+        layout.scale,
+
+    y:
+      stagePoint.y -
+      layout.originY -
+      transform.y *
+        layout.scale,
+  };
+
+  const unrotated =
+    rotatePoint(
+      translated,
+      (-transform.rotation *
+        Math.PI) /
+        180,
+    );
+
+  return {
+    x: unrotated.x / scaleX,
+    y: unrotated.y / scaleY,
+  };
+}
+
+function hitTestImageAlpha(
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  context:
+    CanvasRenderingContext2D,
+): boolean {
+  if (
+    x < 0 ||
+    y < 0 ||
+    x >= image.naturalWidth ||
+    y >= image.naturalHeight
+  ) {
+    return false;
+  }
+
+  context.clearRect(
+    0,
+    0,
+    1,
+    1,
+  );
+
+  context.drawImage(
+    image,
+    -Math.floor(x),
+    -Math.floor(y),
+  );
+
+  const alpha =
+    context.getImageData(
+      0,
+      0,
+      1,
+      1,
+    ).data[3];
+
+  return alpha > 20;
+}
+
+function findLayerAtPoint(
+  actor: LoadedActor,
+  stagePoint: Point,
+  layout: ActorLayout,
+  hitContext:
+    CanvasRenderingContext2D,
+): string | null {
+  const candidates =
+    [...actor.layers]
+      .filter(
+        (loadedLayer) =>
+          loadedLayer
+            .definition
+            .visible &&
+          loadedLayer
+            .definition
+            .transform
+            .opacity > 0,
+      )
+      .sort(
+        (first, second) =>
+          second.definition
+            .zIndex -
+          first.definition
+            .zIndex,
+      );
+
+  for (
+    const loadedLayer
+    of candidates
+  ) {
+    const localPoint =
+      stageToLocal(
+        stagePoint,
+        loadedLayer.definition,
+        layout,
+      );
+
+    if (!localPoint) {
+      continue;
+    }
+
+    if (
+      hitTestImageAlpha(
+        loadedLayer.image,
+        localPoint.x,
+        localPoint.y,
+        hitContext,
+      )
+    ) {
+      return loadedLayer
+        .definition.id;
+    }
+  }
+
+  return null;
+}
+
+function computeAlphaBounds(
+  image: HTMLImageElement,
+): AlphaBounds {
+  const maximumSampleSize =
+    900;
+
+  const sourceWidth =
+    image.naturalWidth;
+
+  const sourceHeight =
+    image.naturalHeight;
+
+  const sampleScale =
+    Math.min(
+      1,
+      maximumSampleSize /
+        Math.max(
+          sourceWidth,
+          sourceHeight,
+        ),
+    );
+
+  const width =
+    Math.max(
+      1,
+      Math.round(
+        sourceWidth *
+          sampleScale,
+      ),
+    );
+
+  const height =
+    Math.max(
+      1,
+      Math.round(
+        sourceHeight *
+          sampleScale,
+      ),
+    );
+
+  const canvas =
+    document.createElement(
+      "canvas",
+    );
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const context =
+    canvas.getContext(
+      "2d",
+      {
+        willReadFrequently:
+          true,
+      },
+    );
+
+  if (!context) {
+    return {
+      x: 0,
+      y: 0,
+      width: sourceWidth,
+      height: sourceHeight,
+    };
+  }
+
+  context.clearRect(
+    0,
+    0,
+    width,
+    height,
+  );
+
+  context.drawImage(
+    image,
+    0,
+    0,
+    width,
+    height,
+  );
+
+  const pixels =
+    context.getImageData(
+      0,
+      0,
+      width,
+      height,
+    ).data;
+
+  let minimumX = width;
+  let minimumY = height;
+  let maximumX = -1;
+  let maximumY = -1;
+
+  for (
+    let y = 0;
+    y < height;
+    y += 1
+  ) {
+    for (
+      let x = 0;
+      x < width;
+      x += 1
+    ) {
+      const alpha =
+        pixels[
+          (y * width + x) *
+            4 +
+            3
+        ];
+
+      if (alpha <= 12) {
+        continue;
+      }
+
+      minimumX =
+        Math.min(
+          minimumX,
+          x,
+        );
+
+      minimumY =
+        Math.min(
+          minimumY,
+          y,
+        );
+
+      maximumX =
+        Math.max(
+          maximumX,
+          x,
+        );
+
+      maximumY =
+        Math.max(
+          maximumY,
+          y,
+        );
+    }
+  }
+
+  if (
+    maximumX < minimumX ||
+    maximumY < minimumY
+  ) {
+    return {
+      x: 0,
+      y: 0,
+      width: sourceWidth,
+      height: sourceHeight,
+    };
+  }
+
+  const inverseScale =
+    1 / sampleScale;
+
+  return {
+    x:
+      minimumX *
+      inverseScale,
+
+    y:
+      minimumY *
+      inverseScale,
+
+    width:
+      (maximumX -
+        minimumX +
+        1) *
+      inverseScale,
+
+    height:
+      (maximumY -
+        minimumY +
+        1) *
+      inverseScale,
+  };
+}
+
+function buildSelectionGeometry(
+  layer: ActorLayer,
+  bounds: AlphaBounds,
+  layout: ActorLayout,
+): SelectionGeometry {
+  const topLeft =
+    localToStage(
+      {
+        x: bounds.x,
+        y: bounds.y,
+      },
+      layer,
+      layout,
+    );
+
+  const topRight =
+    localToStage(
+      {
+        x:
+          bounds.x +
+          bounds.width,
+        y: bounds.y,
+      },
+      layer,
+      layout,
+    );
+
+  const bottomRight =
+    localToStage(
+      {
+        x:
+          bounds.x +
+          bounds.width,
+        y:
+          bounds.y +
+          bounds.height,
+      },
+      layer,
+      layout,
+    );
+
+  const bottomLeft =
+    localToStage(
+      {
+        x: bounds.x,
+        y:
+          bounds.y +
+          bounds.height,
+      },
+      layer,
+      layout,
+    );
+
+  return {
+    corners: [
+      topLeft,
+      topRight,
+      bottomRight,
+      bottomLeft,
+    ],
+
+    center:
+      localToStage(
+        {
+          x:
+            bounds.x +
+            bounds.width / 2,
+
+          y:
+            bounds.y +
+            bounds.height / 2,
+        },
+        layer,
+        layout,
+      ),
+  };
+}
+
+function drawSelectionGeometry(
+  context:
+    CanvasRenderingContext2D,
+  geometry:
+    SelectionGeometry,
+): void {
+  const [
+    topLeft,
+    topRight,
+    bottomRight,
+    bottomLeft,
+  ] = geometry.corners;
+
+  context.save();
+
+  context.strokeStyle =
+    "#69dcff";
+
+  context.fillStyle =
+    "#69dcff";
+
+  context.lineWidth = 2;
+
+  context.setLineDash([
+    7,
+    5,
+  ]);
+
+  context.beginPath();
+  context.moveTo(
+    topLeft.x,
+    topLeft.y,
+  );
+  context.lineTo(
+    topRight.x,
+    topRight.y,
+  );
+  context.lineTo(
+    bottomRight.x,
+    bottomRight.y,
+  );
+  context.lineTo(
+    bottomLeft.x,
+    bottomLeft.y,
+  );
+  context.closePath();
+  context.stroke();
+
+  context.setLineDash([]);
+
+  for (
+    const point
+    of geometry.corners
+  ) {
+    context.beginPath();
+
+    context.rect(
+      point.x - 4,
+      point.y - 4,
+      8,
+      8,
+    );
+
+    context.fill();
+  }
+
+  context.beginPath();
+
+  context.arc(
+    geometry.center.x,
+    geometry.center.y,
+    5,
+    0,
+    Math.PI * 2,
+  );
+
+  context.fill();
+
+  context.strokeStyle =
+    "rgba(255,255,255,0.85)";
+
+  context.lineWidth = 1;
+
+  context.beginPath();
+
+  context.moveTo(
+    geometry.center.x -
+      13,
+    geometry.center.y,
+  );
+
+  context.lineTo(
+    geometry.center.x +
+      13,
+    geometry.center.y,
+  );
+
+  context.moveTo(
+    geometry.center.x,
+    geometry.center.y -
+      13,
+  );
+
+  context.lineTo(
+    geometry.center.x,
+    geometry.center.y +
+      13,
+  );
+
+  context.stroke();
+
+  context.restore();
+}
+
 export default function AvatarStudio() {
   const canvasRef =
-    useRef<HTMLCanvasElement | null>(
+    useRef<
+      HTMLCanvasElement | null
+    >(null);
+
+  const actorRef =
+    useRef<
+      LoadedActor | null
+    >(null);
+
+  const selectedLayerIdRef =
+    useRef<string | null>(
       null,
     );
 
-  const actorRef =
-    useRef<LoadedActor | null>(null);
+  const zoomRef =
+    useRef(1);
 
-  const selectedLayerIdRef =
-    useRef<string | null>(null);
+  const soloModeRef =
+    useRef(false);
+
+  const dimOthersRef =
+    useRef(true);
+
+  const alphaBoundsCacheRef =
+    useRef<
+      Map<string, AlphaBounds>
+    >(new Map());
 
   const pointerRef =
     useRef<PointerState>({
       dragging: false,
+      pointerId: null,
       lastX: 0,
       lastY: 0,
     });
 
   const [actor, setActor] =
-    useState<LoadedActor | null>(
-      null,
-    );
+    useState<
+      LoadedActor | null
+    >(null);
 
   const [
     selectedLayerId,
@@ -235,11 +903,27 @@ export default function AvatarStudio() {
   const [zoom, setZoom] =
     useState(1);
 
-  const [showGrid, setShowGrid] =
-    useState(true);
+  const [
+    showGrid,
+    setShowGrid,
+  ] = useState(true);
 
-  const [savedAt, setSavedAt] =
-    useState<string | null>(null);
+  const [
+    soloMode,
+    setSoloMode,
+  ] = useState(false);
+
+  const [
+    dimOthers,
+    setDimOthers,
+  ] = useState(true);
+
+  const [
+    savedAt,
+    setSavedAt,
+  ] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     selectedLayerIdRef.current =
@@ -247,50 +931,74 @@ export default function AvatarStudio() {
   }, [selectedLayerId]);
 
   useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    soloModeRef.current =
+      soloMode;
+  }, [soloMode]);
+
+  useEffect(() => {
+    dimOthersRef.current =
+      dimOthers;
+  }, [dimOthers]);
+
+  useEffect(() => {
     let active = true;
 
     loadActor(ACTOR_ID)
-      .then((loadedActor) => {
-        if (!active) {
-          return;
-        }
+      .then(
+        (loadedActor) => {
+          if (!active) {
+            return;
+          }
 
-        const prepared =
-          applyStoredDefinition(
-            loadedActor,
-          );
+          const prepared =
+            applyStoredDefinition(
+              loadedActor,
+            );
 
-        actorRef.current =
-          prepared;
+          actorRef.current =
+            prepared;
 
-        setActor(prepared);
+          setActor(prepared);
 
-        const firstLayer =
-          [...prepared.definition.layers]
-            .sort(
-              (first, second) =>
+          const firstLayer =
+            [
+              ...prepared
+                .definition
+                .layers,
+            ].sort(
+              (
+                first,
+                second,
+              ) =>
                 second.zIndex -
                 first.zIndex,
             )[0];
 
-        if (firstLayer) {
-          setSelectedLayerId(
-            firstLayer.id,
+          if (firstLayer) {
+            setSelectedLayerId(
+              firstLayer.id,
+            );
+          }
+
+          setStatus(
+            `${prepared.layers.length} capas cargadas · selección visual activa`,
           );
-        }
+        },
+      )
+      .catch(
+        (error: unknown) => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Error cargando a Bob.";
 
-        setStatus(
-          `${prepared.layers.length} capas cargadas`,
-        );
-      })
-      .catch((error: unknown) => {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Error cargando a Bob.";
-
-        setStatus(message);
-      });
+          setStatus(message);
+        },
+      );
 
     return () => {
       active = false;
@@ -307,18 +1015,22 @@ export default function AvatarStudio() {
     }
 
     const timeout =
-      window.setTimeout(() => {
-        window.localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(
-            actor.definition,
-          ),
-        );
+      window.setTimeout(
+        () => {
+          window.localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(
+              actor.definition,
+            ),
+          );
 
-        setSavedAt(
-          new Date().toLocaleTimeString(),
-        );
-      }, 250);
+          setSavedAt(
+            new Date()
+              .toLocaleTimeString(),
+          );
+        },
+        250,
+      );
 
     return () => {
       window.clearTimeout(
@@ -335,17 +1047,19 @@ export default function AvatarStudio() {
           layer: ActorLayer,
         ) => ActorLayer,
       ) => {
-        setActor((current) => {
-          if (!current) {
-            return current;
-          }
+        setActor(
+          (current) => {
+            if (!current) {
+              return current;
+            }
 
-          return synchronizeActorLayer(
-            current,
-            layerId,
-            update,
-          );
-        });
+            return synchronizeActorLayer(
+              current,
+              layerId,
+              update,
+            );
+          },
+        );
       },
       [],
     );
@@ -364,7 +1078,9 @@ export default function AvatarStudio() {
           | "pivotY",
         value: number,
       ) => {
-        if (!selectedLayerId) {
+        if (
+          !selectedLayerId
+        ) {
           return;
         }
 
@@ -372,6 +1088,7 @@ export default function AvatarStudio() {
           selectedLayerId,
           (layer) => ({
             ...layer,
+
             transform: {
               ...layer.transform,
               [key]: value,
@@ -391,19 +1108,25 @@ export default function AvatarStudio() {
         deltaX: number,
         deltaY: number,
       ) => {
-        if (!selectedLayerId) {
+        const layerId =
+          selectedLayerIdRef.current;
+
+        if (!layerId) {
           return;
         }
 
         updateLayer(
-          selectedLayerId,
+          layerId,
           (layer) => ({
             ...layer,
+
             transform: {
               ...layer.transform,
+
               x:
                 layer.transform.x +
                 deltaX,
+
               y:
                 layer.transform.y +
                 deltaY,
@@ -411,10 +1134,7 @@ export default function AvatarStudio() {
           }),
         );
       },
-      [
-        selectedLayerId,
-        updateLayer,
-      ],
+      [updateLayer],
     );
 
   useEffect(() => {
@@ -422,10 +1142,12 @@ export default function AvatarStudio() {
       event: KeyboardEvent,
     ) => {
       const target =
-        event.target as HTMLElement;
+        event.target as
+          HTMLElement;
 
       if (
-        target.tagName === "INPUT" ||
+        target.tagName ===
+          "INPUT" ||
         target.tagName ===
           "TEXTAREA"
       ) {
@@ -433,34 +1155,62 @@ export default function AvatarStudio() {
       }
 
       const amount =
-        event.shiftKey ? 10 : 1;
+        event.shiftKey
+          ? 10
+          : 1;
 
       if (
-        event.key === "ArrowLeft"
+        event.key ===
+        "ArrowLeft"
       ) {
         event.preventDefault();
-        nudgeLayer(-amount, 0);
+        nudgeLayer(
+          -amount,
+          0,
+        );
       }
 
       if (
-        event.key === "ArrowRight"
+        event.key ===
+        "ArrowRight"
       ) {
         event.preventDefault();
-        nudgeLayer(amount, 0);
+        nudgeLayer(
+          amount,
+          0,
+        );
       }
 
       if (
-        event.key === "ArrowUp"
+        event.key ===
+        "ArrowUp"
       ) {
         event.preventDefault();
-        nudgeLayer(0, -amount);
+        nudgeLayer(
+          0,
+          -amount,
+        );
       }
 
       if (
-        event.key === "ArrowDown"
+        event.key ===
+        "ArrowDown"
       ) {
         event.preventDefault();
-        nudgeLayer(0, amount);
+        nudgeLayer(
+          0,
+          amount,
+        );
+      }
+
+      if (
+        event.key.toLowerCase() ===
+        "s"
+      ) {
+        setSoloMode(
+          (current) =>
+            !current,
+        );
       }
     };
 
@@ -486,50 +1236,76 @@ export default function AvatarStudio() {
     }
 
     const context =
-      canvas.getContext("2d");
+      canvas.getContext(
+        "2d",
+      );
 
     if (!context) {
       return;
     }
 
+    const hitCanvas =
+      document.createElement(
+        "canvas",
+      );
+
+    hitCanvas.width = 1;
+    hitCanvas.height = 1;
+
+    const hitContext =
+      hitCanvas.getContext(
+        "2d",
+        {
+          willReadFrequently:
+            true,
+        },
+      );
+
+    if (!hitContext) {
+      return;
+    }
+
     let frameRequest = 0;
 
-    const resizeCanvas = () => {
-      const bounds =
-        canvas.getBoundingClientRect();
+    const resizeCanvas =
+      () => {
+        const bounds =
+          canvas.getBoundingClientRect();
 
-      const pixelRatio =
-        Math.min(
-          window.devicePixelRatio ||
+        const pixelRatio =
+          Math.min(
+            window.devicePixelRatio ||
+              1,
+            2,
+          );
+
+        canvas.width =
+          Math.max(
             1,
-          2,
+            Math.round(
+              bounds.width *
+                pixelRatio,
+            ),
+          );
+
+        canvas.height =
+          Math.max(
+            1,
+            Math.round(
+              bounds.height *
+                pixelRatio,
+            ),
+          );
+
+        context.setTransform(
+          pixelRatio,
+          0,
+          0,
+          pixelRatio,
+          0,
+          0,
         );
-
-      canvas.width = Math.max(
-        1,
-        Math.round(
-          bounds.width *
-            pixelRatio,
-        ),
-      );
-
-      canvas.height = Math.max(
-        1,
-        Math.round(
-          bounds.height *
-            pixelRatio,
-        ),
-      );
-
-      context.setTransform(
-        pixelRatio,
-        0,
-        0,
-        pixelRatio,
-        0,
-        0,
-      );
-    };
+      };
 
     const drawGrid = (
       width: number,
@@ -548,18 +1324,22 @@ export default function AvatarStudio() {
         x += 40
       ) {
         context.beginPath();
+
         context.strokeStyle =
           x % 200 === 0
             ? "rgba(60,210,255,0.18)"
             : "rgba(255,255,255,0.04)";
+
         context.moveTo(
           x + 0.5,
           0,
         );
+
         context.lineTo(
           x + 0.5,
           height,
         );
+
         context.stroke();
       }
 
@@ -569,18 +1349,22 @@ export default function AvatarStudio() {
         y += 40
       ) {
         context.beginPath();
+
         context.strokeStyle =
           y % 200 === 0
             ? "rgba(60,210,255,0.18)"
             : "rgba(255,255,255,0.04)";
+
         context.moveTo(
           0,
           y + 0.5,
         );
+
         context.lineTo(
           width,
           y + 0.5,
         );
+
         context.stroke();
       }
 
@@ -642,10 +1426,16 @@ export default function AvatarStudio() {
         height,
       );
 
-      drawGrid(width, height);
+      drawGrid(
+        width,
+        height,
+      );
 
       const currentActor =
         actorRef.current;
+
+      const selectedId =
+        selectedLayerIdRef.current;
 
       if (currentActor) {
         const visibleIds =
@@ -663,43 +1453,108 @@ export default function AvatarStudio() {
               ),
           );
 
+        const previewLayers =
+          currentActor.layers
+            .filter(
+              (loadedLayer) => {
+                const id =
+                  loadedLayer
+                    .definition.id;
+
+                if (
+                  !visibleIds.has(
+                    id,
+                  )
+                ) {
+                  return false;
+                }
+
+                if (
+                  soloModeRef.current &&
+                  selectedId
+                ) {
+                  return (
+                    id ===
+                    selectedId
+                  );
+                }
+
+                return true;
+              },
+            )
+            .map(
+              (loadedLayer) => {
+                const id =
+                  loadedLayer
+                    .definition.id;
+
+                if (
+                  !selectedId ||
+                  id ===
+                    selectedId ||
+                  !dimOthersRef.current ||
+                  soloModeRef.current
+                ) {
+                  return loadedLayer;
+                }
+
+                return {
+                  ...loadedLayer,
+
+                  definition: {
+                    ...loadedLayer.definition,
+
+                    transform: {
+                      ...loadedLayer
+                        .definition
+                        .transform,
+
+                      opacity:
+                        loadedLayer
+                          .definition
+                          .transform
+                          .opacity *
+                        0.22,
+                    },
+                  },
+                };
+              },
+            )
+            .sort(
+              (
+                first,
+                second,
+              ) =>
+                first
+                  .definition
+                  .zIndex -
+                second
+                  .definition
+                  .zIndex,
+            );
+
         const previewActor = {
           ...currentActor,
+
           definition: {
             ...currentActor.definition,
+
             display: {
               ...currentActor
                 .definition
                 .display,
+
               scale:
                 currentActor
                   .definition
                   .display
-                  .scale * zoom,
+                  .scale *
+                zoomRef.current,
             },
           },
+
           layers:
-            currentActor.layers
-              .filter(
-                (layer) =>
-                  visibleIds.has(
-                    layer
-                      .definition
-                      .id,
-                  ),
-              )
-              .sort(
-                (
-                  first,
-                  second,
-                ) =>
-                  first
-                    .definition
-                    .zIndex -
-                  second
-                    .definition
-                    .zIndex,
-              ),
+            previewLayers,
         };
 
         renderActor(
@@ -710,6 +1565,60 @@ export default function AvatarStudio() {
             height,
           },
         );
+
+        if (selectedId) {
+          const loadedLayer =
+            currentActor.layers.find(
+              (candidate) =>
+                candidate
+                  .definition
+                  .id ===
+                selectedId,
+            );
+
+          if (loadedLayer) {
+            let alphaBounds =
+              alphaBoundsCacheRef
+                .current
+                .get(
+                  selectedId,
+                );
+
+            if (!alphaBounds) {
+              alphaBounds =
+                computeAlphaBounds(
+                  loadedLayer.image,
+                );
+
+              alphaBoundsCacheRef
+                .current
+                .set(
+                  selectedId,
+                  alphaBounds,
+                );
+            }
+
+            const layout =
+              calculateActorLayout(
+                currentActor,
+                width,
+                height,
+                zoomRef.current,
+              );
+
+            const geometry =
+              buildSelectionGeometry(
+                loadedLayer.definition,
+                alphaBounds,
+                layout,
+              );
+
+            drawSelectionGeometry(
+              context,
+              geometry,
+            );
+          }
+        }
       }
 
       frameRequest =
@@ -718,101 +1627,201 @@ export default function AvatarStudio() {
         );
     };
 
-    const handlePointerDown = (
-      event: PointerEvent,
-    ) => {
-      pointerRef.current = {
-        dragging: true,
-        lastX: event.clientX,
-        lastY: event.clientY,
+    const stagePointFromEvent =
+      (
+        event:
+          PointerEvent,
+      ): Point => {
+        const bounds =
+          canvas.getBoundingClientRect();
+
+        return {
+          x:
+            event.clientX -
+            bounds.left,
+
+          y:
+            event.clientY -
+            bounds.top,
+        };
       };
 
-      canvas.setPointerCapture(
-        event.pointerId,
-      );
-    };
+    const handlePointerDown =
+      (
+        event:
+          PointerEvent,
+      ) => {
+        const currentActor =
+          actorRef.current;
 
-    const handlePointerMove = (
-      event: PointerEvent,
-    ) => {
-      const pointer =
-        pointerRef.current;
+        if (!currentActor) {
+          return;
+        }
 
-      const currentActor =
-        actorRef.current;
+        const bounds =
+          canvas.getBoundingClientRect();
 
-      const layerId =
-        selectedLayerIdRef.current;
+        const stagePoint =
+          stagePointFromEvent(
+            event,
+          );
 
-      if (
-        !pointer.dragging ||
-        !currentActor ||
-        !layerId
-      ) {
-        return;
-      }
+        const layout =
+          calculateActorLayout(
+            currentActor,
+            bounds.width,
+            bounds.height,
+            zoomRef.current,
+          );
 
-      const bounds =
-        canvas.getBoundingClientRect();
+        const selectedId =
+          findLayerAtPoint(
+            currentActor,
+            stagePoint,
+            layout,
+            hitContext,
+          );
 
-      const scale =
-        calculateActorScale(
-          currentActor,
-          bounds.width,
-          bounds.height,
-        ) * zoom;
+        if (!selectedId) {
+          setSelectedLayerId(
+            null,
+          );
 
-      const deltaX =
-        (event.clientX -
-          pointer.lastX) /
-        scale;
+          pointerRef.current = {
+            dragging: false,
+            pointerId: null,
+            lastX:
+              event.clientX,
+            lastY:
+              event.clientY,
+          };
 
-      const deltaY =
-        (event.clientY -
-          pointer.lastY) /
-        scale;
+          return;
+        }
 
-      pointerRef.current = {
-        dragging: true,
-        lastX: event.clientX,
-        lastY: event.clientY,
-      };
+        setSelectedLayerId(
+          selectedId,
+        );
 
-      updateLayer(
-        layerId,
-        (layer) => ({
-          ...layer,
-          transform: {
-            ...layer.transform,
-            x:
-              layer.transform.x +
-              deltaX,
-            y:
-              layer.transform.y +
-              deltaY,
-          },
-        }),
-      );
-    };
+        selectedLayerIdRef.current =
+          selectedId;
 
-    const stopDragging = (
-      event: PointerEvent,
-    ) => {
-      pointerRef.current = {
-        ...pointerRef.current,
-        dragging: false,
-      };
+        pointerRef.current = {
+          dragging: true,
+          pointerId:
+            event.pointerId,
+          lastX:
+            event.clientX,
+          lastY:
+            event.clientY,
+        };
 
-      if (
-        canvas.hasPointerCapture(
-          event.pointerId,
-        )
-      ) {
-        canvas.releasePointerCapture(
+        canvas.setPointerCapture(
           event.pointerId,
         );
-      }
-    };
+      };
+
+    const handlePointerMove =
+      (
+        event:
+          PointerEvent,
+      ) => {
+        const pointer =
+          pointerRef.current;
+
+        const currentActor =
+          actorRef.current;
+
+        const layerId =
+          selectedLayerIdRef.current;
+
+        if (
+          !pointer.dragging ||
+          pointer.pointerId !==
+            event.pointerId ||
+          !currentActor ||
+          !layerId
+        ) {
+          return;
+        }
+
+        const bounds =
+          canvas.getBoundingClientRect();
+
+        const layout =
+          calculateActorLayout(
+            currentActor,
+            bounds.width,
+            bounds.height,
+            zoomRef.current,
+          );
+
+        const deltaX =
+          (event.clientX -
+            pointer.lastX) /
+          layout.scale;
+
+        const deltaY =
+          (event.clientY -
+            pointer.lastY) /
+          layout.scale;
+
+        pointerRef.current = {
+          dragging: true,
+          pointerId:
+            event.pointerId,
+          lastX:
+            event.clientX,
+          lastY:
+            event.clientY,
+        };
+
+        updateLayer(
+          layerId,
+          (layer) => ({
+            ...layer,
+
+            transform: {
+              ...layer.transform,
+
+              x:
+                layer.transform.x +
+                deltaX,
+
+              y:
+                layer.transform.y +
+                deltaY,
+            },
+          }),
+        );
+      };
+
+    const stopDragging =
+      (
+        event:
+          PointerEvent,
+      ) => {
+        pointerRef.current = {
+          dragging: false,
+          pointerId: null,
+          lastX:
+            pointerRef.current
+              .lastX,
+          lastY:
+            pointerRef.current
+              .lastY,
+        };
+
+        if (
+          canvas.hasPointerCapture(
+            event.pointerId,
+          )
+        ) {
+          canvas.releasePointerCapture(
+            event.pointerId,
+          );
+        }
+      };
 
     resizeCanvas();
 
@@ -880,7 +1889,6 @@ export default function AvatarStudio() {
   }, [
     showGrid,
     updateLayer,
-    zoom,
   ]);
 
   const orderedLayers =
@@ -892,7 +1900,10 @@ export default function AvatarStudio() {
       return [
         ...actor.definition.layers,
       ].sort(
-        (first, second) =>
+        (
+          first,
+          second,
+        ) =>
           second.zIndex -
           first.zIndex,
       );
@@ -931,13 +1942,14 @@ export default function AvatarStudio() {
         2,
       );
 
-    const blob = new Blob(
-      [content],
-      {
-        type:
-          "application/json;charset=utf-8",
-      },
-    );
+    const blob =
+      new Blob(
+        [content],
+        {
+          type:
+            "application/json;charset=utf-8",
+        },
+      );
 
     const url =
       URL.createObjectURL(
@@ -945,7 +1957,9 @@ export default function AvatarStudio() {
       );
 
     const link =
-      document.createElement("a");
+      document.createElement(
+        "a",
+      );
 
     link.href = url;
     link.download =
@@ -958,53 +1972,79 @@ export default function AvatarStudio() {
     link.click();
     link.remove();
 
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(
+      url,
+    );
 
     setStatus(
       "actor.json exportado",
     );
   };
 
-  const resetDraft = async () => {
-    const confirmed =
-      window.confirm(
-        "¿Restaurar las posiciones originales de Bob?",
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    window.localStorage.removeItem(
-      STORAGE_KEY,
-    );
-
-    setStatus(
-      "Restaurando a Bob...",
-    );
-
-    try {
-      const original =
-        await loadActor(
-          ACTOR_ID,
+  const resetDraft =
+    async () => {
+      const confirmed =
+        window.confirm(
+          "¿Restaurar las posiciones originales de Bob?",
         );
 
-      actorRef.current =
-        original;
+      if (!confirmed) {
+        return;
+      }
 
-      setActor(original);
+      window.localStorage.removeItem(
+        STORAGE_KEY,
+      );
+
+      alphaBoundsCacheRef.current.clear();
 
       setStatus(
-        "Bob restaurado",
+        "Restaurando a Bob...",
       );
-    } catch (error: unknown) {
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : "No se pudo restaurar.",
-      );
-    }
-  };
+
+      try {
+        const original =
+          await loadActor(
+            ACTOR_ID,
+          );
+
+        actorRef.current =
+          original;
+
+        setActor(original);
+
+        const firstLayer =
+          [
+            ...original
+              .definition
+              .layers,
+          ].sort(
+            (
+              first,
+              second,
+            ) =>
+              second.zIndex -
+              first.zIndex,
+          )[0];
+
+        setSelectedLayerId(
+          firstLayer?.id ??
+            null,
+        );
+
+        setStatus(
+          "Bob restaurado",
+        );
+      } catch (
+        error: unknown
+      ) {
+        setStatus(
+          error instanceof Error
+            ? error.message
+            : "No se pudo restaurar.",
+        );
+      }
+    };
 
   return (
     <main
@@ -1048,7 +2088,8 @@ export default function AvatarStudio() {
               height: 34,
               borderRadius: 8,
               display: "grid",
-              placeItems: "center",
+              placeItems:
+                "center",
               border:
                 "1px solid rgba(69,218,255,0.5)",
               color: "#62dcff",
@@ -1067,7 +2108,8 @@ export default function AvatarStudio() {
                   "0.08em",
               }}
             >
-              FELENCHO AVATAR STUDIO
+              FELENCHO AVATAR
+              STUDIO
             </div>
 
             <div
@@ -1079,7 +2121,8 @@ export default function AvatarStudio() {
                   "0.18em",
               }}
             >
-              GENESIS v0.1
+              GENESIS v0.2 ·
+              VISUAL LAYER EDITING
             </div>
           </div>
         </div>
@@ -1093,12 +2136,54 @@ export default function AvatarStudio() {
           <button
             type="button"
             onClick={() =>
+              setDimOthers(
+                (value) =>
+                  !value,
+              )
+            }
+            style={{
+              ...toolbarButton,
+              color: dimOthers
+                ? "#6ee6ff"
+                : "rgba(255,255,255,0.65)",
+            }}
+          >
+            {dimOthers
+              ? "HIGHLIGHT ON"
+              : "HIGHLIGHT OFF"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setSoloMode(
+                (value) =>
+                  !value,
+              )
+            }
+            style={{
+              ...toolbarButton,
+              color: soloMode
+                ? "#6effb5"
+                : "rgba(255,255,255,0.65)",
+            }}
+          >
+            {soloMode
+              ? "SOLO ON"
+              : "SOLO OFF"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
               setShowGrid(
                 (value) =>
                   !value,
               )
             }
-            style={toolbarButton}
+            style={
+              toolbarButton
+            }
           >
             {showGrid
               ? "GRID ON"
@@ -1107,15 +2192,21 @@ export default function AvatarStudio() {
 
           <button
             type="button"
-            onClick={resetDraft}
-            style={toolbarButton}
+            onClick={
+              resetDraft
+            }
+            style={
+              toolbarButton
+            }
           >
             RESET
           </button>
 
           <button
             type="button"
-            onClick={exportActor}
+            onClick={
+              exportActor
+            }
             style={{
               ...toolbarButton,
               color: "#03202a",
@@ -1145,7 +2236,8 @@ export default function AvatarStudio() {
             overflow: "auto",
             borderRight:
               "1px solid rgba(70,210,255,0.14)",
-            background: "#070b0e",
+            background:
+              "#070b0e",
           }}
         >
           <PanelTitle
@@ -1167,7 +2259,9 @@ export default function AvatarStudio() {
 
                 return (
                   <button
-                    key={layer.id}
+                    key={
+                      layer.id
+                    }
                     type="button"
                     onClick={() =>
                       setSelectedLayerId(
@@ -1175,8 +2269,10 @@ export default function AvatarStudio() {
                       )
                     }
                     style={{
-                      width: "100%",
-                      display: "grid",
+                      width:
+                        "100%",
+                      display:
+                        "grid",
                       gridTemplateColumns:
                         "28px 1fr 42px",
                       alignItems:
@@ -1185,16 +2281,14 @@ export default function AvatarStudio() {
                       padding:
                         "9px 8px",
                       marginBottom: 4,
-                      color:
-                        selected
-                          ? "#ffffff"
-                          : "rgba(255,255,255,0.68)",
+                      color: selected
+                        ? "#ffffff"
+                        : "rgba(255,255,255,0.68)",
                       textAlign:
                         "left",
-                      border:
-                        selected
-                          ? "1px solid rgba(78,213,255,0.65)"
-                          : "1px solid transparent",
+                      border: selected
+                        ? "1px solid rgba(78,213,255,0.65)"
+                        : "1px solid transparent",
                       borderRadius: 6,
                       background:
                         selected
@@ -1242,7 +2336,10 @@ export default function AvatarStudio() {
                           "right",
                       }}
                     >
-                      Z {layer.zIndex}
+                      Z{" "}
+                      {
+                        layer.zIndex
+                      }
                     </span>
                   </button>
                 );
@@ -1255,19 +2352,21 @@ export default function AvatarStudio() {
           style={{
             minWidth: 0,
             minHeight: 0,
-            position: "relative",
+            position:
+              "relative",
           }}
         >
           <canvas
             ref={canvasRef}
             style={{
-              display: "block",
+              display:
+                "block",
               width: "100%",
               height: "100%",
               cursor:
                 selectedLayer
                   ? "move"
-                  : "default",
+                  : "crosshair",
               touchAction:
                 "none",
             }}
@@ -1275,36 +2374,43 @@ export default function AvatarStudio() {
 
           <div
             style={{
-              position: "absolute",
+              position:
+                "absolute",
               left: 14,
               top: 14,
               padding:
-                "8px 10px",
+                "9px 11px",
               borderRadius: 6,
               border:
                 "1px solid rgba(75,214,255,0.22)",
               background:
-                "rgba(2,6,8,0.75)",
+                "rgba(2,6,8,0.78)",
               color:
-                "rgba(255,255,255,0.58)",
+                "rgba(255,255,255,0.65)",
               fontSize: 11,
+              lineHeight: 1.6,
               pointerEvents:
                 "none",
             }}
           >
-            Selecciona una capa y
-            arrástrala. Flechas =
-            1 px. Shift + flechas =
-            10 px.
+            Haz clic directamente
+            sobre una pieza.
+            <br />
+            Arrastra para moverla.
+            <br />
+            Flechas: 1 px · Shift:
+            10 px · S: Solo
           </div>
 
           <div
             style={{
-              position: "absolute",
+              position:
+                "absolute",
               right: 14,
               bottom: 14,
               display: "flex",
-              alignItems: "center",
+              alignItems:
+                "center",
               gap: 8,
               padding: 8,
               borderRadius: 7,
@@ -1330,7 +2436,9 @@ export default function AvatarStudio() {
               max="2"
               step="0.05"
               value={zoom}
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setZoom(
                   Number(
                     event.target
@@ -1360,7 +2468,8 @@ export default function AvatarStudio() {
             overflow: "auto",
             borderLeft:
               "1px solid rgba(70,210,255,0.14)",
-            background: "#070b0e",
+            background:
+              "#070b0e",
           }}
         >
           <PanelTitle
@@ -1389,7 +2498,9 @@ export default function AvatarStudio() {
                   selectedLayer
                     .transform.x
                 }
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateTransform(
                     "x",
                     value,
@@ -1403,7 +2514,9 @@ export default function AvatarStudio() {
                   selectedLayer
                     .transform.y
                 }
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateTransform(
                     "y",
                     value,
@@ -1419,7 +2532,9 @@ export default function AvatarStudio() {
                     .rotation
                 }
                 step={0.5}
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateTransform(
                     "rotation",
                     value,
@@ -1435,7 +2550,9 @@ export default function AvatarStudio() {
                     .scaleX
                 }
                 step={0.01}
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateTransform(
                     "scaleX",
                     value,
@@ -1451,7 +2568,9 @@ export default function AvatarStudio() {
                     .scaleY
                 }
                 step={0.01}
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateTransform(
                     "scaleY",
                     value,
@@ -1469,7 +2588,9 @@ export default function AvatarStudio() {
                 min={0}
                 max={1}
                 step={0.05}
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateTransform(
                     "opacity",
                     clamp(
@@ -1491,11 +2612,14 @@ export default function AvatarStudio() {
                   selectedLayer.zIndex
                 }
                 step={1}
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateLayer(
                     selectedLayer.id,
                     (layer) => ({
                       ...layer,
+
                       zIndex:
                         Math.round(
                           value,
@@ -1507,7 +2631,8 @@ export default function AvatarStudio() {
 
               <label
                 style={{
-                  display: "flex",
+                  display:
+                    "flex",
                   alignItems:
                     "center",
                   justifyContent:
@@ -1526,11 +2651,14 @@ export default function AvatarStudio() {
                   checked={
                     selectedLayer.visible
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event,
+                  ) =>
                     updateLayer(
                       selectedLayer.id,
                       (layer) => ({
                         ...layer,
+
                         visible:
                           event.target
                             .checked,
@@ -1546,7 +2674,8 @@ export default function AvatarStudio() {
 
               <div
                 style={{
-                  display: "grid",
+                  display:
+                    "grid",
                   gridTemplateColumns:
                     "repeat(3, 1fr)",
                   gap: 7,
@@ -1583,6 +2712,7 @@ export default function AvatarStudio() {
                       "x",
                       0,
                     );
+
                     updateTransform(
                       "y",
                       0,
@@ -1641,7 +2771,8 @@ export default function AvatarStudio() {
                   "rgba(255,255,255,0.4)",
               }}
             >
-              Selecciona una capa.
+              Haz clic sobre una
+              pieza de Bob.
             </div>
           )}
         </aside>
@@ -1656,7 +2787,8 @@ export default function AvatarStudio() {
           padding: "0 14px",
           borderTop:
             "1px solid rgba(70,210,255,0.16)",
-          background: "#05090b",
+          background:
+            "#05090b",
           color:
             "rgba(255,255,255,0.45)",
           fontFamily:
@@ -1669,6 +2801,10 @@ export default function AvatarStudio() {
         <span>{status}</span>
 
         <span>
+          {selectedLayer
+            ? `SELECTED: ${selectedLayer.name}`
+            : "NO LAYER SELECTED"}
+          {" · "}
           {savedAt
             ? `DRAFT SAVED ${savedAt}`
             : "GENESIS ONLINE"}
@@ -1678,7 +2814,7 @@ export default function AvatarStudio() {
   );
 }
 
-const toolbarButton: React.CSSProperties =
+const toolbarButton: CSSProperties =
   {
     padding: "8px 11px",
     borderRadius: 5,
@@ -1689,7 +2825,8 @@ const toolbarButton: React.CSSProperties =
     background:
       "rgba(255,255,255,0.04)",
     fontSize: 10,
-    letterSpacing: "0.08em",
+    letterSpacing:
+      "0.08em",
     cursor: "pointer",
   };
 
@@ -1746,7 +2883,7 @@ function PanelTitle({
 function SectionLabel({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div
@@ -1805,16 +2942,21 @@ function NumberField({
           Number.isInteger(value)
             ? value
             : Number(
-                value.toFixed(4),
+                value.toFixed(
+                  4,
+                ),
               )
         }
         step={step}
         min={min}
         max={max}
-        onChange={(event) => {
+        onChange={(
+          event,
+        ) => {
           const nextValue =
             Number(
-              event.target.value,
+              event.target
+                .value,
             );
 
           if (
@@ -1822,7 +2964,9 @@ function NumberField({
               nextValue,
             )
           ) {
-            onChange(nextValue);
+            onChange(
+              nextValue,
+            );
           }
         }}
         style={{
@@ -1834,7 +2978,8 @@ function NumberField({
           border:
             "1px solid rgba(255,255,255,0.13)",
           color: "#ffffff",
-          background: "#10171b",
+          background:
+            "#10171b",
           outline: "none",
         }}
       />
