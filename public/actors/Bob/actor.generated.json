@@ -1,7 +1,7 @@
 {
   "id": "Bob",
   "name": "Bob",
-  "version": "1.0",
+  "version": "1.1",
   "width": 2160,
   "height": 3840,
   "fps": 60,
@@ -14,9 +14,9 @@
   },
   "layers": [
     {
-      "id": "armor",
-      "name": "armor",
-      "image": "/actors/Bob/layers/ARMOR/armor.png",
+      "id": "hair_back_lower",
+      "name": "hair_back_lower",
+      "image": "/actors/Bob/layers/HAIR/back/lower.png",
       "zIndex": 0,
       "visible": true,
       "transform": {
@@ -31,9 +31,9 @@
       }
     },
     {
-      "id": "center",
-      "name": "center",
-      "image": "/actors/Bob/layers/BEARD/center/center.png",
+      "id": "hair_back_middle",
+      "name": "hair_back_middle",
+      "image": "/actors/Bob/layers/HAIR/back/middle.png",
       "zIndex": 1,
       "visible": true,
       "transform": {
@@ -48,9 +48,9 @@
       }
     },
     {
-      "id": "left",
-      "name": "left",
-      "image": "/actors/Bob/layers/BEARD/center/left.png",
+      "id": "hair_back_upper",
+      "name": "hair_back_upper",
+      "image": "/actors/Bob/layers/HAIR/back/upper.png",
       "zIndex": 2,
       "visible": true,
       "transform": {
@@ -65,9 +65,9 @@
       }
     },
     {
-      "id": "right",
-      "name": "right",
-      "image": "/actors/Bob/layers/BEARD/center/right.png",
+      "id": "armor_armor",
+      "name": "armor_armor",
+      "image": "/actors/Bob/layers/ARMOR/armor.png",
       "zIndex": 3,
       "visible": true,
       "transform": {
@@ -82,9 +82,9 @@
       }
     },
     {
-      "id": "beard_tip_left",
-      "name": "beard_tip_left",
-      "image": "/actors/Bob/layers/BEARD/left/beard_tip_left.png",
+      "id": "mouth_tongue",
+      "name": "mouth_tongue",
+      "image": "/actors/Bob/layers/MOUTH/tongue.png",
       "zIndex": 4,
       "visible": true,
       "transform": {
@@ -99,9 +99,9 @@
       }
     },
     {
-      "id": "beard_upper_left_down",
-      "name": "beard_upper_left_down",
-      "image": "/actors/Bob/layers/BEARD/left/beard_upper_left_down.png",
+      "id": "mouth_lower_teeth",
+      "name": "mouth_lower_teeth",
+      "image": "/actors/Bob/layers/MOUTH/lower_teeth.png",
       "zIndex": 5,
       "visible": true,
       "transform": {
@@ -116,9 +116,9 @@
       }
     },
     {
-      "id": "beard_upper_left",
-      "name": "beard_upper_left",
-      "image": "/actors/Bob/layers/BEARD/left/beard_upper_left.png",
+      "id": "mouth_upper_teeth",
+      "name": "mouth_upper_teeth",
+      "image": "/actors/Bob/layers/MOUTH/upper_teeth.png",
       "zIndex": 6,
       "visible": true,
       "transform": {
@@ -133,9 +133,9 @@
       }
     },
     {
-      "id": "tip",
-      "name": "tip",
-      "image": "/actors/Bob/layers/BEARD/right/tip.png",
+      "id": "face_face",
+      "name": "face_face",
+      "image": "/actors/Bob/layers/FACE/face.png",
       "zIndex": 7,
       "visible": true,
       "transform": {
@@ -150,9 +150,9 @@
       }
     },
     {
-      "id": "upper_down",
-      "name": "upper_down",
-      "image": "/actors/Bob/layers/BEARD/right/upper_down.png",
+      "id": "eyes_left_eye",
+      "name": "eyes_left_eye",
+      "image": "/actors/Bob/layers/EYES/left_eye.png",
       "zIndex": 8,
       "visible": true,
       "transform": {
@@ -167,9 +167,9 @@
       }
     },
     {
-      "id": "upper",
-      "name": "upper",
-      "image": "/actors/Bob/layers/BEARD/right/upper.png",
+      "id": "eyes_right_eye",
+      "name": "eyes_right_eye",
+      "image": "/actors/Bob/layers/EYES/right_eye.png",
       "zIndex": 9,
       "visible": true,
       "transform": {
@@ -184,9 +184,9 @@
       }
     },
     {
-      "id": "left",
-      "name": "left",
-      "image": "/actors/Bob/layers/EYEBROWS/left.png",
+      "id": "eyes_left_pupil",
+      "name": "eyes_left_pupil",
+      "image": "/actors/Bob/layers/EYES/left_pupil.png",
       "zIndex": 10,
       "visible": true,
       "transform": {
@@ -201,9 +201,9 @@
       }
     },
     {
-      "id": "right",
-      "name": "right",
-      "image": "/actors/Bob/layers/EYEBROWS/right.png",
+      "id": "eyes_right_pupil",
+      "name": "eyes_right_pupil",
+      "image": "/actors/Bob/layers/EYES/right_pupil.png",
       "zIndex": 11,
       "visible": true,
       "transform": {
@@ -218,9 +218,9 @@
       }
     },
     {
-      "id": "left_eye",
-      "name": "left_eye",
-      "image": "/actors/Bob/layers/EYES/left_eye.png",
+      "id": "eyes_left_lower_lid",
+      "name": "eyes_left_lower_lid",
+      "image": "/actors/Bob/layers/EYES/left_lower_lid.png",
       "zIndex": 12,
       "visible": true,
       "transform": {
@@ -235,9 +235,9 @@
       }
     },
     {
-      "id": "left_lower_lid",
-      "name": "left_lower_lid",
-      "image": "/actors/Bob/layers/EYES/left_lower_lid.png",
+      "id": "eyes_right_lower_lid",
+      "name": "eyes_right_lower_lid",
+      "image": "/actors/Bob/layers/EYES/right_lower_lid.png",
       "zIndex": 13,
       "visible": true,
       "transform": {
@@ -252,9 +252,9 @@
       }
     },
     {
-      "id": "left_pupil",
-      "name": "left_pupil",
-      "image": "/actors/Bob/layers/EYES/left_pupil.png",
+      "id": "eyes_left_upper_lid",
+      "name": "eyes_left_upper_lid",
+      "image": "/actors/Bob/layers/EYES/left_upper_lid.png",
       "zIndex": 14,
       "visible": true,
       "transform": {
@@ -269,9 +269,9 @@
       }
     },
     {
-      "id": "left_upper_lid",
-      "name": "left_upper_lid",
-      "image": "/actors/Bob/layers/EYES/left_upper_lid.png",
+      "id": "eyes_right_upper_lid",
+      "name": "eyes_right_upper_lid",
+      "image": "/actors/Bob/layers/EYES/right_upper_lid.png",
       "zIndex": 15,
       "visible": true,
       "transform": {
@@ -286,9 +286,9 @@
       }
     },
     {
-      "id": "right_eye",
-      "name": "right_eye",
-      "image": "/actors/Bob/layers/EYES/right_eye.png",
+      "id": "eyebrows_left",
+      "name": "eyebrows_left",
+      "image": "/actors/Bob/layers/EYEBROWS/left.png",
       "zIndex": 16,
       "visible": true,
       "transform": {
@@ -303,9 +303,9 @@
       }
     },
     {
-      "id": "right_lower_lid",
-      "name": "right_lower_lid",
-      "image": "/actors/Bob/layers/EYES/right_lower_lid.png",
+      "id": "eyebrows_right",
+      "name": "eyebrows_right",
+      "image": "/actors/Bob/layers/EYEBROWS/right.png",
       "zIndex": 17,
       "visible": true,
       "transform": {
@@ -320,9 +320,9 @@
       }
     },
     {
-      "id": "right_pupil",
-      "name": "right_pupil",
-      "image": "/actors/Bob/layers/EYES/right_pupil.png",
+      "id": "mustache_mustache_center",
+      "name": "mustache_mustache_center",
+      "image": "/actors/Bob/layers/MUSTACHE/mustache_center.png",
       "zIndex": 18,
       "visible": true,
       "transform": {
@@ -337,9 +337,9 @@
       }
     },
     {
-      "id": "right_upper_lid",
-      "name": "right_upper_lid",
-      "image": "/actors/Bob/layers/EYES/right_upper_lid.png",
+      "id": "mustache_mustache_left",
+      "name": "mustache_mustache_left",
+      "image": "/actors/Bob/layers/MUSTACHE/mustache_left.png",
       "zIndex": 19,
       "visible": true,
       "transform": {
@@ -354,9 +354,9 @@
       }
     },
     {
-      "id": "face",
-      "name": "face",
-      "image": "/actors/Bob/layers/FACE/face.png",
+      "id": "mustache_mustache_right",
+      "name": "mustache_mustache_right",
+      "image": "/actors/Bob/layers/MUSTACHE/mustache_right.png",
       "zIndex": 20,
       "visible": true,
       "transform": {
@@ -371,9 +371,9 @@
       }
     },
     {
-      "id": "lower",
-      "name": "lower",
-      "image": "/actors/Bob/layers/HAIR/back/lower.png",
+      "id": "beard_left_beard_upper_left_down",
+      "name": "beard_left_beard_upper_left_down",
+      "image": "/actors/Bob/layers/BEARD/left/beard_upper_left_down.png",
       "zIndex": 21,
       "visible": true,
       "transform": {
@@ -388,9 +388,9 @@
       }
     },
     {
-      "id": "middle",
-      "name": "middle",
-      "image": "/actors/Bob/layers/HAIR/back/middle.png",
+      "id": "beard_left_beard_upper_left",
+      "name": "beard_left_beard_upper_left",
+      "image": "/actors/Bob/layers/BEARD/left/beard_upper_left.png",
       "zIndex": 22,
       "visible": true,
       "transform": {
@@ -405,9 +405,9 @@
       }
     },
     {
-      "id": "upper",
-      "name": "upper",
-      "image": "/actors/Bob/layers/HAIR/back/upper.png",
+      "id": "beard_right_upper_down",
+      "name": "beard_right_upper_down",
+      "image": "/actors/Bob/layers/BEARD/right/upper_down.png",
       "zIndex": 23,
       "visible": true,
       "transform": {
@@ -422,9 +422,9 @@
       }
     },
     {
-      "id": "front",
-      "name": "front",
-      "image": "/actors/Bob/layers/HAIR/front/front.png",
+      "id": "beard_right_upper",
+      "name": "beard_right_upper",
+      "image": "/actors/Bob/layers/BEARD/right/upper.png",
       "zIndex": 24,
       "visible": true,
       "transform": {
@@ -439,9 +439,9 @@
       }
     },
     {
-      "id": "lower_teeth",
-      "name": "lower_teeth",
-      "image": "/actors/Bob/layers/MOUTH/lower_teeth.png",
+      "id": "beard_center_center",
+      "name": "beard_center_center",
+      "image": "/actors/Bob/layers/BEARD/center/center.png",
       "zIndex": 25,
       "visible": true,
       "transform": {
@@ -456,9 +456,9 @@
       }
     },
     {
-      "id": "tongue",
-      "name": "tongue",
-      "image": "/actors/Bob/layers/MOUTH/tongue.png",
+      "id": "beard_center_left",
+      "name": "beard_center_left",
+      "image": "/actors/Bob/layers/BEARD/center/left.png",
       "zIndex": 26,
       "visible": true,
       "transform": {
@@ -473,9 +473,9 @@
       }
     },
     {
-      "id": "upper_teeth",
-      "name": "upper_teeth",
-      "image": "/actors/Bob/layers/MOUTH/upper_teeth.png",
+      "id": "beard_center_right",
+      "name": "beard_center_right",
+      "image": "/actors/Bob/layers/BEARD/center/right.png",
       "zIndex": 27,
       "visible": true,
       "transform": {
@@ -490,9 +490,9 @@
       }
     },
     {
-      "id": "mustache_center",
-      "name": "mustache_center",
-      "image": "/actors/Bob/layers/MUSTACHE/mustache_center.png",
+      "id": "beard_left_beard_tip_left",
+      "name": "beard_left_beard_tip_left",
+      "image": "/actors/Bob/layers/BEARD/left/beard_tip_left.png",
       "zIndex": 28,
       "visible": true,
       "transform": {
@@ -507,9 +507,9 @@
       }
     },
     {
-      "id": "mustache_left",
-      "name": "mustache_left",
-      "image": "/actors/Bob/layers/MUSTACHE/mustache_left.png",
+      "id": "beard_right_tip",
+      "name": "beard_right_tip",
+      "image": "/actors/Bob/layers/BEARD/right/tip.png",
       "zIndex": 29,
       "visible": true,
       "transform": {
@@ -524,9 +524,9 @@
       }
     },
     {
-      "id": "mustache_right",
-      "name": "mustache_right",
-      "image": "/actors/Bob/layers/MUSTACHE/mustache_right.png",
+      "id": "hair_front_front",
+      "name": "hair_front_front",
+      "image": "/actors/Bob/layers/HAIR/front/front.png",
       "zIndex": 30,
       "visible": true,
       "transform": {
@@ -542,6 +542,36 @@
     }
   ],
   "rig": {
-    "root": "face"
+    "root": "face_face",
+    "armor": "armor_armor",
+    "leftEye": "eyes_left_eye",
+    "rightEye": "eyes_right_eye",
+    "leftPupil": "eyes_left_pupil",
+    "rightPupil": "eyes_right_pupil",
+    "leftUpperEyelid": "eyes_left_upper_lid",
+    "rightUpperEyelid": "eyes_right_upper_lid",
+    "leftLowerEyelid": "eyes_left_lower_lid",
+    "rightLowerEyelid": "eyes_right_lower_lid",
+    "leftEyebrow": "eyebrows_left",
+    "rightEyebrow": "eyebrows_right",
+    "upperTeeth": "mouth_upper_teeth",
+    "lowerTeeth": "mouth_lower_teeth",
+    "tongue": "mouth_tongue",
+    "mustacheLeft": "mustache_mustache_left",
+    "mustacheCenter": "mustache_mustache_center",
+    "mustacheRight": "mustache_mustache_right",
+    "beardCenter": "beard_center_center",
+    "beardCenterLeft": "beard_center_left",
+    "beardCenterRight": "beard_center_right",
+    "beardLeftUpper": "beard_left_beard_upper_left_down",
+    "beardLeftUpperDown": "beard_left_beard_upper_left_down",
+    "beardLeftTip": "beard_left_beard_tip_left",
+    "beardRightUpper": "beard_right_upper_down",
+    "beardRightUpperDown": "beard_right_upper_down",
+    "beardRightTip": "beard_right_tip",
+    "hairBackLower": "hair_back_lower",
+    "hairBackMiddle": "hair_back_middle",
+    "hairBackUpper": "hair_back_upper",
+    "hairFront": "hair_front_front"
   }
 }

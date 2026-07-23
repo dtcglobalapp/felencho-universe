@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "fae:generate": "node app/avatar-engine/tools/fae-builder.mjs Bob",
+    "fae:deploy": "npm run fae:generate && npm run build"
   },
   "dependencies": {
     "@heygen/liveavatar-web-sdk": "^0.0.18",
