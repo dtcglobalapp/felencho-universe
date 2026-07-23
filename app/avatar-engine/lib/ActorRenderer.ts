@@ -61,17 +61,29 @@ export function renderActor(
 ): void {
   const { definition, layers } = actor;
 
-  const maximumWidth =
-    stage.width *
-    definition.display.maxStageWidth;
+  const configuredMaximumWidth =
+    definition.display.maxStageWidth > 0
+      ? definition.display.maxStageWidth
+      : stage.width;
 
-  const maximumHeight =
-    stage.height *
-    definition.display.maxStageHeight;
+  const configuredMaximumHeight =
+    definition.display.maxStageHeight > 0
+      ? definition.display.maxStageHeight
+      : stage.height;
+
+  const availableWidth = Math.min(
+    stage.width,
+    configuredMaximumWidth,
+  );
+
+  const availableHeight = Math.min(
+    stage.height,
+    configuredMaximumHeight,
+  );
 
   const fitScale = Math.min(
-    maximumWidth / definition.width,
-    maximumHeight / definition.height,
+    availableWidth / definition.width,
+    availableHeight / definition.height,
   );
 
   const actorScale =
@@ -147,7 +159,10 @@ export function renderActor(
     1.05,
   );
 
-  context.scale(bodyScale, bodyScale);
+  context.scale(
+    bodyScale,
+    bodyScale,
+  );
 
   context.translate(
     -actorCenterX,
@@ -159,6 +174,15 @@ export function renderActor(
       definition: layerDefinition,
       image,
     } = layer;
+
+    if (
+      !layerDefinition.visible ||
+      !image.complete ||
+      image.naturalWidth === 0 ||
+      image.naturalHeight === 0
+    ) {
+      continue;
+    }
 
     const transform =
       layerDefinition.transform;
@@ -213,8 +237,10 @@ export function renderActor(
 
     if (
       blinkDefinition &&
-      (isLeftUpperEyelid ||
-        isRightUpperEyelid)
+      (
+        isLeftUpperEyelid ||
+        isRightUpperEyelid
+      )
     ) {
       runtimeOffsetY +=
         blinkDefinition.upperTravel *
@@ -229,8 +255,10 @@ export function renderActor(
 
     if (
       blinkDefinition &&
-      (isLeftLowerEyelid ||
-        isRightLowerEyelid)
+      (
+        isLeftLowerEyelid ||
+        isRightLowerEyelid
+      )
     ) {
       runtimeOffsetY +=
         blinkDefinition.lowerTravel *
@@ -253,29 +281,46 @@ export function renderActor(
 
     const layerX =
       actorOriginX +
-      (transform.x + runtimeOffsetX) *
+      (
+        transform.x +
+        runtimeOffsetX
+      ) *
         actorScale;
 
     const layerY =
       actorOriginY +
-      (transform.y + runtimeOffsetY) *
+      (
+        transform.y +
+        runtimeOffsetY
+      ) *
         actorScale;
 
-    context.translate(layerX, layerY);
+    context.translate(
+      layerX,
+      layerY,
+    );
 
     context.rotate(
-      (transform.rotation * Math.PI) /
+      (
+        transform.rotation *
+        Math.PI
+      ) /
         180,
     );
 
     context.scale(
-      actorScale * transform.scaleX,
+      actorScale *
+        transform.scaleX,
       actorScale *
         transform.scaleY *
         runtimeScaleY,
     );
 
-    context.drawImage(image, 0, 0);
+    context.drawImage(
+      image,
+      0,
+      0,
+    );
 
     context.restore();
   }
