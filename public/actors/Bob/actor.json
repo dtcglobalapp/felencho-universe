@@ -16,7 +16,7 @@
     {
       "id": "face",
       "name": "Face",
-      "image": "/actors/Bob/layers/face.png",
+      "image": "/actors/Bob/layers/FACE/face.png",
       "zIndex": 200,
       "visible": true,
       "transform": {
@@ -33,7 +33,7 @@
     {
       "id": "left_eye",
       "name": "Left Eye",
-      "image": "/actors/Bob/layers/left_eye.png",
+      "image": "/actors/Bob/layers/EYES/left_eye.png",
       "zIndex": 100,
       "visible": true,
       "transform": {
@@ -50,7 +50,7 @@
     {
       "id": "right_eye",
       "name": "Right Eye",
-      "image": "/actors/Bob/layers/right_eye.png",
+      "image": "/actors/Bob/layers/EYES/right_eye.png",
       "zIndex": 110,
       "visible": true,
       "transform": {
@@ -67,7 +67,7 @@
     {
       "id": "left_pupil",
       "name": "Left Pupil",
-      "image": "/actors/Bob/layers/left_pupil.png",
+      "image": "/actors/Bob/layers/EYES/left_pupil.png",
       "zIndex": 120,
       "visible": true,
       "transform": {
@@ -84,7 +84,7 @@
     {
       "id": "right_pupil",
       "name": "Right Pupil",
-      "image": "/actors/Bob/layers/right_pupil.png",
+      "image": "/actors/Bob/layers/EYES/right_pupil.png",
       "zIndex": 130,
       "visible": true,
       "transform": {
