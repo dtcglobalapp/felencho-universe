@@ -1,94 +1,253 @@
 import type {
+  ActorBlinkDefinition,
   ActorDefinition,
   ActorLayerDefinition,
   LoadedActor,
   LoadedActorLayer,
 } from "../types/Actor";
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isActorLayer(value: unknown): value is ActorLayerDefinition {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const layer = value as Record<string, unknown>;
-  const transform = layer.transform as
-    | Record<string, unknown>
-    | undefined;
-
+function isFiniteNumber(
+  value: unknown,
+): value is number {
   return (
-    typeof layer.id === "string" &&
-    typeof layer.name === "string" &&
-    typeof layer.image === "string" &&
-    isFiniteNumber(layer.zIndex) &&
-    typeof layer.visible === "boolean" &&
-    Boolean(transform) &&
-    isFiniteNumber(transform?.x) &&
-    isFiniteNumber(transform?.y) &&
-    isFiniteNumber(transform?.rotation) &&
-    isFiniteNumber(transform?.scaleX) &&
-    isFiniteNumber(transform?.scaleY) &&
-    isFiniteNumber(transform?.opacity) &&
-    isFiniteNumber(transform?.pivotX) &&
-    isFiniteNumber(transform?.pivotY)
+    typeof value === "number" &&
+    Number.isFinite(value)
   );
 }
 
-function isActorDefinition(value: unknown): value is ActorDefinition {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const actor = value as Record<string, unknown>;
-  const display = actor.display as
-    | Record<string, unknown>
-    | undefined;
-
+function isNonNegativeNumber(
+  value: unknown,
+): value is number {
   return (
-    typeof actor.id === "string" &&
-    typeof actor.name === "string" &&
-    typeof actor.version === "string" &&
-    isFiniteNumber(actor.width) &&
-    isFiniteNumber(actor.height) &&
-    isFiniteNumber(actor.fps) &&
-    Boolean(display) &&
-    isFiniteNumber(display?.scale) &&
-    isFiniteNumber(display?.offsetX) &&
-    isFiniteNumber(display?.offsetY) &&
-    isFiniteNumber(display?.maxStageWidth) &&
-    isFiniteNumber(display?.maxStageHeight) &&
-    Array.isArray(actor.layers) &&
-    actor.layers.every(isActorLayer) &&
-    Boolean(actor.rig) &&
-    typeof actor.rig === "object"
+    isFiniteNumber(value) &&
+    value >= 0
   );
 }
 
-function loadImage(source: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
+function isPositiveNumber(
+  value: unknown,
+): value is number {
+  return (
+    isFiniteNumber(value) &&
+    value > 0
+  );
+}
 
-    image.onload = () => resolve(image);
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  );
+}
 
-    image.onerror = () => {
-      reject(new Error(`No se pudo cargar la capa: ${source}`));
-    };
+function isActorLayer(
+  value: unknown,
+): value is ActorLayerDefinition {
+  if (!isRecord(value)) {
+    return false;
+  }
 
-    image.src = source;
-  });
+  const transform = value.transform;
+
+  if (!isRecord(transform)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    value.id.trim().length > 0 &&
+    typeof value.name === "string" &&
+    value.name.trim().length > 0 &&
+    typeof value.image === "string" &&
+    value.image.trim().length > 0 &&
+    isFiniteNumber(value.zIndex) &&
+    typeof value.visible === "boolean" &&
+    isFiniteNumber(transform.x) &&
+    isFiniteNumber(transform.y) &&
+    isFiniteNumber(transform.rotation) &&
+    isFiniteNumber(transform.scaleX) &&
+    isFiniteNumber(transform.scaleY) &&
+    isFiniteNumber(transform.opacity) &&
+    isFiniteNumber(transform.pivotX) &&
+    isFiniteNumber(transform.pivotY)
+  );
+}
+
+function isActorBlinkDefinition(
+  value: unknown,
+): value is ActorBlinkDefinition {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.enabled === "boolean" &&
+    isNonNegativeNumber(
+      value.minimumDelayMs,
+    ) &&
+    isNonNegativeNumber(
+      value.maximumDelayMs,
+    ) &&
+    value.maximumDelayMs >=
+      value.minimumDelayMs &&
+    isPositiveNumber(
+      value.closeDurationMs,
+    ) &&
+    isNonNegativeNumber(
+      value.holdDurationMs,
+    ) &&
+    isPositiveNumber(
+      value.openDurationMs,
+    ) &&
+    isFiniteNumber(value.upperTravel) &&
+    isFiniteNumber(value.lowerTravel) &&
+    isFiniteNumber(value.upperScaleY) &&
+    isFiniteNumber(value.lowerScaleY)
+  );
+}
+
+function isActorAnimations(
+  value: unknown,
+): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    value.blink !== undefined &&
+    !isActorBlinkDefinition(value.blink)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isActorDefinition(
+  value: unknown,
+): value is ActorDefinition {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const display = value.display;
+
+  if (!isRecord(display)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    value.id.trim().length > 0 &&
+    typeof value.name === "string" &&
+    value.name.trim().length > 0 &&
+    typeof value.version === "string" &&
+    value.version.trim().length > 0 &&
+    isPositiveNumber(value.width) &&
+    isPositiveNumber(value.height) &&
+    isPositiveNumber(value.fps) &&
+    isFiniteNumber(display.scale) &&
+    isFiniteNumber(display.offsetX) &&
+    isFiniteNumber(display.offsetY) &&
+    isPositiveNumber(
+      display.maxStageWidth,
+    ) &&
+    isPositiveNumber(
+      display.maxStageHeight,
+    ) &&
+    Array.isArray(value.layers) &&
+    value.layers.every(isActorLayer) &&
+    isRecord(value.rig) &&
+    isActorAnimations(value.animations)
+  );
+}
+
+function loadImage(
+  source: string,
+): Promise<HTMLImageElement> {
+  return new Promise(
+    (resolve, reject) => {
+      const image = new Image();
+
+      image.decoding = "async";
+
+      image.onload = () => {
+        resolve(image);
+      };
+
+      image.onerror = () => {
+        reject(
+          new Error(
+            `No se pudo cargar la capa: ${source}`,
+          ),
+        );
+      };
+
+      image.src = source;
+    },
+  );
+}
+
+function validateUniqueLayerIds(
+  layers: ActorLayerDefinition[],
+  actorId: string,
+): void {
+  const identifiers = new Set<string>();
+
+  for (const layer of layers) {
+    if (identifiers.has(layer.id)) {
+      throw new Error(
+        `El actor ${actorId} contiene una capa duplicada: ${layer.id}`,
+      );
+    }
+
+    identifiers.add(layer.id);
+  }
+}
+
+async function loadLayer(
+  definition: ActorLayerDefinition,
+): Promise<LoadedActorLayer> {
+  const image = await loadImage(
+    definition.image,
+  );
+
+  return {
+    definition,
+    image,
+  };
 }
 
 export async function loadActor(
   actorId: string,
 ): Promise<LoadedActor> {
-  const definitionUrl = `/actors/${actorId}/actor.json`;
+  const normalizedActorId =
+    actorId.trim();
 
-  const response = await fetch(definitionUrl, {
-    cache: "no-store",
-  });
+  if (!normalizedActorId) {
+    throw new Error(
+      "El identificador del actor está vacío.",
+    );
+  }
+
+  const definitionUrl =
+    `/actors/${encodeURIComponent(
+      normalizedActorId,
+    )}/actor.json`;
+
+  const response = await fetch(
+    definitionUrl,
+    {
+      cache: "no-store",
+    },
+  );
 
   if (!response.ok) {
     throw new Error(
@@ -96,28 +255,53 @@ export async function loadActor(
     );
   }
 
-  const rawDefinition: unknown = await response.json();
+  let rawDefinition: unknown;
 
-  if (!isActorDefinition(rawDefinition)) {
+  try {
+    rawDefinition =
+      await response.json();
+  } catch {
     throw new Error(
-      `La definición del actor ${actorId} no es válida.`,
+      `El archivo ${definitionUrl} no contiene JSON válido.`,
     );
   }
 
-  const visibleLayers = rawDefinition.layers
-    .filter((layer) => layer.visible)
-    .sort((first, second) => first.zIndex - second.zIndex);
+  if (
+    !isActorDefinition(
+      rawDefinition,
+    )
+  ) {
+    throw new Error(
+      `La definición del actor ${normalizedActorId} no es válida.`,
+    );
+  }
 
-  const loadedLayers: LoadedActorLayer[] =
+  validateUniqueLayerIds(
+    rawDefinition.layers,
+    normalizedActorId,
+  );
+
+  const visibleLayers =
+    rawDefinition.layers
+      .filter(
+        (layer) =>
+          layer.visible,
+      )
+      .sort(
+        (first, second) =>
+          first.zIndex -
+          second.zIndex,
+      );
+
+  const loadedLayers =
     await Promise.all(
-      visibleLayers.map(async (definition) => ({
-        definition,
-        image: await loadImage(definition.image),
-      })),
+      visibleLayers.map(loadLayer),
     );
 
   return {
-    definition: rawDefinition,
-    layers: loadedLayers,
+    definition:
+      rawDefinition,
+    layers:
+      loadedLayers,
   };
 }

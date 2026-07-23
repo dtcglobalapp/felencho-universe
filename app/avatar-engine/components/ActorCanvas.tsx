@@ -8,8 +8,12 @@ import {
 
 import { loadActor } from "../lib/ActorLoader";
 import { renderActor } from "../lib/ActorRenderer";
+import { ActorRuntimeEngine } from "../lib/ActorRuntimeEngine";
 import { ACTOR_ENGINE } from "../lib/VERSION";
-import type { LoadedActor } from "../types/Actor";
+
+import type {
+  LoadedActor,
+} from "../types/Actor";
 
 interface StageMetrics {
   width: number;
@@ -33,6 +37,9 @@ export default function ActorCanvas() {
 
   const actorRef =
     useRef<LoadedActor | null>(null);
+
+  const runtimeEngineRef =
+    useRef<ActorRuntimeEngine | null>(null);
 
   const pointerRef =
     useRef<PointerPosition>({
@@ -72,6 +79,12 @@ export default function ActorCanvas() {
         }
 
         actorRef.current = actor;
+
+        runtimeEngineRef.current =
+          new ActorRuntimeEngine(
+            actor.definition,
+          );
+
         setActiveActor(actor);
         setActorStatus("ready");
       })
@@ -91,6 +104,7 @@ export default function ActorCanvas() {
 
     return () => {
       mounted = false;
+      runtimeEngineRef.current = null;
     };
   }, []);
 
@@ -101,15 +115,21 @@ export default function ActorCanvas() {
       return;
     }
 
-    const context = canvas.getContext("2d");
+    const context =
+      canvas.getContext("2d");
 
     if (!context) {
       return;
     }
 
     let frameRequest = 0;
-    let previousTime = performance.now();
-    let lastFpsUpdate = previousTime;
+
+    let previousTime =
+      performance.now();
+
+    let lastFpsUpdate =
+      previousTime;
+
     let accumulatedFps = 0;
     let accumulatedFrames = 0;
 
@@ -124,12 +144,16 @@ export default function ActorCanvas() {
 
       canvas.width = Math.max(
         1,
-        Math.round(bounds.width * pixelRatio),
+        Math.round(
+          bounds.width * pixelRatio,
+        ),
       );
 
       canvas.height = Math.max(
         1,
-        Math.round(bounds.height * pixelRatio),
+        Math.round(
+          bounds.height * pixelRatio,
+        ),
       );
 
       context.setTransform(
@@ -170,7 +194,11 @@ export default function ActorCanvas() {
             : "rgba(255, 255, 255, 0.045)";
 
         context.moveTo(x + 0.5, 0);
-        context.lineTo(x + 0.5, height);
+        context.lineTo(
+          x + 0.5,
+          height,
+        );
+
         context.stroke();
       }
 
@@ -187,7 +215,11 @@ export default function ActorCanvas() {
             : "rgba(255, 255, 255, 0.045)";
 
         context.moveTo(0, y + 0.5);
-        context.lineTo(width, y + 0.5);
+        context.lineTo(
+          width,
+          y + 0.5,
+        );
+
         context.stroke();
       }
 
@@ -209,13 +241,31 @@ export default function ActorCanvas() {
       context.lineWidth = 1;
 
       context.beginPath();
-      context.moveTo(centerX - 25, centerY);
-      context.lineTo(centerX + 25, centerY);
-      context.moveTo(centerX, centerY - 25);
-      context.lineTo(centerX, centerY + 25);
+
+      context.moveTo(
+        centerX - 25,
+        centerY,
+      );
+
+      context.lineTo(
+        centerX + 25,
+        centerY,
+      );
+
+      context.moveTo(
+        centerX,
+        centerY - 25,
+      );
+
+      context.lineTo(
+        centerX,
+        centerY + 25,
+      );
+
       context.stroke();
 
       context.beginPath();
+
       context.arc(
         centerX,
         centerY,
@@ -223,13 +273,15 @@ export default function ActorCanvas() {
         0,
         Math.PI * 2,
       );
+
       context.stroke();
 
       context.restore();
     };
 
     const drawPointer = () => {
-      const current = pointerRef.current;
+      const current =
+        pointerRef.current;
 
       context.save();
 
@@ -237,6 +289,7 @@ export default function ActorCanvas() {
         "rgba(255,255,255,0.28)";
 
       context.beginPath();
+
       context.arc(
         current.x,
         current.y,
@@ -244,23 +297,33 @@ export default function ActorCanvas() {
         0,
         Math.PI * 2,
       );
+
       context.stroke();
 
       context.restore();
     };
 
-    const render = (time: number) => {
+    const render = (
+      time: number,
+    ) => {
       const bounds =
         canvas.getBoundingClientRect();
 
       const width = bounds.width;
       const height = bounds.height;
 
-      const elapsed = time - previousTime;
+      const elapsed =
+        time - previousTime;
+
       previousTime = time;
 
-      if (elapsed > 0 && Number.isFinite(elapsed)) {
-        accumulatedFps += 1000 / elapsed;
+      if (
+        elapsed > 0 &&
+        Number.isFinite(elapsed)
+      ) {
+        accumulatedFps +=
+          1000 / elapsed;
+
         accumulatedFrames += 1;
       }
 
@@ -269,7 +332,8 @@ export default function ActorCanvas() {
         accumulatedFrames > 0
       ) {
         const average =
-          accumulatedFps / accumulatedFrames;
+          accumulatedFps /
+          accumulatedFrames;
 
         setMetrics((current) => ({
           ...current,
@@ -297,7 +361,10 @@ export default function ActorCanvas() {
           20,
           width / 2,
           height / 2,
-          Math.max(width, height) * 0.8,
+          Math.max(
+            width,
+            height,
+          ) * 0.8,
         );
 
       background.addColorStop(
@@ -315,7 +382,8 @@ export default function ActorCanvas() {
         "#020304",
       );
 
-      context.fillStyle = background;
+      context.fillStyle =
+        background;
 
       context.fillRect(
         0,
@@ -325,41 +393,67 @@ export default function ActorCanvas() {
       );
 
       drawGrid(width, height);
-      drawStageCenter(width, height);
+      drawStageCenter(
+        width,
+        height,
+      );
 
-      const actor = actorRef.current;
+      const actor =
+        actorRef.current;
 
-      if (actor) {
+      const runtimeEngine =
+        runtimeEngineRef.current;
+
+      if (
+        actor &&
+        runtimeEngine
+      ) {
         const pointerPosition =
           pointerRef.current;
 
         const eyeX =
           width > 0
-            ? (pointerPosition.x - width / 2) /
+            ? (
+                pointerPosition.x -
+                width / 2
+              ) /
               (width / 2)
             : 0;
 
         const eyeY =
           height > 0
-            ? (pointerPosition.y - height / 2) /
+            ? (
+                pointerPosition.y -
+                height / 2
+              ) /
               (height / 2)
             : 0;
+
+        runtimeEngine.setEyeTarget(
+          eyeX,
+          eyeY,
+        );
+
+        const runtimeState =
+          runtimeEngine.update(elapsed);
 
         renderActor(
           context,
           actor,
-          { width, height },
           {
-            eyeX,
-            eyeY,
+            width,
+            height,
           },
+          runtimeState,
         );
       }
 
       drawPointer();
 
       frameRequest =
-        window.requestAnimationFrame(render);
+        window.requestAnimationFrame(
+          render,
+        );
     };
 
     const handlePointerMove = (
@@ -370,31 +464,78 @@ export default function ActorCanvas() {
 
       const nextPosition = {
         x: Math.round(
-          event.clientX - bounds.left,
+          event.clientX -
+            bounds.left,
         ),
+
         y: Math.round(
-          event.clientY - bounds.top,
+          event.clientY -
+            bounds.top,
         ),
       };
 
-      pointerRef.current = nextPosition;
+      pointerRef.current =
+        nextPosition;
+
       setPointer(nextPosition);
     };
 
+    const handlePointerLeave =
+      () => {
+        const bounds =
+          canvas.getBoundingClientRect();
+
+        const centerPosition = {
+          x: Math.round(
+            bounds.width / 2,
+          ),
+
+          y: Math.round(
+            bounds.height / 2,
+          ),
+        };
+
+        pointerRef.current =
+          centerPosition;
+
+        setPointer(
+          centerPosition,
+        );
+      };
+
     resizeCanvas();
 
-    const resizeObserver =
-      new ResizeObserver(resizeCanvas);
+    const initialBounds =
+      canvas.getBoundingClientRect();
 
-    resizeObserver.observe(canvas);
+    pointerRef.current = {
+      x: initialBounds.width / 2,
+      y: initialBounds.height / 2,
+    };
+
+    const resizeObserver =
+      new ResizeObserver(
+        resizeCanvas,
+      );
+
+    resizeObserver.observe(
+      canvas,
+    );
 
     canvas.addEventListener(
       "pointermove",
       handlePointerMove,
     );
 
+    canvas.addEventListener(
+      "pointerleave",
+      handlePointerLeave,
+    );
+
     frameRequest =
-      window.requestAnimationFrame(render);
+      window.requestAnimationFrame(
+        render,
+      );
 
     return () => {
       window.cancelAnimationFrame(
@@ -406,6 +547,11 @@ export default function ActorCanvas() {
       canvas.removeEventListener(
         "pointermove",
         handlePointerMove,
+      );
+
+      canvas.removeEventListener(
+        "pointerleave",
+        handlePointerLeave,
       );
     };
   }, []);
@@ -469,7 +615,7 @@ export default function ActorCanvas() {
               "rgba(255,255,255,0.5)",
           }}
         >
-          Data-Driven Digital Actor Stage
+          Living Runtime Stage
         </p>
       </header>
 
@@ -485,7 +631,8 @@ export default function ActorCanvas() {
           borderRadius: 14,
           background:
             "rgba(2,7,10,0.86)",
-          backdropFilter: "blur(14px)",
+          backdropFilter:
+            "blur(14px)",
           fontFamily:
             "ui-monospace, SFMono-Regular, Menlo, monospace",
           fontSize: 12,
@@ -494,18 +641,43 @@ export default function ActorCanvas() {
       >
         <StatusRow
           label="ENGINE"
-          value={ACTOR_ENGINE.version}
+          value={
+            ACTOR_ENGINE.version
+          }
         />
 
         <StatusRow
           label="STATUS"
-          value={ACTOR_ENGINE.status}
-          active={actorStatus === "ready"}
+          value={
+            ACTOR_ENGINE.status
+          }
+          active={
+            actorStatus === "ready"
+          }
         />
 
         <StatusRow
-          label="RENDERER"
-          value="Layer Renderer"
+          label="RUNTIME"
+          value="ONLINE"
+          active={
+            actorStatus === "ready"
+          }
+        />
+
+        <StatusRow
+          label="IDLE MOTION"
+          value="ACTIVE"
+          active={
+            actorStatus === "ready"
+          }
+        />
+
+        <StatusRow
+          label="EYE SMOOTHING"
+          value="ACTIVE"
+          active={
+            actorStatus === "ready"
+          }
         />
 
         <StatusRow
@@ -535,14 +707,24 @@ export default function ActorCanvas() {
           ACTIVE ACTOR
         </div>
 
-        {actorStatus === "loading" && (
-          <div style={{ color: "#ffd36a" }}>
+        {actorStatus ===
+          "loading" && (
+          <div
+            style={{
+              color: "#ffd36a",
+            }}
+          >
             Loading Bob...
           </div>
         )}
 
-        {actorStatus === "error" && (
-          <div style={{ color: "#ff8f8f" }}>
+        {actorStatus ===
+          "error" && (
+          <div
+            style={{
+              color: "#ff8f8f",
+            }}
+          >
             {actorError}
           </div>
         )}
@@ -551,13 +733,17 @@ export default function ActorCanvas() {
           <>
             <StatusRow
               label="NAME"
-              value={activeActor.definition.name}
+              value={
+                activeActor
+                  .definition.name
+              }
             />
 
             <StatusRow
               label="ACTOR VERSION"
               value={
-                activeActor.definition.version
+                activeActor
+                  .definition.version
               }
             />
 
@@ -569,14 +755,30 @@ export default function ActorCanvas() {
             <StatusRow
               label="LAYERS"
               value={`${layerCount}`}
-              active={layerCount > 0}
+              active={
+                layerCount > 0
+              }
             />
 
             <StatusRow
-              label="FIRST LAYER"
+              label="BLINK"
               value={
-                activeActor.layers[0]
-                  ?.definition.name ?? "NONE"
+                activeActor
+                  .definition
+                  .animations
+                  ?.blink
+                  ?.enabled
+                  ? "ENABLED"
+                  : "WAITING FOR LAYERS"
+              }
+              active={
+                Boolean(
+                  activeActor
+                    .definition
+                    .animations
+                    ?.blink
+                    ?.enabled,
+                )
               }
             />
 
@@ -602,7 +804,7 @@ export default function ActorCanvas() {
         }}
       >
         {actorStatus === "ready"
-          ? `${layerCount} ACTOR LAYER RENDERED`
+          ? `${layerCount} LAYERS · RUNTIME ACTIVE`
           : actorStatus === "loading"
             ? "LOADING ACTOR LAYERS"
             : "ACTOR LOAD FAILED"}
@@ -637,7 +839,8 @@ function StatusRow({
     <div
       style={{
         display: "flex",
-        justifyContent: "space-between",
+        justifyContent:
+          "space-between",
         gap: 18,
       }}
     >
