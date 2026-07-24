@@ -110,14 +110,12 @@ export interface ActorDefinition {
   animations?: ActorAnimationDefinition;
 }
 
-export interface LoadedActorLayer {
-  definition: ActorLayerDefinition;
-  image: HTMLImageElement;
-}
-
 export interface LoadedActor {
   definition: ActorDefinition;
-  layers: LoadedActorLayer[];
+  layerImages: ReadonlyMap<
+    string,
+    HTMLImageElement
+  >;
 }
 
 export interface ActorRuntimeState {

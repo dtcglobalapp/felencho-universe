@@ -14,6 +14,8 @@ import type {
 
 import { loadActor } from "../lib/ActorLoader";
 import { renderActor } from "../lib/ActorRenderer";
+import LayersPanel from "./components/LayersPanel";
+import PanelTitle from "./components/PanelTitle";
 import Toolbar from "./components/Toolbar";
 
 import type {
@@ -83,23 +85,9 @@ function restoreActorDefinition(
   actor: LoadedActor,
   definition: ActorDefinition,
 ): LoadedActor {
-  const layerMap = new Map(
-    definition.layers.map((layer) => [
-      layer.id,
-      layer,
-    ]),
-  );
-
   return {
+    ...actor,
     definition: cloneDefinition(definition),
-
-    layers: actor.layers.map((loadedLayer) => ({
-      ...loadedLayer,
-
-      definition:
-        layerMap.get(loadedLayer.definition.id) ??
-        loadedLayer.definition,
-    })),
   };
 }
 
@@ -156,26 +144,13 @@ function synchronizeActorLayer(
         : layer,
     );
 
-  const nextLoadedLayers = actor.layers.map(
-    (loadedLayer) =>
-      loadedLayer.definition.id === layerId
-        ? {
-            ...loadedLayer,
-
-            definition: update(
-              loadedLayer.definition,
-            ),
-          }
-        : loadedLayer,
-  );
-
   return {
+    ...actor,
+
     definition: {
       ...actor.definition,
       layers: nextDefinitionLayers,
     },
-
-    layers: nextLoadedLayers,
   };
 }
 
@@ -370,22 +345,31 @@ function findLayerAtPoint(
   layout: ActorLayout,
   hitContext: CanvasRenderingContext2D,
 ): string | null {
-  const candidates = [...actor.layers]
+  const candidates = [
+    ...actor.definition.layers,
+  ]
     .filter(
-      (loadedLayer) =>
-        loadedLayer.definition.visible &&
-        loadedLayer.definition.transform.opacity > 0,
+      (layer) =>
+        layer.visible &&
+        layer.transform.opacity > 0,
     )
     .sort(
       (first, second) =>
-        second.definition.zIndex -
-        first.definition.zIndex,
+        second.zIndex - first.zIndex,
     );
 
-  for (const loadedLayer of candidates) {
+  for (const layer of candidates) {
+    const image = actor.layerImages.get(
+      layer.id,
+    );
+
+    if (!image) {
+      continue;
+    }
+
     const localPoint = stageToLocal(
       stagePoint,
-      loadedLayer.definition,
+      layer,
       layout,
     );
 
@@ -395,13 +379,13 @@ function findLayerAtPoint(
 
     if (
       hitTestImageAlpha(
-        loadedLayer.image,
+        image,
         localPoint.x,
         localPoint.y,
         hitContext,
       )
     ) {
-      return loadedLayer.definition.id;
+      return layer.id;
     }
   }
 
@@ -961,7 +945,7 @@ export default function AvatarStudio() {
         );
 
         setStatus(
-          `${prepared.layers.length} capas cargadas · History Engine ONLINE`,
+          `${prepared.layerImages.size} capas cargadas · History Engine ONLINE`,
         );
       })
       .catch((error: unknown) => {
@@ -1233,18 +1217,10 @@ export default function AvatarStudio() {
         selectedLayerIdRef.current;
 
       if (currentActor) {
-        const visibleIds = new Set(
+        const previewLayers =
           currentActor.definition.layers
-            .filter((layer) => layer.visible)
-            .map((layer) => layer.id),
-        );
-
-        const previewLayers = currentActor.layers
-          .filter((loadedLayer) => {
-            const id =
-              loadedLayer.definition.id;
-
-            if (!visibleIds.has(id)) {
+          .filter((layer) => {
+            if (!layer.visible) {
               return false;
             }
 
@@ -1252,44 +1228,37 @@ export default function AvatarStudio() {
               soloModeRef.current &&
               selectedId
             ) {
-              return id === selectedId;
+              return layer.id === selectedId;
             }
 
             return true;
           })
-          .map((loadedLayer) => {
-            const id =
-              loadedLayer.definition.id;
-
+          .map((layer) => {
             if (
               !selectedId ||
-              id === selectedId ||
+              layer.id === selectedId ||
               !dimOthersRef.current ||
               soloModeRef.current
             ) {
-              return loadedLayer;
+              return layer;
             }
 
             return {
-              ...loadedLayer,
+              ...layer,
 
-              definition: {
-                ...loadedLayer.definition,
+              transform: {
+                ...layer.transform,
 
-                transform: {
-                  ...loadedLayer.definition.transform,
-
-                  opacity:
-                    loadedLayer.definition.transform
-                      .opacity * 0.22,
-                },
+                opacity:
+                  layer.transform.opacity *
+                  0.22,
               },
             };
           })
           .sort(
             (first, second) =>
-              first.definition.zIndex -
-              second.definition.zIndex,
+              first.zIndex -
+              second.zIndex,
           );
 
         const currentViewport =
@@ -1300,6 +1269,8 @@ export default function AvatarStudio() {
 
           definition: {
             ...currentActor.definition,
+
+            layers: previewLayers,
 
             display: {
               ...currentActor.definition.display,
@@ -1320,8 +1291,6 @@ export default function AvatarStudio() {
                 currentViewport.panY,
             },
           },
-
-          layers: previewLayers,
         };
 
         renderActor(
@@ -1334,14 +1303,21 @@ export default function AvatarStudio() {
         );
 
         if (selectedId) {
-          const loadedLayer =
-            currentActor.layers.find(
-              (candidate) =>
-                candidate.definition.id ===
-                selectedId,
+          const selectedLayer =
+            currentActor.definition.layers.find(
+              (layer) =>
+                layer.id === selectedId,
             );
 
-          if (loadedLayer) {
+          const selectedLayerImage =
+            currentActor.layerImages.get(
+              selectedId,
+            );
+
+          if (
+            selectedLayer &&
+            selectedLayerImage
+          ) {
             let alphaBounds =
               alphaBoundsCacheRef.current.get(
                 selectedId,
@@ -1349,7 +1325,7 @@ export default function AvatarStudio() {
 
             if (!alphaBounds) {
               alphaBounds = computeAlphaBounds(
-                loadedLayer.image,
+                selectedLayerImage,
               );
 
               alphaBoundsCacheRef.current.set(
@@ -1367,7 +1343,7 @@ export default function AvatarStudio() {
 
             const geometry =
               buildSelectionGeometry(
-                loadedLayer.definition,
+                selectedLayer,
                 alphaBounds,
                 layout,
               );
@@ -1868,154 +1844,22 @@ export default function AvatarStudio() {
             "270px minmax(0,1fr) 310px",
         }}
       >
-        <aside
-          style={{
-            minHeight: 0,
-            overflow: "auto",
-            borderRight:
-              "1px solid rgba(70,210,255,0.14)",
-            background: "#070b0e",
+        <LayersPanel
+          layers={orderedLayers}
+          selectedLayerId={selectedLayerId}
+          onSelectLayer={setSelectedLayerId}
+          onToggleLayerVisibility={(
+            layerId,
+          ) => {
+            updateLayer(
+              layerId,
+              (layer) => ({
+                ...layer,
+                visible: !layer.visible,
+              }),
+            );
           }}
-        >
-          <PanelTitle
-            title="LAYERS"
-            subtitle={`${orderedLayers.length}`}
-          />
-
-          <div
-            style={{
-              padding: "8px 10px 20px",
-            }}
-          >
-            {orderedLayers.map((layer) => {
-              const selected =
-                layer.id === selectedLayerId;
-
-              return (
-                <div
-                  key={layer.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() =>
-                    setSelectedLayerId(layer.id)
-                  }
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "Enter" ||
-                      event.key === " "
-                    ) {
-                      event.preventDefault();
-
-                      setSelectedLayerId(
-                        layer.id,
-                      );
-                    }
-                  }}
-                  style={{
-                    width: "100%",
-                    display: "grid",
-                    gridTemplateColumns:
-                      "34px 1fr 42px",
-                    alignItems: "center",
-                    gap: 8,
-                    boxSizing: "border-box",
-                    padding: "5px 8px",
-                    marginBottom: 4,
-
-                    color: selected
-                      ? "#ffffff"
-                      : "rgba(255,255,255,0.68)",
-
-                    border: selected
-                      ? "1px solid rgba(78,213,255,0.65)"
-                      : "1px solid transparent",
-
-                    borderRadius: 6,
-
-                    background: selected
-                      ? "rgba(41,175,218,0.18)"
-                      : "transparent",
-
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
-                >
-                  <button
-                    type="button"
-                    title={
-                      layer.visible
-                        ? "Ocultar capa"
-                        : "Mostrar capa"
-                    }
-                    onClick={(event) => {
-                      event.stopPropagation();
-
-                      updateLayer(
-                        layer.id,
-                        (currentLayer) => ({
-                          ...currentLayer,
-
-                          visible:
-                            !currentLayer.visible,
-                        }),
-                      );
-                    }}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      display: "grid",
-                      placeItems: "center",
-                      padding: 0,
-                      borderRadius: 5,
-
-                      border:
-                        "1px solid rgba(255,255,255,0.08)",
-
-                      color: layer.visible
-                        ? "#67e6b5"
-                        : "rgba(255,255,255,0.28)",
-
-                      background: layer.visible
-                        ? "rgba(64,220,164,0.09)"
-                        : "rgba(255,255,255,0.025)",
-
-                      cursor: "pointer",
-                      fontSize: 14,
-                    }}
-                  >
-                    {layer.visible ? "◉" : "○"}
-                  </button>
-
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      fontSize: 12,
-
-                      opacity: layer.visible
-                        ? 1
-                        : 0.42,
-                    }}
-                  >
-                    {layer.name}
-                  </span>
-
-                  <span
-                    style={{
-                      color:
-                        "rgba(255,255,255,0.34)",
-                      fontSize: 10,
-                      textAlign: "right",
-                    }}
-                  >
-                    Z {layer.zIndex}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </aside>
+        />
 
         <section
           style={{
@@ -2444,56 +2288,6 @@ export default function AvatarStudio() {
         </span>
       </footer>
     </main>
-  );
-}
-
-function PanelTitle({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <div
-      style={{
-        minHeight: 48,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 10,
-        padding: "0 14px",
-
-        borderBottom:
-          "1px solid rgba(70,210,255,0.13)",
-      }}
-    >
-      <strong
-        style={{
-          fontSize: 11,
-          letterSpacing: "0.16em",
-          color: "#73ddff",
-        }}
-      >
-        {title}
-      </strong>
-
-      <span
-        style={{
-          maxWidth: 150,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-
-          color:
-            "rgba(255,255,255,0.38)",
-
-          fontSize: 10,
-        }}
-      >
-        {subtitle}
-      </span>
-    </div>
   );
 }
 

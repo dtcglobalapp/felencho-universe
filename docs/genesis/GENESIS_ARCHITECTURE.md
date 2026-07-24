@@ -23,6 +23,12 @@ mutates that data, the renderer interprets it, and the exporter packages it.
 Shared UI must not hardcode the layer structure, rig, or capabilities of a
 particular actor.
 
+`ActorDefinition.layers` is the single in-memory source of truth for layer
+identity, names, asset references, visibility, z-order, and transforms. Loaded
+bitmap assets are stored separately in a layer-ID lookup. The loader, editor,
+Inspector, Canvas, History Engine, and renderer therefore cannot develop
+independent copies of layer definitions.
+
 ### Shared Engine, Variable Content
 
 Character variation belongs in actor definitions, assets, rigs, and
@@ -75,6 +81,61 @@ The runtime loads actor data and assets, updates dynamic actor state, and
 renders the resulting character. Runtime behavior should consume the same
 contracts produced and validated by the editor.
 
+## Future Creation and Safety Domains
+
+The following domains are accepted future architecture. They are **not
+currently implemented**.
+
+### Digital Identity Safety
+
+**Status: Planned prerequisite**
+
+Owns identity classification, consent, voice authorization, provenance,
+human-approval gates, disclosure requirements, audit records, deletion
+rights, and export restrictions.
+
+Safety state must remain separate from public runtime state and must follow
+[ETHICAL_DIGITAL_IDENTITY.md](./ETHICAL_DIGITAL_IDENTITY.md).
+
+### Digital Human Wizard
+
+**Status: Planned**
+
+Collects source, character category, design intent, personality, purpose,
+voice, movement, rights, and approvals through an adaptive guided workflow.
+
+The Wizard produces a creation brief. It does not produce a second actor
+definition format. See
+[DIGITAL_HUMAN_WIZARD.md](./DIGITAL_HUMAN_WIZARD.md).
+
+### Multimodal Actor Builder
+
+**Status: Planned orchestration concept**
+
+Associates photographs, video, artwork, text, and existing actor assets with
+one authorized project. It resolves source conflicts, records coverage and
+provenance, and dispatches work to the AI Pipeline.
+
+### AI Pipeline
+
+**Status: Planned with experimental and long-term research stages**
+
+Analyzes authorized sources and produces reviewable candidate layers, rigs,
+expressions, visemes, physics configuration, and actor data.
+
+AI outputs remain candidates until validation and human approval. See
+[AI_PIPELINE.md](./AI_PIPELINE.md).
+
+### Genesis AI Forge
+
+**Status: Future product layer**
+
+Coordinates the Wizard, Multimodal Actor Builder, AI Pipeline, safety gates,
+human review, validation, and export. It is not currently an automatic actor
+generator.
+
+See [GENESIS_AI_FORGE.md](./GENESIS_AI_FORGE.md).
+
 ## Current Modules
 
 ### AvatarStudio
@@ -114,11 +175,17 @@ The visual representation of the actor's layer stack.
 
 Current responsibilities include:
 
+- Receive arbitrary actor layers through a typed data contract
 - Display actor layers in z-order
 - Show selection state
 - Select layers
 - Toggle layer visibility
 - Present layer identity and ordering information
+
+`LayersPanel` is an extracted editor component. It does not know the identity
+or layer structure of the active actor. Names and rows are generated entirely
+from `ActorDefinition.layers`, and all mutations return to the central editor
+state through explicit commands.
 
 Future responsibilities include drag-and-drop ordering, grouping, locking,
 filtering, and context commands. The panel must remain completely data-driven.
@@ -187,12 +254,17 @@ Current responsibilities include:
 - Validate actor definitions
 - Validate layer transforms and animation configuration
 - Verify unique layer identifiers
-- Load visible image assets
+- Load all declared layer image assets
 - Produce the loaded actor representation
 
 The Actor Loader protects the editor and runtime from malformed external data.
 Future versions may support schema migration, asset manifests, lazy loading,
 progress reporting, and recoverable validation diagnostics.
+
+All layer images declared by `actor.json` are loaded, including images for
+layers whose initial visibility is disabled. This allows visibility to change
+at runtime without introducing a second layer definition or a
+character-specific loading path.
 
 ### Actor Renderer
 
@@ -210,6 +282,11 @@ Current responsibilities include:
 The renderer must remain independent of editor UI. It receives actor data,
 loaded assets, stage metrics, and runtime state, then produces visual output.
 
+The renderer iterates the current `ActorDefinition.layers`, orders those
+definitions by their data-defined z-index, and resolves each bitmap through
+the loaded layer-image lookup. Consequently, the editor, Inspector, and
+renderer all observe the same layer model.
+
 ## Current Module Flow
 
 ```text
@@ -217,6 +294,8 @@ public/actors/<ActorId>/actor.json
                 │
                 ▼
           Actor Loader
+          ├── Validated ActorDefinition
+          └── Layer Images by ID
                 │
                 ▼
           AvatarStudio
@@ -306,6 +385,58 @@ rigs, animations, expressions, physics, and runtime metadata.
 
 The Exporter is responsible for ensuring that a package is complete,
 portable, versioned, and compatible with the target Genesis runtime.
+
+## Future AI-Assisted Creation Flow
+
+The proposed dependency flow is:
+
+```text
+Authorized Source Material
+          │
+          ▼
+ Digital Human Wizard
+          │
+          ▼
+Multimodal Actor Builder
+          │
+          ▼
+      AI Pipeline
+          │
+          ├── Candidate Assets
+          ├── Candidate Rig and Performance Data
+          └── Confidence and Provenance
+          │
+          ▼
+ Digital Identity Safety
+          │
+          ▼
+ Human Review and Approval
+          │
+          ▼
+ Actor Validation and Export
+          │
+          ▼
+ Standard Genesis Actor Package
+```
+
+This flow must converge on the existing actor contract. AI-assisted actors and
+manually authored actors must use the same Studio and runtime.
+
+### Architectural Dependencies
+
+The future AI creation layer depends on:
+
+- Versioned actor schemas
+- Asset import and provenance
+- Rig, expression, lip-sync, and physics contracts
+- Identity classification and consent
+- Granular human approval
+- Actor validation
+- Export packaging
+- Secure audit storage
+
+Full-body reconstruction, generalized rigging, external-engine export, and
+holographic output remain long-term research goals.
 
 ## Data Evolution
 

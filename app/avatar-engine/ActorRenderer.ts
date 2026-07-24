@@ -59,7 +59,10 @@ export function renderActor(
   runtime: ActorRuntimeState =
     DEFAULT_RUNTIME_STATE,
 ): void {
-  const { definition, layers } = actor;
+  const {
+    definition,
+    layerImages,
+  } = actor;
 
   const configuredMaximumWidth =
     definition.display.maxStageWidth > 0
@@ -169,14 +172,23 @@ export function renderActor(
     -actorCenterY,
   );
 
-  for (const layer of layers) {
-    const {
-      definition: layerDefinition,
-      image,
-    } = layer;
+  const orderedLayers = [
+    ...definition.layers,
+  ].sort(
+    (first, second) =>
+      first.zIndex - second.zIndex,
+  );
+
+  for (
+    const layerDefinition of orderedLayers
+  ) {
+    const image = layerImages.get(
+      layerDefinition.id,
+    );
 
     if (
       !layerDefinition.visible ||
+      !image ||
       !image.complete ||
       image.naturalWidth === 0 ||
       image.naturalHeight === 0

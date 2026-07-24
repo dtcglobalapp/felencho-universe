@@ -557,7 +557,7 @@ export default function ActorCanvas() {
   }, []);
 
   const layerCount =
-    activeActor?.layers.length ?? 0;
+    activeActor?.layerImages.size ?? 0;
 
   return (
     <section

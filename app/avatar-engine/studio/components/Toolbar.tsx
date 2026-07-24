@@ -85,7 +85,7 @@ export default function Toolbar({
               letterSpacing: "0.18em",
             }}
           >
-            GENESIS v0.3 · HISTORY & VIEWPORT
+            GENESIS v0.4 · HISTORY & VIEWPORT
           </div>
         </div>
       </div>

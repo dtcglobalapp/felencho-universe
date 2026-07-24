@@ -3,7 +3,6 @@ import type {
   ActorDefinition,
   ActorLayerDefinition,
   LoadedActor,
-  LoadedActorLayer,
 } from "../types/Actor";
 
 function isFiniteNumber(
@@ -212,17 +211,19 @@ function validateUniqueLayerIds(
   }
 }
 
-async function loadLayer(
+async function loadLayerImage(
   definition: ActorLayerDefinition,
-): Promise<LoadedActorLayer> {
+): Promise<
+  readonly [string, HTMLImageElement]
+> {
   const image = await loadImage(
     definition.image,
   );
 
-  return {
-    definition,
+  return [
+    definition.id,
     image,
-  };
+  ] as const;
 }
 
 export async function loadActor(
@@ -281,27 +282,19 @@ export async function loadActor(
     normalizedActorId,
   );
 
-  const visibleLayers =
-    rawDefinition.layers
-      .filter(
-        (layer) =>
-          layer.visible,
-      )
-      .sort(
-        (first, second) =>
-          first.zIndex -
-          second.zIndex,
-      );
-
-  const loadedLayers =
+  const loadedLayerImages =
     await Promise.all(
-      visibleLayers.map(loadLayer),
+      rawDefinition.layers.map(
+        loadLayerImage,
+      ),
     );
 
   return {
     definition:
       rawDefinition,
-    layers:
-      loadedLayers,
+
+    layerImages: new Map(
+      loadedLayerImages,
+    ),
   };
 }

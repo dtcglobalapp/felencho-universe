@@ -1,5 +1,17 @@
 # Genesis Manifesto
 
+## Constitutional Foundation
+
+Genesis is governed by the
+[Founding Principles of Felencho.ai](./FOUNDING_PRINCIPLES.md). Those
+principles define the enduring commitments to human creativity, responsible
+artificial intelligence, identity, truthfulness, modularity, knowledge
+preservation, and long-term stewardship.
+
+This manifesto applies that constitutional foundation to the vision and
+engineering direction of Genesis. If product ambition or technical convenience
+conflicts with the Founding Principles, the principles take precedence.
+
 ## Our Vision
 
 Genesis is a professional Avatar Studio for building, configuring, animating,
@@ -62,6 +74,39 @@ work. The editor should become a coherent environment for:
 Each tool must contribute to a consistent editing model. Selection, history,
 timelines, transforms, asset management, and export must operate as parts of
 one system rather than unrelated features.
+
+## Intelligent Arts and Human Agency
+
+Genesis is part of the larger Felencho.ai vision for intelligent arts, where
+music, digital humans, animation, storytelling, performance, and artificial
+intelligence can participate in one creative system.
+
+AI should expand what human creators can make. It must not erase authorship,
+hide uncertainty, or replace final creative judgment.
+
+Future AI-assisted creation systems must keep output:
+
+- Inspectable
+- Editable
+- Attributable
+- Rejectable
+- Governed by human approval
+
+The long-term platform vision is documented in
+[FELENCHO_AI_PLATFORM_VISION.md](./FELENCHO_AI_PLATFORM_VISION.md).
+
+## Responsible Digital Identity
+
+Realistic digital humans require consent, provenance, privacy, disclosure, and
+identity protection.
+
+Genesis must distinguish real people, authorized digital replicas, fictional
+characters, historical simulations, and AI-generated identities. Generated
+anatomy and identity-sensitive features must never become final through silent
+automation.
+
+The mandatory standard is defined in
+[ETHICAL_DIGITAL_IDENTITY.md](./ETHICAL_DIGITAL_IDENTITY.md).
 
 ## Architecture Before Shortcuts
 

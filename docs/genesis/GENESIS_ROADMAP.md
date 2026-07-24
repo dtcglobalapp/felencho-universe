@@ -45,28 +45,31 @@ Architectural result:
 `AvatarStudio` remains the command and state owner, while the Toolbar is now a
 focused presentation module with an explicit typed interface.
 
-## Planned
-
 ### Sprint 2 — Dynamic Layer System
 
-Goal:
+Status: **Completed**
 
-Build a fully data-driven layer interface sourced from actor definitions.
-
-Expected outcomes:
+Delivered:
 
 - Extract `LayersPanel` into a focused editor module
 - Render arbitrary actor layers without character-specific UI
 - Preserve selection and visibility controls
 - Define stable layer command interfaces
-- Prepare the layer model for ordering, grouping, and locking
 - Preserve Undo/Redo for every persistent layer mutation
+- Establish `ActorDefinition.layers` as the single layer-definition model
+- Store loaded bitmap assets separately by layer ID
+- Load initially hidden layer assets so visibility remains fully dynamic
+- Make the Inspector and renderer consume the same authoritative layer data
+- Preserve the existing visual design and editor behavior
 
-Exit criteria:
+Architectural result:
 
-- Bob and any compatible actor definition use the same layer UI
-- No actor layer is hardcoded in React
-- The project compiles and is deployable
+The LayersPanel, Inspector, Canvas, History Engine, and Actor Renderer now
+share the layer definitions loaded from `actor.json`. React contains no
+hardcoded actor-layer names, and compatible actors can use the same layer
+workflow without code changes.
+
+## Planned
 
 ### Sprint 3 — Layer Drag & Drop
 
@@ -196,6 +199,109 @@ Exit criteria:
   production workflow
 - The release is buildable, deployable, and operationally supportable
 - Genesis documentation reflects the released system
+
+## Future Product Phases
+
+The phases below follow the initial Genesis Studio production release. They
+describe product direction, not implemented capability or committed delivery
+dates.
+
+### Phase A — Identity Safety and Creation Contracts
+
+Status: **Planned prerequisite**
+
+Goals:
+
+- Implement visible identity classification
+- Define consent and rights records
+- Define voice-cloning authorization
+- Define provenance and audit contracts
+- Define human-approval gates
+- Version actor extensions for expressions, lip sync, physics, and body rigs
+- Define secure deletion and export policies
+
+This phase must precede realistic AI-assisted replica creation.
+
+Related documents:
+
+- [ETHICAL_DIGITAL_IDENTITY.md](./ETHICAL_DIGITAL_IDENTITY.md)
+- [ACTOR_SPEC.md](./ACTOR_SPEC.md)
+
+### Phase B — Digital Human Wizard and Multimodal Intake
+
+Status: **Planned**
+
+Goals:
+
+- Adaptive guided character creation
+- Source and rights intake
+- Character-category branching
+- Multimodal source inventory
+- Source coverage and quality diagnostics
+- Creator-controlled traits
+- Review of detected, selected, uncertain, and generated traits
+
+This phase produces creation briefs and validated source manifests. It does
+not promise automatic production-ready actors.
+
+Related documents:
+
+- [DIGITAL_HUMAN_WIZARD.md](./DIGITAL_HUMAN_WIZARD.md)
+- [AI_PIPELINE.md](./AI_PIPELINE.md)
+
+### Phase C — Genesis AI Forge Assisted Creation
+
+Status: **Planned product layer with experimental subsystems**
+
+Goals:
+
+- AI-assisted segmentation and layer extraction
+- Candidate rig generation
+- Candidate expression and viseme generation
+- Motion and physics suggestions
+- Confidence and provenance review
+- Human correction and approval
+- Standard Genesis import
+
+Body completion and identity-sensitive reconstruction remain gated and may
+stay experimental until quality and safety requirements are met.
+
+Related document:
+
+- [GENESIS_AI_FORGE.md](./GENESIS_AI_FORGE.md)
+
+### Phase D — Multiplatform Performer Export
+
+Status: **Long-term research**
+
+Goals:
+
+- Unity connector
+- Unreal connector
+- AR output
+- VR output
+- Broadcast output
+- Hologram output
+- Portable intelligent-performer configuration
+
+External targets must use versioned adapters and must not create
+character-specific Genesis forks.
+
+### Research Track — Sparse-Input Digital Humans
+
+Status: **Long-term research**
+
+Research topics:
+
+- Full-body completion from limited evidence
+- Missing-region reconstruction
+- Generalized facial and body rigging
+- Identity-preserving expression synthesis
+- Cross-source visual consistency
+- Automated quality and identity-drift detection
+
+Research output must never be marketed as production-ready until it satisfies
+technical, creative, and ethical release criteria.
 
 ## Roadmap Governance
 
