@@ -8,22 +8,22 @@ import {
   useState,
 } from "react";
 
-import type {
-  ReactNode,
-} from "react";
-
+import {
+  normalizeActorDefinition,
+  sortActorLayers,
+} from "../domain/ActorNormalizer";
 import { loadActor } from "../lib/ActorLoader";
 import { renderActor } from "../lib/ActorRenderer";
+import Inspector from "./components/Inspector";
 import LayersPanel from "./components/LayersPanel";
-import PanelTitle from "./components/PanelTitle";
 import Toolbar from "./components/Toolbar";
 
 import type {
+  ActorTransform,
   LoadedActor,
 } from "../types/Actor";
 
-const ACTOR_ID = "Bob";
-const STORAGE_KEY = "felencho-avatar-studio:bob:draft";
+const DEFAULT_ACTOR_ID = "Bob";
 const HISTORY_LIMIT = 100;
 
 type ActorDefinition = LoadedActor["definition"];
@@ -91,26 +91,39 @@ function restoreActorDefinition(
   };
 }
 
+function getDraftStorageKey(
+  actorId: string,
+): string {
+  return `felencho-avatar-studio:${actorId.toLowerCase()}:draft`;
+}
+
 function applyStoredDefinition(
   actor: LoadedActor,
+  storageKey: string,
 ): LoadedActor {
   try {
     const stored = window.localStorage.getItem(
-      STORAGE_KEY,
+      storageKey,
     );
 
     if (!stored) {
       return actor;
     }
 
-    const parsed = JSON.parse(stored) as ActorDefinition;
+    const parsed: unknown =
+      JSON.parse(stored);
 
-    if (!parsed || !Array.isArray(parsed.layers)) {
-      return actor;
-    }
+    const normalized =
+      normalizeActorDefinition(
+        parsed,
+        {
+          sourceActorId:
+            actor.definition.id,
+        },
+      );
 
     const storedLayers = new Map(
-      parsed.layers.map((layer) => [
+      normalized.definition.layers.map((layer) => [
         layer.id,
         layer,
       ]),
@@ -118,11 +131,29 @@ function applyStoredDefinition(
 
     const definition: ActorDefinition = {
       ...actor.definition,
-      ...parsed,
 
       layers: actor.definition.layers.map(
-        (layer) =>
-          storedLayers.get(layer.id) ?? layer,
+        (layer) => {
+          const storedLayer =
+            storedLayers.get(layer.id);
+
+          if (!storedLayer) {
+            return layer;
+          }
+
+          return {
+            ...layer,
+            visible:
+              storedLayer.visible,
+            opacity:
+              storedLayer.opacity,
+            zIndex:
+              storedLayer.zIndex,
+            transform: {
+              ...storedLayer.transform,
+            },
+          };
+        },
       ),
     };
 
@@ -235,12 +266,18 @@ function localToStage(
 
   const scaledPoint = {
     x:
-      localPoint.x *
+      (
+        localPoint.x -
+        transform.pivotX
+      ) *
       layout.scale *
       transform.scaleX,
 
     y:
-      localPoint.y *
+      (
+        localPoint.y -
+        transform.pivotY
+      ) *
       layout.scale *
       transform.scaleY,
   };
@@ -253,12 +290,20 @@ function localToStage(
   return {
     x:
       layout.originX +
-      transform.x * layout.scale +
+      (
+        transform.x +
+        transform.pivotX
+      ) *
+        layout.scale +
       rotated.x,
 
     y:
       layout.originY +
-      transform.y * layout.scale +
+      (
+        transform.y +
+        transform.pivotY
+      ) *
+        layout.scale +
       rotated.y,
   };
 }
@@ -287,12 +332,20 @@ function stageToLocal(
     x:
       stagePoint.x -
       layout.originX -
-      transform.x * layout.scale,
+      (
+        transform.x +
+        transform.pivotX
+      ) *
+        layout.scale,
 
     y:
       stagePoint.y -
       layout.originY -
-      transform.y * layout.scale,
+      (
+        transform.y +
+        transform.pivotY
+      ) *
+        layout.scale,
   };
 
   const unrotated = rotatePoint(
@@ -301,8 +354,12 @@ function stageToLocal(
   );
 
   return {
-    x: unrotated.x / scaleX,
-    y: unrotated.y / scaleY,
+    x:
+      unrotated.x / scaleX +
+      transform.pivotX,
+    y:
+      unrotated.y / scaleY +
+      transform.pivotY,
   };
 }
 
@@ -345,17 +402,14 @@ function findLayerAtPoint(
   layout: ActorLayout,
   hitContext: CanvasRenderingContext2D,
 ): string | null {
-  const candidates = [
-    ...actor.definition.layers,
-  ]
-    .filter(
+  const candidates =
+    sortActorLayers(
+      actor.definition.layers.filter(
       (layer) =>
         layer.visible &&
-        layer.transform.opacity > 0,
-    )
-    .sort(
-      (first, second) =>
-        second.zIndex - first.zIndex,
+        layer.opacity > 0,
+      ),
+      "descending",
     );
 
   for (const layer of candidates) {
@@ -637,7 +691,30 @@ function drawSelectionGeometry(
   context.restore();
 }
 
-export default function AvatarStudio() {
+interface AvatarStudioProps {
+  actorId?: string;
+}
+
+type ActorLoadState =
+  | "loading"
+  | "ready"
+  | "error";
+
+export default function AvatarStudio({
+  actorId = DEFAULT_ACTOR_ID,
+}: AvatarStudioProps) {
+  const requestedActorId =
+    actorId.trim() ||
+    DEFAULT_ACTOR_ID;
+
+  const storageKey = useMemo(
+    () =>
+      getDraftStorageKey(
+        requestedActorId,
+      ),
+    [requestedActorId],
+  );
+
   const canvasRef =
     useRef<HTMLCanvasElement | null>(null);
 
@@ -679,12 +756,26 @@ export default function AvatarStudio() {
     useState<LoadedActor | null>(null);
 
   const [
+    actorLoadState,
+    setActorLoadState,
+  ] = useState<ActorLoadState>(
+    "loading",
+  );
+
+  const [
+    actorLoadError,
+    setActorLoadError,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
     selectedLayerId,
     setSelectedLayerId,
   ] = useState<string | null>(null);
 
   const [status, setStatus] = useState(
-    "Cargando a Bob...",
+    "Cargando actor...",
   );
 
   const [viewport, setViewport] =
@@ -822,40 +913,52 @@ export default function AvatarStudio() {
       update: (layer: ActorLayer) => ActorLayer,
       recordHistory = true,
     ) => {
-      setActor((current) => {
-        if (!current) {
-          return current;
-        }
+      const current =
+        actorRef.current;
 
-        if (recordHistory) {
-          pushHistorySnapshot(current.definition);
-        }
+      if (!current) {
+        return;
+      }
 
-        const nextActor = synchronizeActorLayer(
-          current,
-          layerId,
-          update,
+      const currentLayer =
+        current.definition.layers.find(
+          (layer) =>
+            layer.id === layerId,
         );
 
-        actorRef.current = nextActor;
+      if (!currentLayer) {
+        return;
+      }
 
-        return nextActor;
-      });
+      const nextLayer =
+        update(currentLayer);
+
+      if (nextLayer === currentLayer) {
+        return;
+      }
+
+      if (recordHistory) {
+        pushHistorySnapshot(
+          current.definition,
+        );
+      }
+
+      const nextActor =
+        synchronizeActorLayer(
+          current,
+          layerId,
+          () => nextLayer,
+        );
+
+      actorRef.current = nextActor;
+      setActor(nextActor);
     },
     [pushHistorySnapshot],
   );
 
   const updateTransform = useCallback(
     (
-      key:
-        | "x"
-        | "y"
-        | "rotation"
-        | "scaleX"
-        | "scaleY"
-        | "opacity"
-        | "pivotX"
-        | "pivotY",
+      key: keyof ActorTransform,
       value: number,
     ) => {
       if (!selectedLayerId) {
@@ -864,14 +967,17 @@ export default function AvatarStudio() {
 
       updateLayer(
         selectedLayerId,
-        (layer) => ({
-          ...layer,
+        (layer) =>
+          layer.locked
+            ? layer
+            : {
+                ...layer,
 
-          transform: {
-            ...layer.transform,
-            [key]: value,
-          },
-        }),
+                transform: {
+                  ...layer.transform,
+                  [key]: value,
+                },
+              },
       );
     },
     [
@@ -889,6 +995,19 @@ export default function AvatarStudio() {
         selectedLayerIdRef.current;
 
       if (!layerId) {
+        return;
+      }
+
+      const currentLayer =
+        actorRef.current?.definition.layers.find(
+          (layer) =>
+            layer.id === layerId,
+        );
+
+      if (currentLayer?.locked) {
+        setStatus(
+          `La capa ${currentLayer.name} está bloqueada`,
+        );
         return;
       }
 
@@ -914,52 +1033,133 @@ export default function AvatarStudio() {
     [updateLayer],
   );
 
+  const resetSelectedLayerPosition =
+    useCallback(() => {
+      const current =
+        actorRef.current;
+      const layerId =
+        selectedLayerIdRef.current;
+
+      if (!current || !layerId) {
+        return;
+      }
+
+      const selected =
+        current.definition.layers.find(
+          (layer) =>
+            layer.id === layerId,
+        );
+
+      if (!selected || selected.locked) {
+        return;
+      }
+
+      pushHistorySnapshot(
+        current.definition,
+      );
+
+      const next =
+        synchronizeActorLayer(
+          current,
+          layerId,
+          (layer) => ({
+            ...layer,
+            transform: {
+              ...layer.transform,
+              x: 0,
+              y: 0,
+            },
+          }),
+        );
+
+      actorRef.current = next;
+      setActor(next);
+    }, [pushHistorySnapshot]);
+
   useEffect(() => {
     let active = true;
 
-    loadActor(ACTOR_ID)
+    actorRef.current = null;
+    selectedLayerIdRef.current = null;
+    alphaBoundsCacheRef.current.clear();
+    historyPastRef.current = [];
+    historyFutureRef.current = [];
+
+    setActor(null);
+    setSelectedLayerId(null);
+    setActorLoadState("loading");
+    setActorLoadError(null);
+    setSavedAt(null);
+    setStatus(
+      `Cargando ${requestedActorId}...`,
+    );
+    refreshHistoryState();
+
+    loadActor(requestedActorId)
       .then((loadedActor) => {
         if (!active) {
           return;
         }
 
         const prepared =
-          applyStoredDefinition(loadedActor);
+          applyStoredDefinition(
+            loadedActor,
+            storageKey,
+          );
 
         actorRef.current = prepared;
         setActor(prepared);
+        setActorLoadState("ready");
 
         historyPastRef.current = [];
         historyFutureRef.current = [];
         refreshHistoryState();
 
-        const firstLayer = [
-          ...prepared.definition.layers,
-        ].sort(
-          (first, second) =>
-            second.zIndex - first.zIndex,
-        )[0];
+        const firstLayer =
+          sortActorLayers(
+            prepared.definition.layers,
+            "descending",
+          )[0];
 
         setSelectedLayerId(
           firstLayer?.id ?? null,
         );
 
+        const warningCount =
+          prepared.diagnostics.length;
+
         setStatus(
-          `${prepared.layerImages.size} capas cargadas · History Engine ONLINE`,
+          `${prepared.definition.name} · ${prepared.layerImages.size}/${prepared.definition.layers.length} capas cargadas${warningCount > 0 ? ` · ${warningCount} avisos` : ""}`,
         );
       })
       .catch((error: unknown) => {
-        setStatus(
+        if (!active) {
+          return;
+        }
+
+        const message =
           error instanceof Error
             ? error.message
-            : "Error cargando a Bob.",
-        );
+            : "No se pudo cargar el actor.";
+
+        actorRef.current = null;
+        selectedLayerIdRef.current =
+          null;
+        setActor(null);
+        setSelectedLayerId(null);
+        setActorLoadState("error");
+        setActorLoadError(message);
+        setStatus(message);
       });
 
     return () => {
       active = false;
     };
-  }, [refreshHistoryState]);
+  }, [
+    refreshHistoryState,
+    requestedActorId,
+    storageKey,
+  ]);
 
   useEffect(() => {
     if (!actor) {
@@ -968,7 +1168,7 @@ export default function AvatarStudio() {
 
     const timeout = window.setTimeout(() => {
       window.localStorage.setItem(
-        STORAGE_KEY,
+        storageKey,
         JSON.stringify(actor.definition),
       );
 
@@ -980,7 +1180,32 @@ export default function AvatarStudio() {
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [actor]);
+  }, [
+    actor,
+    storageKey,
+  ]);
+
+  useEffect(() => {
+    if (!selectedLayerId) {
+      return;
+    }
+
+    const selectionExists =
+      actor?.definition.layers.some(
+        (layer) =>
+          layer.id ===
+          selectedLayerId,
+      ) ?? false;
+
+    if (!selectionExists) {
+      selectedLayerIdRef.current =
+        null;
+      setSelectedLayerId(null);
+    }
+  }, [
+    actor,
+    selectedLayerId,
+  ]);
 
   useEffect(() => {
     const handleKeyDown = (
@@ -1218,47 +1443,43 @@ export default function AvatarStudio() {
 
       if (currentActor) {
         const previewLayers =
-          currentActor.definition.layers
-          .filter((layer) => {
-            if (!layer.visible) {
-              return false;
-            }
+          sortActorLayers(
+            currentActor.definition.layers
+              .filter((layer) => {
+                if (!layer.visible) {
+                  return false;
+                }
 
-            if (
-              soloModeRef.current &&
-              selectedId
-            ) {
-              return layer.id === selectedId;
-            }
+                if (
+                  soloModeRef.current &&
+                  selectedId
+                ) {
+                  return (
+                    layer.id ===
+                    selectedId
+                  );
+                }
 
-            return true;
-          })
-          .map((layer) => {
-            if (
-              !selectedId ||
-              layer.id === selectedId ||
-              !dimOthersRef.current ||
-              soloModeRef.current
-            ) {
-              return layer;
-            }
+                return true;
+              })
+              .map((layer) => {
+                if (
+                  !selectedId ||
+                  layer.id ===
+                    selectedId ||
+                  !dimOthersRef.current ||
+                  soloModeRef.current
+                ) {
+                  return layer;
+                }
 
-            return {
-              ...layer,
-
-              transform: {
-                ...layer.transform,
-
-                opacity:
-                  layer.transform.opacity *
-                  0.22,
-              },
-            };
-          })
-          .sort(
-            (first, second) =>
-              first.zIndex -
-              second.zIndex,
+                return {
+                  ...layer,
+                  opacity:
+                    layer.opacity *
+                    0.22,
+                };
+              }),
           );
 
         const currentViewport =
@@ -1417,6 +1638,26 @@ export default function AvatarStudio() {
       setSelectedLayerId(selectedId);
       selectedLayerIdRef.current = selectedId;
 
+      const selectedLayer =
+        currentActor.definition.layers.find(
+          (layer) =>
+            layer.id === selectedId,
+        );
+
+      if (selectedLayer?.locked) {
+        pointerRef.current = {
+          dragging: false,
+          pointerId: null,
+          lastX: event.clientX,
+          lastY: event.clientY,
+        };
+
+        setStatus(
+          `La capa ${selectedLayer.name} está bloqueada`,
+        );
+        return;
+      }
+
       pushHistorySnapshot(
         currentActor.definition,
       );
@@ -1447,6 +1688,16 @@ export default function AvatarStudio() {
         !currentActor ||
         !layerId
       ) {
+        return;
+      }
+
+      const selectedLayer =
+        currentActor.definition.layers.find(
+          (layer) =>
+            layer.id === layerId,
+        );
+
+      if (selectedLayer?.locked) {
         return;
       }
 
@@ -1676,11 +1927,21 @@ export default function AvatarStudio() {
       return [];
     }
 
-    return [...actor.definition.layers].sort(
-      (first, second) =>
-        second.zIndex - first.zIndex,
+    return sortActorLayers(
+      actor.definition.layers,
+      "descending",
     );
   }, [actor]);
+
+  const loadedLayerIds = useMemo(
+    () =>
+      new Set(
+        actor
+          ? actor.layerImages.keys()
+          : [],
+      ),
+    [actor],
+  );
 
   const selectedLayer = useMemo(() => {
     if (!actor || !selectedLayerId) {
@@ -1752,8 +2013,12 @@ export default function AvatarStudio() {
   };
 
   const resetDraft = async () => {
+    const actorName =
+      actorRef.current?.definition.name ??
+      requestedActorId;
+
     const confirmed = window.confirm(
-      "¿Restaurar las posiciones originales de Bob?",
+      `¿Restaurar la definición original de ${actorName}?`,
     );
 
     if (!confirmed) {
@@ -1761,16 +2026,18 @@ export default function AvatarStudio() {
     }
 
     window.localStorage.removeItem(
-      STORAGE_KEY,
+      storageKey,
     );
 
     alphaBoundsCacheRef.current.clear();
 
-    setStatus("Restaurando a Bob...");
+    setStatus(
+      `Restaurando ${actorName}...`,
+    );
 
     try {
       const original = await loadActor(
-        ACTOR_ID,
+        requestedActorId,
       );
 
       if (actorRef.current) {
@@ -1782,19 +2049,20 @@ export default function AvatarStudio() {
       actorRef.current = original;
       setActor(original);
 
-      const firstLayer = [
-        ...original.definition.layers,
-      ].sort(
-        (first, second) =>
-          second.zIndex - first.zIndex,
-      )[0];
+      const firstLayer =
+        sortActorLayers(
+          original.definition.layers,
+          "descending",
+        )[0];
 
       setSelectedLayerId(
         firstLayer?.id ?? null,
       );
 
       resetViewport();
-      setStatus("Bob restaurado");
+      setStatus(
+        `${original.definition.name} restaurado`,
+      );
     } catch (error: unknown) {
       setStatus(
         error instanceof Error
@@ -1845,8 +2113,18 @@ export default function AvatarStudio() {
         }}
       >
         <LayersPanel
+          actorLoaded={
+            actorLoadState ===
+            "ready"
+          }
           layers={orderedLayers}
           selectedLayerId={selectedLayerId}
+          loadedLayerIds={
+            loadedLayerIds
+          }
+          diagnostics={
+            actor?.diagnostics ?? []
+          }
           onSelectLayer={setSelectedLayerId}
           onToggleLayerVisibility={(
             layerId,
@@ -1870,6 +2148,7 @@ export default function AvatarStudio() {
         >
           <canvas
             ref={canvasRef}
+            aria-label="Genesis actor editing canvas"
             style={{
               display: "block",
               width: "100%",
@@ -1882,6 +2161,108 @@ export default function AvatarStudio() {
               touchAction: "none",
             }}
           />
+
+          {actorLoadState ===
+            "error" &&
+            actorLoadError && (
+              <div
+                role="alert"
+                style={{
+                  position:
+                    "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width:
+                    "min(460px, calc(100% - 40px))",
+                  transform:
+                    "translate(-50%, -50%)",
+                  padding: 18,
+                  borderRadius: 8,
+                  border:
+                    "1px solid rgba(255,110,110,0.45)",
+                  color: "#ffb0b0",
+                  background:
+                    "rgba(24,4,6,0.92)",
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                  textAlign:
+                    "center",
+                }}
+              >
+                <strong
+                  style={{
+                    display:
+                      "block",
+                    marginBottom: 6,
+                    letterSpacing:
+                      "0.08em",
+                  }}
+                >
+                  ACTOR LOAD FAILED
+                </strong>
+
+                {actorLoadError}
+              </div>
+            )}
+
+          {actor &&
+            actor.diagnostics.length >
+              0 && (
+              <div
+                role="status"
+                style={{
+                  position:
+                    "absolute",
+                  right: 14,
+                  top: 14,
+                  width: 280,
+                  maxHeight: 150,
+                  overflow: "auto",
+                  padding:
+                    "10px 12px",
+                  borderRadius: 6,
+                  border:
+                    "1px solid rgba(255,205,92,0.3)",
+                  color: "#ffd36a",
+                  background:
+                    "rgba(20,14,3,0.88)",
+                  fontSize: 10,
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>
+                  {
+                    actor.diagnostics
+                      .length
+                  }{" "}
+                  ACTOR WARNING
+                  {actor.diagnostics
+                    .length === 1
+                    ? ""
+                    : "S"}
+                </strong>
+
+                {actor.diagnostics
+                  .slice(0, 3)
+                  .map(
+                    (
+                      item,
+                      index,
+                    ) => (
+                      <div
+                        key={`${item.code}-${item.layerId ?? "actor"}-${index}`}
+                        style={{
+                          marginTop: 5,
+                          color:
+                            "rgba(255,231,171,0.82)",
+                        }}
+                      >
+                        {item.message}
+                      </div>
+                    ),
+                  )}
+              </div>
+            )}
 
           <div
             style={{
@@ -1978,276 +2359,61 @@ export default function AvatarStudio() {
           </div>
         </section>
 
-        <aside
-          style={{
-            minHeight: 0,
-            overflow: "auto",
-
-            borderLeft:
-              "1px solid rgba(70,210,255,0.14)",
-
-            background: "#070b0e",
-          }}
-        >
-          <PanelTitle
-            title="INSPECTOR"
-            subtitle={
-              selectedLayer
-                ? selectedLayer.name
-                : "NO SELECTION"
+        <Inspector
+          actorLoaded={
+            actorLoadState ===
+            "ready"
+          }
+          layer={selectedLayer}
+          assetLoaded={
+            selectedLayer
+              ? loadedLayerIds.has(
+                  selectedLayer.id,
+                )
+              : false
+          }
+          onTransformChange={
+            updateTransform
+          }
+          onOpacityChange={(
+            value,
+          ) => {
+            if (!selectedLayer) {
+              return;
             }
-          />
 
-          {selectedLayer ? (
-            <div
-              style={{
-                padding: "14px 16px 28px",
-              }}
-            >
-              <SectionLabel>
-                TRANSFORM
-              </SectionLabel>
-
-              <NumberField
-                label="Position X"
-                value={
-                  selectedLayer.transform.x
-                }
-                onChange={(value) =>
-                  updateTransform("x", value)
-                }
-              />
-
-              <NumberField
-                label="Position Y"
-                value={
-                  selectedLayer.transform.y
-                }
-                onChange={(value) =>
-                  updateTransform("y", value)
-                }
-              />
-
-              <NumberField
-                label="Rotation"
-                value={
-                  selectedLayer.transform
-                    .rotation
-                }
-                step={0.5}
-                onChange={(value) =>
-                  updateTransform(
-                    "rotation",
-                    value,
-                  )
-                }
-              />
-
-              <NumberField
-                label="Scale X"
-                value={
-                  selectedLayer.transform
-                    .scaleX
-                }
-                step={0.01}
-                onChange={(value) =>
-                  updateTransform(
-                    "scaleX",
-                    value,
-                  )
-                }
-              />
-
-              <NumberField
-                label="Scale Y"
-                value={
-                  selectedLayer.transform
-                    .scaleY
-                }
-                step={0.01}
-                onChange={(value) =>
-                  updateTransform(
-                    "scaleY",
-                    value,
-                  )
-                }
-              />
-
-              <NumberField
-                label="Opacity"
-                value={
-                  selectedLayer.transform
-                    .opacity
-                }
-                min={0}
-                max={1}
-                step={0.05}
-                onChange={(value) =>
-                  updateTransform(
-                    "opacity",
-                    clamp(value, 0, 1),
-                  )
-                }
-              />
-
-              <SectionLabel>
-                LAYER
-              </SectionLabel>
-
-              <NumberField
-                label="Z Index"
-                value={selectedLayer.zIndex}
-                step={1}
-                onChange={(value) =>
-                  updateLayer(
-                    selectedLayer.id,
-                    (layer) => ({
+            updateLayer(
+              selectedLayer.id,
+              (layer) =>
+                layer.locked
+                  ? layer
+                  : {
                       ...layer,
+                      opacity: value,
+                    },
+            );
+          }}
+          onZIndexChange={(value) => {
+            if (!selectedLayer) {
+              return;
+            }
 
-                      zIndex: Math.round(value),
-                    }),
-                  )
-                }
-              />
-
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: "10px 12px",
-                  borderRadius: 6,
-
-                  border:
-                    "1px solid rgba(255,255,255,0.07)",
-
-                  color:
-                    "rgba(255,255,255,0.4)",
-
-                  background:
-                    "rgba(255,255,255,0.025)",
-
-                  fontSize: 11,
-                  lineHeight: 1.5,
-                }}
-              >
-                La visibilidad ahora se controla
-                directamente desde el panel de capas.
-              </div>
-
-              <SectionLabel>
-                PRECISION
-              </SectionLabel>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(3, 1fr)",
-                  gap: 7,
-                }}
-              >
-                <span />
-
-                <NudgeButton
-                  label="↑"
-                  onClick={() =>
-                    nudgeLayer(0, -1)
-                  }
-                />
-
-                <span />
-
-                <NudgeButton
-                  label="←"
-                  onClick={() =>
-                    nudgeLayer(-1, 0)
-                  }
-                />
-
-                <NudgeButton
-                  label="•"
-                  onClick={() => {
-                    const current =
-                      actorRef.current;
-
-                    if (!current) {
-                      return;
-                    }
-
-                    pushHistorySnapshot(
-                      current.definition,
-                    );
-
-                    setActor((actorState) => {
-                      if (!actorState) {
-                        return actorState;
-                      }
-
-                      let next =
-                        synchronizeActorLayer(
-                          actorState,
-                          selectedLayer.id,
-                          (layer) => ({
-                            ...layer,
-
-                            transform: {
-                              ...layer.transform,
-                              x: 0,
-                              y: 0,
-                            },
-                          }),
-                        );
-
-                      actorRef.current = next;
-                      return next;
-                    });
-                  }}
-                />
-
-                <NudgeButton
-                  label="→"
-                  onClick={() =>
-                    nudgeLayer(1, 0)
-                  }
-                />
-
-                <span />
-
-                <NudgeButton
-                  label="↓"
-                  onClick={() =>
-                    nudgeLayer(0, 1)
-                  }
-                />
-
-                <span />
-              </div>
-
-              <SectionLabel>
-                IDENTIFICATION
-              </SectionLabel>
-
-              <InfoRow
-                label="ID"
-                value={selectedLayer.id}
-              />
-
-              <InfoRow
-                label="Image"
-                value={selectedLayer.image}
-              />
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: 18,
-                color:
-                  "rgba(255,255,255,0.4)",
-              }}
-            >
-              Haz clic sobre una pieza de Bob.
-            </div>
-          )}
-        </aside>
+            updateLayer(
+              selectedLayer.id,
+              (layer) =>
+                layer.locked
+                  ? layer
+                  : {
+                      ...layer,
+                      zIndex: value,
+                    },
+            );
+          }}
+          onNudge={nudgeLayer}
+          onResetPosition={
+            resetSelectedLayerPosition
+          }
+        />
       </section>
 
       <footer
@@ -2288,174 +2454,5 @@ export default function AvatarStudio() {
         </span>
       </footer>
     </main>
-  );
-}
-
-function SectionLabel({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        margin: "18px 0 10px",
-        paddingBottom: 6,
-
-        borderBottom:
-          "1px solid rgba(70,210,255,0.12)",
-
-        color: "#67d9ff",
-        fontSize: 10,
-        letterSpacing: "0.16em",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-  min,
-  max,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-  min?: number;
-  max?: number;
-}) {
-  return (
-    <label
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 110px",
-        alignItems: "center",
-        gap: 10,
-        marginBottom: 9,
-
-        color:
-          "rgba(255,255,255,0.62)",
-
-        fontSize: 12,
-      }}
-    >
-      <span>{label}</span>
-
-      <input
-        type="number"
-        value={
-          Number.isInteger(value)
-            ? value
-            : Number(value.toFixed(4))
-        }
-        step={step}
-        min={min}
-        max={max}
-        onChange={(event) => {
-          const nextValue = Number(
-            event.target.value,
-          );
-
-          if (Number.isFinite(nextValue)) {
-            onChange(nextValue);
-          }
-        }}
-        style={{
-          width: "100%",
-          boxSizing: "border-box",
-          padding: "7px 8px",
-          borderRadius: 4,
-
-          border:
-            "1px solid rgba(255,255,255,0.13)",
-
-          color: "#ffffff",
-          background: "#10171b",
-          outline: "none",
-        }}
-      />
-    </label>
-  );
-}
-
-function NudgeButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        height: 34,
-        borderRadius: 4,
-
-        border:
-          "1px solid rgba(81,214,255,0.2)",
-
-        color: "#ffffff",
-
-        background:
-          "rgba(255,255,255,0.04)",
-
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div
-      style={{
-        marginBottom: 9,
-      }}
-    >
-      <div
-        style={{
-          color:
-            "rgba(255,255,255,0.35)",
-
-          fontSize: 9,
-          letterSpacing: "0.12em",
-        }}
-      >
-        {label}
-      </div>
-
-      <div
-        style={{
-          marginTop: 4,
-          overflowWrap: "anywhere",
-
-          color:
-            "rgba(255,255,255,0.68)",
-
-          fontFamily:
-            "ui-monospace, monospace",
-
-          fontSize: 10,
-        }}
-      >
-        {value}
-      </div>
-    </div>
   );
 }

@@ -3,6 +3,10 @@ import type {
   LoadedActor,
 } from "../types/Actor";
 
+import {
+  sortActorLayers,
+} from "../domain/ActorNormalizer";
+
 export interface ActorStageMetrics {
   width: number;
   height: number;
@@ -172,16 +176,20 @@ export function renderActor(
     -actorCenterY,
   );
 
-  const orderedLayers = [
-    ...definition.layers,
-  ].sort(
-    (first, second) =>
-      first.zIndex - second.zIndex,
-  );
+  const orderedLayers =
+    sortActorLayers(
+      definition.layers,
+    );
 
   for (
     const layerDefinition of orderedLayers
   ) {
+    if (
+      layerDefinition.type !== "image"
+    ) {
+      continue;
+    }
+
     const image = layerImages.get(
       layerDefinition.id,
     );
@@ -286,7 +294,7 @@ export function renderActor(
     context.save();
 
     context.globalAlpha = clamp(
-      transform.opacity,
+      layerDefinition.opacity,
       0,
       1,
     );
@@ -295,7 +303,8 @@ export function renderActor(
       actorOriginX +
       (
         transform.x +
-        runtimeOffsetX
+        runtimeOffsetX +
+        transform.pivotX
       ) *
         actorScale;
 
@@ -303,7 +312,8 @@ export function renderActor(
       actorOriginY +
       (
         transform.y +
-        runtimeOffsetY
+        runtimeOffsetY +
+        transform.pivotY
       ) *
         actorScale;
 
@@ -326,6 +336,11 @@ export function renderActor(
       actorScale *
         transform.scaleY *
         runtimeScaleY,
+    );
+
+    context.translate(
+      -transform.pivotX,
+      -transform.pivotY,
     );
 
     context.drawImage(

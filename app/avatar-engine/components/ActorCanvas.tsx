@@ -31,7 +31,13 @@ type ActorLoadStatus =
   | "ready"
   | "error";
 
-export default function ActorCanvas() {
+interface ActorCanvasProps {
+  actorId?: string;
+}
+
+export default function ActorCanvas({
+  actorId = "Bob",
+}: ActorCanvasProps) {
   const canvasRef =
     useRef<HTMLCanvasElement | null>(null);
 
@@ -72,7 +78,13 @@ export default function ActorCanvas() {
   useEffect(() => {
     let mounted = true;
 
-    loadActor("Bob")
+    actorRef.current = null;
+    runtimeEngineRef.current = null;
+    setActiveActor(null);
+    setActorError(null);
+    setActorStatus("loading");
+
+    loadActor(actorId)
       .then((actor) => {
         if (!mounted) {
           return;
@@ -96,7 +108,7 @@ export default function ActorCanvas() {
         const message =
           error instanceof Error
             ? error.message
-            : "Error desconocido cargando a Bob.";
+            : "Error desconocido cargando el actor.";
 
         setActorError(message);
         setActorStatus("error");
@@ -106,7 +118,7 @@ export default function ActorCanvas() {
       mounted = false;
       runtimeEngineRef.current = null;
     };
-  }, []);
+  }, [actorId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -557,7 +569,14 @@ export default function ActorCanvas() {
   }, []);
 
   const layerCount =
+    activeActor?.definition.layers.length ??
+    0;
+
+  const loadedLayerCount =
     activeActor?.layerImages.size ?? 0;
+
+  const warningCount =
+    activeActor?.diagnostics.length ?? 0;
 
   return (
     <section
@@ -695,6 +714,15 @@ export default function ActorCanvas() {
           value={`${pointer.x}, ${pointer.y}`}
         />
 
+        <StatusRow
+          label="WARNINGS"
+          value={`${warningCount}`}
+          active={
+            actorStatus === "ready" &&
+            warningCount === 0
+          }
+        />
+
         <Divider />
 
         <div
@@ -714,7 +742,7 @@ export default function ActorCanvas() {
               color: "#ffd36a",
             }}
           >
-            Loading Bob...
+            Loading {actorId}...
           </div>
         )}
 
@@ -754,9 +782,9 @@ export default function ActorCanvas() {
 
             <StatusRow
               label="LAYERS"
-              value={`${layerCount}`}
+              value={`${loadedLayerCount}/${layerCount} LOADED`}
               active={
-                layerCount > 0
+                loadedLayerCount > 0
               }
             />
 

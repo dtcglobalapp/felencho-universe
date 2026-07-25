@@ -17,12 +17,13 @@ evolves, but the core requirements remain constant:
 
 ## Current Version
 
-**Genesis v0.4**
+**Genesis v0.5**
 
-Genesis v0.4 establishes the project foundation for modular editor
-development. The current editor can load Bob from actor data, render layered
-assets, select and transform layers, manage visibility, navigate the viewport,
-persist a local draft, and preserve changes through Undo/Redo.
+Genesis v0.5 establishes the Actor-Driven Foundation. The current editor
+normalizes compatible actor packages, renders all supported layers declared by
+actor data, exposes recoverable diagnostics, derives selection and Inspector
+state from stable layer IDs, manages visibility, navigates the viewport,
+persists a local draft, and preserves changes through Undo/Redo.
 
 ## Completed
 
@@ -69,9 +70,49 @@ share the layer definitions loaded from `actor.json`. React contains no
 hardcoded actor-layer names, and compatible actors can use the same layer
 workflow without code changes.
 
+### Genesis v0.5 — Actor-Driven Foundation
+
+Status: **Completed**
+
+Delivered:
+
+- Added focused ActorDefinition, ActorValidator, and ActorNormalizer domain
+  modules
+- Added backward-compatible migration from legacy `image` and
+  `transform.opacity` fields
+- Added centralized defaults for optional layer and display data
+- Added stable deterministic ordering and duplicate-ID rejection
+- Added safe actor-package asset resolution
+- Added per-layer recoverable asset diagnostics
+- Extracted the Inspector into a focused component
+- Added type, lock, metadata, asset-status, pivot, and empty-state inspection
+- Added lock-aware layer manipulation
+- Added actor-scoped draft storage and stale-selection clearing
+- Applied pivots consistently in rendering, hit testing, and selection
+- Centralized the visible Genesis v0.5 identity
+- Added focused normalization and validation tests
+
+Architectural result:
+
+Raw actor JSON now crosses one explicit normalization and validation boundary
+before entering Studio or runtime state. The editor, renderer, Layers Panel,
+Inspector, history system, and export path consume the same normalized
+`ActorDefinition`. Individual missing assets degrade with visible warnings
+instead of preventing the rest of the actor from loading.
+
+Known limitations:
+
+- Studio mutations remain local working state until actor JSON is exported
+- The current renderer supports image layers only
+- Lina and Felencho packages currently contain no visual layers
+- Timeline, keyframes, general animation, physics, lip sync, emotions, and AI
+  generation remain planned
+
 ## Planned
 
 ### Sprint 3 — Layer Drag & Drop
+
+Proposed target: **Genesis v0.6**
 
 Goal:
 

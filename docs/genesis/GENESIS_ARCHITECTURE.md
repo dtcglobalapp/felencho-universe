@@ -29,6 +29,31 @@ bitmap assets are stored separately in a layer-ID lookup. The loader, editor,
 Inspector, Canvas, History Engine, and renderer therefore cannot develop
 independent copies of layer definitions.
 
+As of Genesis v0.5, external actor JSON passes through a dedicated domain
+boundary before it reaches the editor or renderer:
+
+```text
+Raw actor.json
+      │
+      ▼
+ActorNormalizer
+      │ legacy migration and defaults
+      ▼
+ActorValidator
+      │ fatal errors and non-fatal warnings
+      ▼
+Normalized ActorDefinition
+```
+
+`ActorDefinition` defines the canonical runtime contract.
+`ActorNormalizer` performs compatibility migration, default assignment, safe
+path normalization, opacity normalization, and deterministic ordering.
+`ActorValidator` verifies actor integrity, unique layer IDs, normalized
+transforms, display configuration, animation configuration, and rig
+references.
+
+These responsibilities remain independent of React and browser presentation.
+
 ### Shared Engine, Variable Content
 
 Character variation belongs in actor definitions, assets, rigs, and
@@ -196,13 +221,21 @@ The property editor for the selected layer or object.
 
 Current responsibilities include:
 
+- Display normalized layer name, stable ID, asset, type, visibility, and lock
+  state
+- Display asset availability and optional semantic metadata
 - Edit position
 - Edit rotation
 - Edit scale
 - Edit opacity
+- Edit rotation pivots
 - Edit z-index
-- Display layer identification
 - Provide precision nudge controls
+- Prevent transform editing when a normalized layer is locked
+
+The Inspector is an extracted presentation component. Selection remains a
+stable layer ID owned by `AvatarStudio`, and the selected layer is derived from
+the current actor definition.
 
 Future inspector sections may support pivots, rigging, constraints, physics,
 expressions, animation properties, and asset assignments. Inspector controls
@@ -251,20 +284,29 @@ The data and asset loading boundary.
 Current responsibilities include:
 
 - Fetch `actor.json`
-- Validate actor definitions
-- Validate layer transforms and animation configuration
-- Verify unique layer identifiers
-- Load all declared layer image assets
+- Normalize legacy and current actor definitions through the domain layer
+- Assign safe defaults for omitted compatible fields
+- Validate actor and layer integrity
+- Reject duplicate layer identifiers
+- Resolve local actor-package asset paths
+- Load every supported declared layer image independently
+- Separate fatal actor errors from recoverable layer warnings
 - Produce the loaded actor representation
 
 The Actor Loader protects the editor and runtime from malformed external data.
 Future versions may support schema migration, asset manifests, lazy loading,
-progress reporting, and recoverable validation diagnostics.
+and progress reporting.
 
 All layer images declared by `actor.json` are loaded, including images for
 layers whose initial visibility is disabled. This allows visibility to change
 at runtime without introducing a second layer definition or a
 character-specific loading path.
+
+A missing or undecodable layer asset no longer prevents the remaining actor
+from loading. The affected layer stays in `ActorDefinition.layers`, the image
+lookup omits its unavailable bitmap, and the loader returns an actionable
+warning for the Studio. A structurally unusable actor, missing layers array,
+or duplicate stable layer ID remains fatal.
 
 ### Actor Renderer
 
@@ -273,8 +315,9 @@ The shared drawing system.
 Current responsibilities include:
 
 - Calculate stage fitting and actor placement
-- Render visible layers in order
+- Render supported visible image layers in deterministic z-order
 - Apply layer transforms and opacity
+- Apply rotation pivots
 - Apply runtime eye movement
 - Apply blink behavior
 - Apply head and body runtime transforms
@@ -294,8 +337,11 @@ public/actors/<ActorId>/actor.json
                 │
                 ▼
           Actor Loader
+          ├── Actor Normalizer
+          ├── Actor Validator
           ├── Validated ActorDefinition
-          └── Layer Images by ID
+          ├── Layer Images by ID
+          └── Recoverable Diagnostics
                 │
                 ▼
           AvatarStudio
@@ -315,6 +361,10 @@ public/actors/<ActorId>/actor.json
 Commands flow from editor modules into the state owner. Updated actor data
 flows back into panels and the rendering pipeline. History surrounds
 persistent mutations so that changes remain reversible.
+
+The Studio's active selection is `selectedLayerId: string | null`. It never
+stores a second layer object. Actor changes clear a stale selection when its
+ID is absent from the newly loaded definition.
 
 ## Future Modules
 
@@ -452,6 +502,12 @@ should consider:
 
 Silent interpretation differences between the editor and runtime are not
 acceptable. Both must agree on the meaning of actor data.
+
+Genesis v0.5 introduces a backward-compatible normalization boundary rather
+than rewriting existing actor packages. Legacy `image` fields normalize to
+`asset`, legacy `transform.opacity` values normalize to layer-level `opacity`,
+and omitted compatible display or optional layer fields receive documented
+defaults. Exported working definitions use the normalized contract.
 
 ## Integration Boundaries
 

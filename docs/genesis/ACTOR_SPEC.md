@@ -101,10 +101,16 @@ must not redefine individual layer transforms.
 interface ActorLayerDefinition {
   id: string;
   name: string;
-  image: string;
-  zIndex: number;
+  asset: string;
+  type: string;
   visible: boolean;
+  locked: boolean;
+  opacity: number;
+  zIndex: number;
   transform: ActorTransform;
+  metadata?: ActorLayerMetadata;
+  animation?: Record<string, unknown>;
+  physics?: Record<string, unknown>;
 }
 ```
 
@@ -113,12 +119,23 @@ Every layer must define:
 - A unique stable ID
 - A human-readable name
 - A valid asset path
+- A supported layer type
 - A deterministic z-index
 - Initial visibility
+- Normalized opacity
 - A complete transform
 
 React components must never contain actor layer IDs, names, image paths,
 z-index values, visibility defaults, or transforms.
+
+`locked`, `type`, metadata, animation metadata, and physics metadata are
+optional in source JSON. The v0.5 normalizer supplies `type: "image"` and
+`locked: false` when omitted. Metadata remains extensible and is preserved
+when it is a JSON object.
+
+The current renderer implements the generic `image` layer type. Other layer
+types remain in the normalized definition for inspection and diagnostics but
+are not rendered until a corresponding generic renderer capability exists.
 
 ### Layer Transform
 
@@ -129,18 +146,47 @@ interface ActorTransform {
   rotation: number;
   scaleX: number;
   scaleY: number;
-  opacity: number;
   pivotX: number;
   pivotY: number;
 }
 ```
 
-Transforms must contain finite numeric values. Opacity is interpreted within
-the normalized range from `0` to `1`.
+Transforms must contain finite numeric values. Layer opacity is stored at the
+layer level and interpreted within the normalized range from `0` to `1`.
 
-Pivot fields belong to the actor contract even where a current rendering path
-does not yet apply them. Future transform work must preserve backward
-compatibility.
+Pivot fields define the origin for rotation and scale. Genesis v0.5 applies
+them in the Canvas 2D renderer, hit testing, and selection geometry.
+
+## Normalization and Legacy Compatibility
+
+Genesis v0.5 does not require destructive conversion of existing actor
+packages.
+
+The normalization boundary supports:
+
+| Legacy source field | Normalized field |
+| --- | --- |
+| `image` | `asset` |
+| `transform.opacity` | `opacity` |
+| Missing `type` | `"image"` |
+| Missing `locked` | `false` |
+| Missing compatible transform fields | Documented safe defaults |
+| Missing `display` | Dimensions-based display defaults |
+
+Legacy compatibility is applied in memory. Existing `actor.json` files and
+assets are not rewritten during load.
+
+The normalizer also:
+
+- Resolves relative assets inside the active actor package
+- Rejects unsafe external or parent-traversal asset paths
+- Clamps opacity to the supported range
+- Preserves future-safe actor, layer, transform, and metadata fields
+- Sorts layers deterministically by z-index and stable ID
+- Skips an unusable layer without inventing a random ID
+
+Duplicate stable IDs remain fatal because selection, history, assets, rig
+references, and React keys all depend on unambiguous identity.
 
 ## Rig Definition
 
@@ -178,14 +224,18 @@ The Actor Loader must:
 
 1. Fetch the requested `actor.json`.
 2. Parse JSON safely.
-3. Validate all required fields.
-4. Reject duplicate layer IDs.
-5. Load every declared layer image.
-6. Keep images in a lookup keyed by layer ID.
-7. Return one authoritative `ActorDefinition`.
+3. Normalize legacy fields and assign safe defaults.
+4. Validate all required actor and layer integrity.
+5. Reject duplicate layer IDs.
+6. Load every supported declared layer image.
+7. Keep images in a lookup keyed by layer ID.
+8. Return one authoritative `ActorDefinition` with diagnostics.
 
 Loaded image elements are runtime resources, not actor definitions. They must
 remain separate from `ActorDefinition.layers`.
+
+Asset loading is recoverable per layer. A missing image produces a warning,
+preserves the layer definition, and allows all other valid layers to load.
 
 ## Validation Rules
 
@@ -194,13 +244,12 @@ An actor is invalid when:
 - Required identity fields are empty
 - Dimensions or FPS are not positive
 - A layer ID is duplicated
-- A layer has an invalid asset path
 - A transform contains non-finite values
-- Visibility is not boolean
 - A declared animation block violates its contract
 
-Validation errors must identify the actor or layer that failed whenever
-possible.
+Missing assets, unsupported layer types, empty layer collections, and missing
+rig targets are non-fatal warnings. Validation errors and warnings must
+identify the actor, layer, or property that caused them whenever possible.
 
 ## Editor Mutation Rules
 

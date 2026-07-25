@@ -18,6 +18,7 @@ responsibilities include:
 - Visibility
 - Opacity
 - Translation, rotation, and scale
+- Pivot-aware transforms
 - Eye movement
 - Blink deformation
 - Head movement
@@ -49,6 +50,7 @@ The loaded actor contains:
 
 - One authoritative `ActorDefinition`
 - A layer-image lookup keyed by layer ID
+- Normalization and asset diagnostics
 
 The renderer must never maintain its own copy of layer definitions.
 
@@ -72,11 +74,11 @@ The current pipeline is:
 3. Apply the configured display scale and offsets.
 4. Calculate the actor center.
 5. Apply head and idle body transforms.
-6. Sort `ActorDefinition.layers` by z-index.
-7. Skip invisible or unavailable layers.
+6. Sort `ActorDefinition.layers` by z-index and stable ID.
+7. Skip invisible, unsupported, or unavailable layers.
 8. Resolve the layer image by ID.
 9. Apply runtime offsets for semantic rig roles.
-10. Apply the layer transform.
+10. Apply layer opacity and its pivot-aware transform.
 11. Draw the image.
 12. Restore canvas state.
 
@@ -84,13 +86,13 @@ Every canvas `save()` operation must have a corresponding `restore()`.
 
 ## Layer Ordering
 
-Z-index is read exclusively from `actor.json`.
+Z-index is read exclusively from the normalized actor definition derived from
+`actor.json`.
 
 The renderer sorts current layer definitions before drawing. Changing z-index
 in the editor therefore affects rendering without changing loaded asset order.
 
-Equal z-index behavior should remain deterministic. Future format versions may
-define an explicit tie-breaking rule.
+Equal z-index values are resolved deterministically by stable layer ID.
 
 ## Coordinate Systems
 
@@ -131,8 +133,11 @@ renderer logic.
 Invisible layers are skipped.
 
 If a loaded image cannot be resolved for a layer, the renderer skips that
-layer safely. Loading and validation should report the underlying asset error
-before the actor reaches a ready state.
+layer safely. The loader reports the underlying asset warning while allowing
+the remaining actor to reach a usable ready state.
+
+The current renderer supports `type: "image"`. Unsupported future layer types
+are preserved for inspection but skipped with diagnostics.
 
 ## Performance Rules
 
@@ -160,7 +165,6 @@ Preview-only changes must not enter history or exported actor data.
 
 Planned capabilities include:
 
-- Pivot-aware transforms
 - Masks and clipping
 - Blend modes
 - Hierarchical transforms

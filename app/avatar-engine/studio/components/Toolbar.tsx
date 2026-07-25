@@ -2,6 +2,10 @@ import type {
   CSSProperties,
 } from "react";
 
+import {
+  GENESIS,
+} from "../../config/GenesisConfig";
+
 interface ToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
@@ -85,7 +89,7 @@ export default function Toolbar({
               letterSpacing: "0.18em",
             }}
           >
-            GENESIS v0.4 · HISTORY & VIEWPORT
+            {`${GENESIS.name.toUpperCase()} v${GENESIS.version} · ${GENESIS.codename.toUpperCase()}`}
           </div>
         </div>
       </div>
