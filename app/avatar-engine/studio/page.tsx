@@ -1,14 +1,5 @@
-import AvatarStudio from "./AvatarStudio";
-import {
-  GENESIS_VERSION_LABEL,
-} from "../config/GenesisConfig";
-
-export const metadata = {
-  title: `Felencho Avatar Studio | ${GENESIS_VERSION_LABEL}`,
-  description:
-    "Visual actor construction studio for Felencho Avatar Engine.",
-};
+import { redirect } from "next/navigation";
 
 export default function AvatarStudioPage() {
-  return <AvatarStudio />;
+  redirect("/felencho-studio/advanced");
 }

@@ -26,7 +26,8 @@ The present repository contains early foundations for:
 
 - Music and song experiences
 - Digital actor loading and layered rendering
-- Genesis Avatar Studio
+- Felencho Studio public creation entry
+- Protected Felencho Studio Advanced Mode
 - Actor editing and export
 - AI conversation and memory experiments
 - Live-avatar and presence integrations
@@ -40,8 +41,10 @@ vision.
 ### Current
 
 Current capabilities are limited to the features implemented and validated in
-the repository, including the existing music experiences, Studio routes,
-early AI integrations, and Genesis v0.4 actor editing and runtime foundations.
+the repository, including the existing music experiences, Felencho Studio
+Phase 1 conversation entry, on-device photo and short-video capture, protected
+Advanced Mode, early AI integrations, and Genesis Engine actor editing and
+runtime foundations.
 
 ### Planned
 
@@ -56,7 +59,8 @@ Planned product directions include:
 - Multilingual content workflows
 - Interactive museum experiences
 - Education-oriented character experiences
-- Genesis AI Forge and Digital Human Wizard foundations
+- Felencho Studio conversational creation and automated actor-building
+  foundations
 
 ### Experimental
 
@@ -243,9 +247,12 @@ The long-term platform should separate:
 
 Each domain needs explicit ownership and access control.
 
-Genesis remains the actor-authoring and runtime foundation. Genesis AI Forge
-is a future creation layer. Neither should absorb unrelated music, publishing,
-or platform-account responsibilities.
+Genesis Engine remains the internal actor-authoring and runtime foundation.
+Felencho Studio is the public creation product. Its Phase 1 product entry and
+protected Advanced Mode are current; source-quality analysis, conversational
+knowledge extraction, automated actor building, and production AI workflows
+remain planned or experimental. Neither layer should absorb unrelated music,
+publishing, or platform-account responsibilities.
 
 ## Creator Control
 

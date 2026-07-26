@@ -1,68 +1,93 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const COOKIE_NAME = "felencho_studio_session";
+import {
+  accessAreaForPath,
+  canAccessFelenchoStudio,
+} from "./app/avatar-engine/auth/GenesisAccessPolicy";
+import {
+  FELENCHO_STUDIO_SESSION_COOKIE,
+  getFelenchoStudioSession,
+} from "./app/avatar-engine/auth/GenesisSession";
 
-async function sha256(value: string) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(value);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function accessUrlForPath(
+  pathname: string,
+  requestUrl: string,
+): URL {
+  if (
+    pathname === "/studio" ||
+    pathname.startsWith("/studio/")
+  ) {
+    return new URL(
+      "/studio/access",
+      requestUrl,
+    );
+  }
+
+  const accessUrl = new URL(
+    "/felencho-studio/auth",
+    requestUrl,
+  );
+
+  accessUrl.searchParams.set(
+    "next",
+    pathname,
+  );
+
+  return accessUrl;
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (!pathname.startsWith("/studio")) {
-    return NextResponse.next();
-  }
-
   if (pathname === "/studio/access") {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const accessArea =
+    accessAreaForPath(pathname);
 
-  if (!token) {
-    return NextResponse.redirect(new URL("/studio/access", request.url));
+  if (!accessArea) {
+    return NextResponse.next();
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const token = request.cookies.get(
+    FELENCHO_STUDIO_SESSION_COOKIE,
+  )?.value;
 
-  if (!supabaseUrl || !serviceKey) {
-    return NextResponse.redirect(new URL("/studio/access", request.url));
-  }
+  const session =
+    await getFelenchoStudioSession(token);
 
-  const tokenHash = await sha256(token);
+  if (
+    !session ||
+    !canAccessFelenchoStudio(
+      session.role,
+      session.permissions,
+      accessArea,
+    )
+  ) {
+    const response = NextResponse.redirect(
+      accessUrlForPath(
+        pathname,
+        request.url,
+      ),
+    );
 
-  const response = await fetch(
-    `${supabaseUrl}/rest/v1/studio_access_sessions?session_token_hash=eq.${tokenHash}&is_active=eq.true&select=id,expires_at`,
-    {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-      cache: "no-store",
+    if (token && !session) {
+      response.cookies.delete(
+        FELENCHO_STUDIO_SESSION_COOKIE,
+      );
     }
-  );
 
-  const sessions = await response.json();
-
-  if (!Array.isArray(sessions) || sessions.length === 0) {
-    return NextResponse.redirect(new URL("/studio/access", request.url));
-  }
-
-  const session = sessions[0];
-
-  if (new Date(session.expires_at).getTime() < Date.now()) {
-    return NextResponse.redirect(new URL("/studio/access", request.url));
+    return response;
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/studio/:path*"],
+  matcher: [
+    "/studio/:path*",
+    "/avatar-engine/studio/:path*",
+    "/felencho-studio/advanced/:path*",
+  ],
 };

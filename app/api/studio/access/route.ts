@@ -1,11 +1,109 @@
 import crypto from "crypto";
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+
+import {
+  accessAreaForPath,
+  canAccessFelenchoStudio,
+  normalizeFelenchoStudioPermissions,
+  normalizeFelenchoStudioRole,
+} from "../../../avatar-engine/auth/GenesisAccessPolicy";
+import {
+  FELENCHO_STUDIO_SESSION_COOKIE,
+} from "../../../avatar-engine/auth/GenesisSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const COOKIE_NAME = "felencho_studio_session";
+interface InvitationRecord {
+  id: string;
+  email: string | null;
+  role: string;
+  permissions: string[];
+  inviteCodeHash: string;
+  expiresAt: string;
+  maxUses: number;
+  usedCount: number;
+  isActive: boolean;
+}
+
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function readInvitation(
+  value: unknown,
+): InvitationRecord | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const {
+    id,
+    email,
+    role,
+    permissions,
+    invite_code_hash: inviteCodeHash,
+    expires_at: expiresAt,
+    max_uses: maxUses,
+    used_count: usedCount,
+    is_active: isActive,
+  } = value;
+
+  if (
+    typeof id !== "string" ||
+    !(
+      email === null ||
+      typeof email === "string"
+    ) ||
+    typeof role !== "string" ||
+    typeof inviteCodeHash !== "string" ||
+    typeof expiresAt !== "string" ||
+    typeof maxUses !== "number" ||
+    typeof usedCount !== "number" ||
+    typeof isActive !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    email,
+    role,
+    permissions:
+      normalizeFelenchoStudioPermissions(
+        permissions,
+      ),
+    inviteCodeHash,
+    expiresAt,
+    maxUses,
+    usedCount,
+    isActive,
+  };
+}
+
+function readInvitations(
+  value: unknown,
+): InvitationRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(readInvitation)
+    .filter(
+      (
+        invitation,
+      ): invitation is InvitationRecord =>
+        invitation !== null,
+    );
+}
 
 function sha256(value: string) {
   return crypto
@@ -18,10 +116,26 @@ function createToken() {
   return crypto.randomBytes(48).toString("hex");
 }
 
+function safeNextPath(
+  value: unknown,
+): string {
+  if (
+    typeof value === "string" &&
+    accessAreaForPath(value)
+  ) {
+    return value;
+  }
+
+  return "/studio";
+}
+
 export async function POST(request: Request) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl =
+      process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    const serviceRoleKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl) {
       return NextResponse.json(
@@ -29,7 +143,7 @@ export async function POST(request: Request) {
           error:
             "Vercel no tiene configurada NEXT_PUBLIC_SUPABASE_URL.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -39,131 +153,228 @@ export async function POST(request: Request) {
           error:
             "Vercel no tiene configurada SUPABASE_SERVICE_ROLE_KEY.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+    const supabase = createClient(
+      supabaseUrl,
+      serviceRoleKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
       },
-    });
+    );
 
-    const body = await request.json();
+    const payload: unknown =
+      await request.json();
 
-    const cleanEmail = String(body.email || "")
+    if (!isRecord(payload)) {
+      return NextResponse.json(
+        { error: "Solicitud inválida." },
+        { status: 400 },
+      );
+    }
+
+    const cleanEmail = String(
+      payload.email ?? "",
+    )
       .trim()
       .toLowerCase();
 
-    const cleanCode = String(body.code || "").trim();
+    const cleanCode = String(
+      payload.code ?? "",
+    ).trim();
 
-    if (!cleanEmail || !cleanCode) {
+    const nextPath = safeNextPath(
+      payload.next,
+    );
+
+    const accessArea =
+      accessAreaForPath(nextPath);
+
+    if (
+      !cleanEmail ||
+      !cleanCode ||
+      !accessArea
+    ) {
       return NextResponse.json(
         { error: "Email y llave requeridos." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    /*
-     * Primero buscamos por email.
-     * Así sabremos si Vercel está consultando la base de datos correcta.
-     */
-    const { data: invitations, error: invitationQueryError } =
+    const invitationColumns =
+      "id,email,role,permissions,invite_code_hash,expires_at,max_uses,used_count,is_active";
+
+    const invitationQuery =
       await supabase
+      .from("studio_invitations")
+      .select(invitationColumns)
+      .ilike("email", cleanEmail)
+      .order("created_at", {
+        ascending: false,
+      });
+
+    let invitationData: unknown =
+      invitationQuery.data;
+
+    let invitationError =
+      invitationQuery.error;
+
+    let supportsPermissions =
+      !invitationError;
+
+    if (invitationError) {
+      const legacyInvitationQuery =
+        await supabase
         .from("studio_invitations")
         .select(
-          "id,email,role,invite_code_hash,expires_at,max_uses,used_count,is_active"
+          "id,email,role,invite_code_hash,expires_at,max_uses,used_count,is_active",
         )
         .ilike("email", cleanEmail)
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false,
+        });
 
-    if (invitationQueryError) {
-      return NextResponse.json(
-        {
-          error: `Supabase rechazó la consulta: ${invitationQueryError.message}`,
-        },
-        { status: 500 }
-      );
+      invitationData =
+        legacyInvitationQuery.data;
+
+      invitationError =
+        legacyInvitationQuery.error;
+
+      supportsPermissions = false;
     }
 
-    if (!invitations || invitations.length === 0) {
-      let projectHost = "desconocido";
-
-      try {
-        projectHost = new URL(supabaseUrl).hostname;
-      } catch {
-        // Conserva el valor por defecto.
-      }
-
+    if (invitationError) {
       return NextResponse.json(
         {
           error:
-            `No existe una invitación para ${cleanEmail} en el proyecto Supabase conectado por Vercel (${projectHost}).`,
+            `Supabase rechazó la consulta: ${invitationError.message}`,
         },
-        { status: 401 }
+        { status: 500 },
+      );
+    }
+
+    const invitations =
+      readInvitations(
+        invitationData,
+      );
+
+    if (invitations.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No existe una invitación válida para este email.",
+        },
+        { status: 401 },
       );
     }
 
     const codeHash = sha256(cleanCode);
 
     const invite = invitations.find(
-      (item) => item.invite_code_hash === codeHash
+      (item) =>
+        item.inviteCodeHash === codeHash,
     );
 
     if (!invite) {
       return NextResponse.json(
         {
           error:
-            "La invitación existe, pero la llave escrita no coincide con el hash guardado.",
+            "La invitación existe, pero la llave escrita no coincide.",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    if (!invite.is_active) {
-      return NextResponse.json(
-        { error: "La invitación existe, pero está inactiva." },
-        { status: 401 }
-      );
-    }
-
-    if (new Date(invite.expires_at).getTime() <= Date.now()) {
-      return NextResponse.json(
-        { error: "La invitación existe, pero ya expiró." },
-        { status: 401 }
-      );
-    }
-
-    if (invite.used_count >= invite.max_uses) {
+    if (!invite.isActive) {
       return NextResponse.json(
         {
           error:
-            "La invitación existe, pero alcanzó su límite de usos.",
+            "La invitación existe, pero está inactiva.",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    const { error: memberError } = await supabase
-      .from("studio_members")
-      .upsert(
+    if (
+      new Date(invite.expiresAt).getTime() <=
+      Date.now()
+    ) {
+      return NextResponse.json(
         {
-          email: cleanEmail,
-          role: invite.role,
-          is_active: true,
+          error:
+            "La invitación existe, pero ya expiró.",
         },
-        {
-          onConflict: "email",
-        }
+        { status: 401 },
       );
+    }
+
+    if (
+      invite.usedCount >= invite.maxUses
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "La invitación alcanzó su límite de usos.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const role =
+      normalizeFelenchoStudioRole(
+        invite.role,
+      );
+
+    if (
+      !role ||
+      !canAccessFelenchoStudio(
+        role,
+        invite.permissions,
+        accessArea,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Esta invitación no autoriza el acceso solicitado.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const memberRecord: Record<
+      string,
+      unknown
+    > = {
+      email: cleanEmail,
+      role: invite.role,
+      is_active: true,
+    };
+
+    if (supportsPermissions) {
+      memberRecord.permissions =
+        invite.permissions;
+    }
+
+    const { error: memberError } =
+      await supabase
+        .from("studio_members")
+        .upsert(memberRecord, {
+          onConflict: "email",
+        });
 
     if (memberError) {
       return NextResponse.json(
         {
-          error: `No se pudo crear o actualizar el miembro: ${memberError.message}`,
+          error:
+            `No se pudo crear o actualizar el miembro: ${memberError.message}`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -171,63 +382,98 @@ export async function POST(request: Request) {
     const tokenHash = sha256(token);
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    expiresAt.setDate(
+      expiresAt.getDate() + 30,
+    );
 
-    const { error: sessionError } = await supabase
-      .from("studio_access_sessions")
-      .insert({
-        session_token_hash: tokenHash,
-        invitation_id: invite.id,
-        email: cleanEmail,
-        role: invite.role,
-        expires_at: expiresAt.toISOString(),
-        is_active: true,
-      });
+    const sessionRecord: Record<
+      string,
+      unknown
+    > = {
+      session_token_hash: tokenHash,
+      invitation_id: invite.id,
+      email: cleanEmail,
+      role: invite.role,
+      expires_at: expiresAt.toISOString(),
+      is_active: true,
+    };
+
+    if (supportsPermissions) {
+      sessionRecord.permissions =
+        invite.permissions;
+    }
+
+    const { error: sessionError } =
+      await supabase
+        .from("studio_access_sessions")
+        .insert(sessionRecord);
 
     if (sessionError) {
       return NextResponse.json(
         {
-          error: `No se pudo crear la sesión: ${sessionError.message}`,
+          error:
+            `No se pudo crear la sesión: ${sessionError.message}`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    const nextUsedCount = invite.used_count + 1;
+    const nextUsedCount =
+      invite.usedCount + 1;
 
-    const { error: invitationUpdateError } = await supabase
+    const {
+      error: invitationUpdateError,
+    } = await supabase
       .from("studio_invitations")
       .update({
         used_count: nextUsedCount,
-        is_active: nextUsedCount < invite.max_uses,
+        is_active:
+          nextUsedCount < invite.maxUses,
       })
       .eq("id", invite.id);
 
     if (invitationUpdateError) {
+      await supabase
+        .from("studio_access_sessions")
+        .update({
+          is_active: false,
+        })
+        .eq(
+          "session_token_hash",
+          tokenHash,
+        );
+
       return NextResponse.json(
         {
-          error: `La sesión se creó, pero no se pudo actualizar la invitación: ${invitationUpdateError.message}`,
+          error:
+            "La invitación no pudo finalizarse y la sesión fue cancelada.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    await supabase.from("studio_access_logs").insert({
-      email: cleanEmail,
-      role: invite.role,
-      action: "studio_access_granted",
-    });
+    await supabase
+      .from("studio_access_logs")
+      .insert({
+        email: cleanEmail,
+        role: invite.role,
+        action:
+          "felencho_studio_access_granted",
+      });
 
     const response = NextResponse.json({
       ok: true,
-      redirectTo: "/studio/podcast",
+      redirectTo: nextPath,
     });
 
     response.cookies.set({
-      name: COOKIE_NAME,
+      name:
+        FELENCHO_STUDIO_SESSION_COOKIE,
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure:
+        process.env.NODE_ENV ===
+        "production",
       sameSite: "lax",
       path: "/",
       expires: expiresAt,
@@ -236,13 +482,16 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Error desconocido.";
+      error instanceof Error
+        ? error.message
+        : "Error desconocido.";
 
     return NextResponse.json(
       {
-        error: `Error interno validando el acceso: ${message}`,
+        error:
+          `Error interno validando el acceso: ${message}`,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

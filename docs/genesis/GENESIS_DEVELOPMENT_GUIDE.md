@@ -12,7 +12,9 @@ current and future actor through a shared architecture.
 
 ## Philosophy
 
-Genesis is a long-term platform, not a collection of character-specific demos.
+Felencho Studio is the public product and Genesis Engine is its internal
+digital-human technology foundation. Neither is a collection of
+character-specific demos.
 
 Development decisions must favor maintainability, modularity, performance, and
 scalability. Features should be designed for Bob, Lina, Felencho Virtual, and
@@ -30,6 +32,19 @@ The following statements are non-negotiable:
 Refactoring is valuable when it creates a clearer ownership boundary, removes
 duplication, improves a data contract, or enables planned growth. Refactoring
 must not be used as an excuse to introduce unrelated changes into a Sprint.
+
+### Product Language and Progressive Disclosure
+
+- Public UI uses the Felencho Studio name.
+- Genesis Engine is an internal technology name, with optional
+  "Powered by Genesis Engine" attribution.
+- Advanced Mode preserves professional actor-authoring tools.
+- Beginner workflows must not expose engine concepts unless they become
+  necessary.
+- The primary customer interaction should be conversational rather than a
+  multi-page setup form.
+- Unimplemented AI behavior must be labeled planned and must never be
+  simulated as completed work.
 
 ## Coding Standards
 
@@ -87,9 +102,10 @@ Types shared across the loader, editor, renderer, runtime, and exporter form
 part of the Genesis contract. Changes to those types must be evaluated across
 every consumer.
 
-Actor schema versions and Genesis Studio versions are independent. A schema
-change requires normalization, validation, export, compatibility, and test
-review. Never use the Studio release number as an actor-format substitute.
+Actor schema versions and Genesis Engine release versions are independent. A
+schema change requires normalization, validation, export, compatibility, and
+test review. Never use the product or engine release number as an actor-format
+substitute.
 
 ## React Component Rules
 
@@ -139,6 +155,7 @@ Genesis code should be organized by responsibility.
 
 ```text
 app/avatar-engine/
+├── auth/             Internal access policy and temporary-session validation
 ├── components/       Shared avatar-engine components
 ├── config/           Genesis and actor-editor configuration
 ├── domain/           Actor schema, normalization, validation, hierarchy
@@ -149,10 +166,19 @@ app/avatar-engine/
 ├── tools/            Asset and actor-generation tools
 └── types/            Shared TypeScript contracts
 
+app/felencho-studio/
+├── page.tsx           Public Felencho Studio entry
+├── components/        Conversation and guided-capture UI
+├── auth/              Private Beta access UI
+└── advanced/          Protected professional editor route
+
 public/actors/
 └── <ActorId>/        Actor definitions and assets
 
 docs/genesis/         Genesis vision, rules, architecture, and roadmap
+
+supabase/migrations/  Reviewed database migrations; never apply remotely
+                      without explicit deployment approval
 ```
 
 New files should be placed in the narrowest folder that accurately represents

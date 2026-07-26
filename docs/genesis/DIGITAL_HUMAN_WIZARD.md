@@ -1,47 +1,57 @@
-# Genesis Digital Human Wizard
+# Felencho Studio Conversational Creation Experience
 
 ## Purpose
 
-The Digital Human Wizard is a **planned guided creation experience** for
-building a digital human, fictional character, mascot, creature, or
-object-based performer.
+This document defines the conversational creation experience for building a
+digital professional, digital actor, fictional character, mascot, creature,
+business assistant, or object-based performer.
 
-It is not currently implemented.
+The Phase 1 opening conversation, creation-direction selection, local photo
+selection, and local short-video recording are current. Adaptive interviews,
+quality analysis, structured knowledge extraction, and actor generation are
+planned.
 
-The Wizard must adapt its questions to the chosen source, character category,
-purpose, and risk profile. It must never force every character through a
-realistic-human questionnaire.
+The experience must feel like meeting an intelligent assistant, not completing
+a setup wizard. It must adapt its questions to the chosen source, character
+category, purpose, and risk profile. It must never force every character
+through a realistic-human questionnaire.
 
 ## Relationship to Genesis
 
-The Wizard is a product layer over:
+The conversation is a Felencho Studio product layer over:
 
 - The future [AI Pipeline](./AI_PIPELINE.md)
 - The future Multimodal Actor Builder
 - The actor contract in [ACTOR_SPEC.md](./ACTOR_SPEC.md)
 - The identity rules in
   [ETHICAL_DIGITAL_IDENTITY.md](./ETHICAL_DIGITAL_IDENTITY.md)
-- The future [Genesis AI Forge](./GENESIS_AI_FORGE.md)
+- The Felencho Studio creation architecture in
+  [GENESIS_AI_FORGE.md](./GENESIS_AI_FORGE.md)
 
-The Wizard collects intent and approvals. It does not replace engine
+The assistant collects intent and approvals. It does not replace engine
 validation or human creative control.
 
 ## Capability Status
 
 | Area | Status |
 | --- | --- |
-| Current actor loading and manual layer editing | **Current** |
-| Guided multi-step character intake | **Planned** |
-| Adaptive question branching | **Planned** |
+| Public creation-direction conversation | **Current** |
+| Local photo and short-video capture | **Current** |
+| Media upload and persistent projects | **Planned** |
+| Adaptive conversational intake | **Planned** |
+| AI source-quality analysis | **Planned** |
 | AI-assisted trait detection and layer generation | **Experimental** |
 | Full-body reconstruction from limited evidence | **Long-term research** |
 | Automated production-ready performer creation | **Long-term research** |
 
 ## Experience Principles
 
-The Wizard must be:
+The conversation must be:
 
 - Adaptive rather than one-size-fits-all
+- Natural rather than form-led
+- Focused on knowledge and capabilities rather than job titles alone
+- Progressively disclosed
 - Transparent about generated and uncertain output
 - Respectful of identity and culture
 - Accessible and reversible
@@ -52,9 +62,12 @@ The Wizard must be:
 
 No answer should silently become a permanent actor trait without review.
 
+Professional engine terms such as layers, masks, pivots, rigs, hierarchies,
+blend modes, and transforms must remain hidden from general users.
+
 ## Dynamic Question Model
 
-The Wizard builds a question path from:
+The assistant builds a question path from:
 
 1. Source type
 2. Character category
@@ -87,7 +100,7 @@ The user selects one or more source types:
 - AI-generated character
 - Existing actor package
 
-The Wizard should collect:
+The assistant should collect:
 
 - Ownership or license
 - Subject authorization
@@ -138,7 +151,7 @@ These branches are planned design requirements, not current features.
 All identity-related questions must be optional unless technically required
 for a user-requested output.
 
-The Wizard may offer:
+The assistant may offer:
 
 - Height in feet and inches or centimeters
 - Desired weight
@@ -181,7 +194,7 @@ and other identity-related characteristics must be:
 - Never inferred as fact without confirmation
 - Never used to create stereotypes
 
-The Wizard must allow a user to decline, use a custom description, or correct
+The assistant must allow a user to decline, use a custom description, or correct
 AI suggestions.
 
 Accessibility devices must be treated as intentional character elements, not
@@ -204,7 +217,7 @@ For cartoon, anime, comic, mascot, and stylized categories, offer:
 - Realism level
 - Animation intensity
 
-The Wizard should preserve intentional visual language. It must not normalize
+The assistant should preserve intentional visual language. It must not normalize
 stylized anatomy toward realism unless explicitly requested.
 
 Potential category-specific additions include:
@@ -234,7 +247,7 @@ Personality configuration may include:
 Personality choices should produce editable configuration, not immutable
 psychological claims.
 
-The Wizard must distinguish:
+The assistant must distinguish:
 
 - Creator-authored character traits
 - AI-suggested traits
@@ -295,7 +308,7 @@ Voice configuration may include:
 
 Voice cloning requires consent separate from image or actor consent.
 
-The Wizard must:
+The assistant must:
 
 - Identify the voice owner
 - Record authorization
@@ -326,7 +339,7 @@ Movement configuration should influence future animation and physics profiles.
 It must not overwrite a user's accessibility choices or assume that limited
 mobility is undesirable.
 
-The Wizard should distinguish:
+The assistant should distinguish:
 
 - Performance style
 - Physical capability
@@ -385,7 +398,8 @@ Final approval must confirm:
 - Export rights
 - Source and asset rights
 
-The Wizard must not imply that technical completion equals ethical approval.
+The assistant must not imply that technical completion equals ethical
+approval.
 
 ## Identity Classification
 
@@ -399,9 +413,10 @@ Before actor creation, the user must classify the character as:
 
 The classification must remain attached to the project and export metadata.
 
-## Wizard Output
+## Conversation Output
 
-The Wizard should eventually produce a structured creation brief containing:
+The conversation should eventually produce a structured creation brief
+containing:
 
 - Source manifest
 - Character category
@@ -415,12 +430,12 @@ The Wizard should eventually produce a structured creation brief containing:
 - Confidence and uncertainty records
 - Human approvals
 
-This brief becomes input to the AI Pipeline and Genesis AI Forge. It is not a
-replacement for `actor.json`.
+This brief becomes input to the AI Pipeline and the Felencho Studio creation
+architecture. It is not a replacement for `actor.json`.
 
 ## Failure and Recovery
 
-The Wizard must stop or request clarification when:
+The assistant must stop or request clarification when:
 
 - Consent is missing
 - Source ownership is unknown
@@ -447,7 +462,7 @@ The guided experience should support:
 
 ## Non-Goals
 
-The Digital Human Wizard must not:
+The conversational creation experience must not:
 
 - Infer identity traits as unquestioned fact
 - Apply stereotypes

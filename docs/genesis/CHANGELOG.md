@@ -5,6 +5,64 @@ This changelog records significant Genesis Studio and engine changes.
 The format follows a release-oriented structure with explicit distinction
 between completed work and planned architecture.
 
+## Felencho Studio Phase 1 — AI Studio Foundation
+
+Date: 2026-07-25
+
+### Added
+
+- Added Felencho Studio as the public-facing product
+- Added a public conversation-led entry at `/felencho-studio`
+- Added seven initial creation directions
+- Added working on-device photo selection
+- Added working on-device short-video recording with a 30-second limit
+- Added truthful Phase 1 disclosure that media is not uploaded or analyzed
+- Added protected Advanced Mode at `/felencho-studio/advanced`
+- Added centralized Owner, Developer, Artist, Tester, and Guest access policy
+- Added legacy role normalization for the existing database constraints
+- Added server-side temporary-session, expiry, role, and permission checks
+- Added focused authorization tests
+- Added a local role-and-permission migration for later deployment review
+
+### Changed
+
+- Repositioned Genesis as the internal Genesis Engine technology layer
+- Repositioned the existing v0.6 editor as Felencho Studio Advanced Mode
+- Changed `/avatar-engine` into a compatibility redirect to Felencho Studio
+- Changed `/avatar-engine/studio` into a protected compatibility redirect to
+  Advanced Mode
+- Protected the Studio access-request listing with server-side authorization
+- Updated official engineering documentation to distinguish the public
+  product, internal engine, current Phase 1 behavior, planned automation, and
+  experimental AI systems
+
+### Security
+
+- Owner and Developer receive full professional-tool access
+- Artist access requires an explicit area permission
+- Tester and Guest cannot access Advanced Mode directly
+- Missing, expired, inactive, malformed, or unauthorized sessions fail closed
+- Service-role credentials remain server-only
+- The remote Supabase role migration was not applied in this phase
+
+### Compatibility
+
+- The complete Genesis v0.6 editor remains available in Advanced Mode
+- Existing temporary invitations remain supported
+- Current legacy database roles normalize in application code
+- Actor JSON packages remain unchanged
+- Actor Renderer architecture remains unchanged
+
+### Known Limitations
+
+- Phase 1 source media remains in browser memory and is not persisted
+- AI quality analysis is not implemented
+- Conversational knowledge discovery is not implemented
+- Automatic layer separation, mask generation, pivot detection, rigging, and
+  actor generation remain future capabilities
+- Explicit Artist permissions require the prepared database migration before
+  they can be stored remotely
+
 ## Genesis v0.6 — Professional Digital Actor Editor
 
 Date: 2026-07-25

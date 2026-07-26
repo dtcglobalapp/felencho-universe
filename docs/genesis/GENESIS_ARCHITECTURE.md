@@ -2,8 +2,16 @@
 
 ## Overview
 
-Genesis is a modular Avatar Studio and runtime for data-driven, AI-powered
-digital humans.
+Genesis Engine is the internal modular actor-authoring and runtime foundation
+for data-driven, AI-powered digital humans.
+
+Felencho Studio is the public product. It owns the nontechnical,
+conversation-first creation experience and progressively discloses
+complexity. Customers should not need to understand the internal actor model
+or professional editing concepts.
+
+The existing editor is preserved as Felencho Studio **Advanced Mode**. It is a
+protected professional surface, not the default product entry.
 
 The editor must remain independent of any single character. Bob, Lina,
 Felencho Virtual, and future actors are loaded through shared definitions and
@@ -126,7 +134,25 @@ state update patterns, and asset pipelines.
 
 ## System Boundaries
 
-Genesis has three primary architectural domains:
+Felencho Studio and Genesis Engine have four primary architectural domains:
+
+### Public Product Experience
+
+Felencho Studio asks what the user wants to create, accepts authorized source
+media, and will eventually coordinate source-quality analysis, conversational
+knowledge discovery, review, and automated actor construction.
+
+Phase 1 currently provides the public conversational entry, local photo
+selection, local short-video recording, truthful capability disclosure, and
+the protected transition to Advanced Mode. It does not upload or analyze
+media.
+
+The Phase 1 public route is `/felencho-studio`. The historical
+`/avatar-engine` entry redirects there. The older `/studio` namespace already
+hosts the protected Studio OS operations workspace, so moving all product
+routes into the future `app/studio/` structure requires a separate,
+non-destructive route migration. Phase 1 does not collapse or overwrite those
+existing capabilities.
 
 ### Actor Data
 
@@ -161,15 +187,16 @@ rights, and export restrictions.
 Safety state must remain separate from public runtime state and must follow
 [ETHICAL_DIGITAL_IDENTITY.md](./ETHICAL_DIGITAL_IDENTITY.md).
 
-### Digital Human Wizard
+### Felencho Studio Conversation
 
-**Status: Planned**
+**Status: Phase 1 entry and local capture current; adaptive interview planned**
 
-Collects source, character category, design intent, personality, purpose,
-voice, movement, rights, and approvals through an adaptive guided workflow.
+Collects source, character category, design intent, knowledge, audience,
+personality, purpose, voice, movement, rights, and approvals through a natural
+assistant-led workflow.
 
-The Wizard produces a creation brief. It does not produce a second actor
-definition format. See
+The future interview produces a creation brief. It does not produce a second
+actor definition format. See
 [DIGITAL_HUMAN_WIZARD.md](./DIGITAL_HUMAN_WIZARD.md).
 
 ### Multimodal Actor Builder
@@ -190,21 +217,60 @@ expressions, visemes, physics configuration, and actor data.
 AI outputs remain candidates until validation and human approval. See
 [AI_PIPELINE.md](./AI_PIPELINE.md).
 
-### Genesis AI Forge
+### Felencho Studio AI Creation
 
-**Status: Future product layer**
+**Status: Current Phase 1 product foundation; automation remains planned**
 
-Coordinates the Wizard, Multimodal Actor Builder, AI Pipeline, safety gates,
-human review, validation, and export. It is not currently an automatic actor
-generator.
+Coordinates the future conversation system, Multimodal Actor Builder, AI
+Pipeline, safety gates, human review, validation, and export. The public
+product foundation and protected Advanced Mode transition are current. It is
+not currently an automatic actor generator.
 
 See [GENESIS_AI_FORGE.md](./GENESIS_AI_FORGE.md).
 
 ## Current Modules
 
+### Felencho Studio Public Experience
+
+The primary customer-facing creation surface.
+
+Current responsibilities:
+
+- Present the Felencho Studio product identity
+- Ask what the user wants to create
+- Reveal the next action conversationally
+- Accept a local photograph
+- Record a local short video
+- Keep Phase 1 media on the user's device
+- State clearly which AI capabilities are not yet available
+- Route authorized professionals to protected Advanced Mode
+
+The public experience contains no layer, hierarchy, rigging, pivot,
+transform, or blend-mode controls.
+
+### Felencho Studio Access
+
+The server-side authorization boundary for Advanced Mode and the existing
+operations workspace.
+
+Current responsibilities:
+
+- Validate opaque temporary session cookies against Supabase
+- Reject missing, inactive, expired, or malformed sessions
+- Normalize current and legacy role values
+- Grant Owner and Developer full access
+- Require explicit area permissions for Artist access
+- Deny Tester and Guest direct access to professional tools
+- Preserve invitation-only access as a separate future area
+- Fail closed when configuration or remote validation is unavailable
+
+The local role-and-permission migration is authored but has not been applied
+to the remote database. Runtime fallback keeps the current legacy role schema
+compatible until a separately approved migration.
+
 ### AvatarStudio
 
-The main editor composition layer.
+The Advanced Mode editor composition layer.
 
 `AvatarStudio` currently coordinates actor state, selection, viewport state,
 local draft persistence, session history, asset hydration, import/export,
@@ -224,7 +290,7 @@ Responsibilities:
 
 ### Toolbar
 
-The primary command surface for editor-wide actions.
+The primary command surface for Advanced Mode editor-wide actions.
 
 The Toolbar exposes Undo, Redo, Highlight, Solo, grid, safe area, rulers,
 snapping, actor centering, Reset View, Reset Actor, PNG import,
@@ -559,7 +625,7 @@ The proposed dependency flow is:
 Authorized Source Material
           │
           ▼
- Digital Human Wizard
+ Felencho Studio Conversation
           │
           ▼
 Multimodal Actor Builder
@@ -585,7 +651,8 @@ Multimodal Actor Builder
 ```
 
 This flow must converge on the existing actor contract. AI-assisted actors and
-manually authored actors must use the same Studio and runtime.
+manually authored actors must use the same Advanced Mode and Genesis Engine
+runtime.
 
 ### Architectural Dependencies
 
@@ -624,7 +691,7 @@ than rewriting existing actor packages. Legacy `image` fields normalize to
 and omitted schema, asset, folder, group, construction, relationship, blend,
 display, or optional layer fields receive documented defaults. Exported
 working definitions use the normalized contract and current actor schema
-version, independently of the Genesis Studio release.
+version, independently of the Genesis Engine release.
 
 ## Integration Boundaries
 

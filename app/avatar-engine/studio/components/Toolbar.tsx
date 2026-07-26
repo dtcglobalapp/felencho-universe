@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import {
+  FELENCHO_STUDIO,
   GENESIS,
 } from "../../config/GenesisConfig";
 
@@ -118,7 +119,7 @@ export default function Toolbar({
               letterSpacing: "0.08em",
             }}
           >
-            FELENCHO AVATAR STUDIO
+            {`${FELENCHO_STUDIO.name.toUpperCase()} · ${FELENCHO_STUDIO.advancedMode.toUpperCase()}`}
           </div>
 
           <div
@@ -129,7 +130,7 @@ export default function Toolbar({
               letterSpacing: "0.18em",
             }}
           >
-            {`${GENESIS.name.toUpperCase()} v${GENESIS.version} · ${GENESIS.codename.toUpperCase()}`}
+            {`POWERED BY ${GENESIS.name.toUpperCase()} ENGINE v${GENESIS.version} · ${GENESIS.codename.toUpperCase()}`}
           </div>
         </div>
       </div>

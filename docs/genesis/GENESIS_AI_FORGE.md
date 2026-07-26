@@ -1,31 +1,53 @@
-# Genesis AI Forge
+# Felencho Studio AI Creation Architecture
 
 ## Product Definition
 
-Genesis AI Forge is a **future product layer** inside Felencho.ai for creating
-complete digital performers and intelligent characters.
+Felencho Studio is the public product for creating digital professionals,
+digital actors, and intelligent characters.
 
-It is not only an avatar generator.
+Genesis AI Forge was the earlier public working name for the creation layer.
+That name is now retired from product UI. Genesis Engine remains the internal
+technology layer, while this document preserves the filename for stable
+engineering references.
 
-Its long-term purpose is to coordinate multimodal source analysis, actor
+Felencho Studio is not an avatar generator or a layer editor. Its long-term
+purpose is to coordinate multimodal source analysis, conversational knowledge
+discovery, actor
 construction, rigging, performance configuration, voice, personality,
 emotion, validation, review, and runtime export through one governed creative
 workflow.
 
-Genesis AI Forge is not currently implemented as a product.
+The Phase 1 product foundation is implemented. Automatic quality analysis,
+conversational knowledge extraction, asset separation, mask generation,
+rigging, and actor generation are not yet implemented.
 
 ## Capability Status Vocabulary
 
 | Status | Meaning |
 | --- | --- |
-| **Current** | Available in the present Genesis Studio or runtime |
+| **Current** | Available in Felencho Studio, Advanced Mode, or the Genesis Engine runtime |
 | **Planned** | Accepted product direction requiring implementation |
 | **Experimental** | Requires prototypes, measured validation, and safety review |
 | **Long-term research** | Strategic ambition without a committed production approach |
 
 ## Current Foundation
 
-The following foundations are current:
+The following product foundations are current:
+
+- Public Felencho Studio entry at `/felencho-studio`
+- A conversational first prompt asking what the user wants to create
+- Seven data-defined creation directions
+- Working local photo selection
+- Working local short-video recording
+- Clear disclosure that Phase 1 media remains on the device
+- Protected Advanced Mode at `/felencho-studio/advanced`
+- Server-side temporary-session, role, expiry, and permission enforcement
+- Owner, Developer, Artist, Tester, and Guest authorization contracts
+- Compatibility with legacy database role values before migration
+- A local database migration prepared but not applied remotely
+
+The following Genesis Engine and Advanced Mode foundations also remain
+current:
 
 - Data-driven actor loading from `actor.json`
 - Actor-definition validation
@@ -38,29 +60,32 @@ The following foundations are current:
 - Actor-definition export
 - Limited gaze, blink, head, and idle runtime motion
 
-Genesis does not currently generate complete actors automatically or export
-production actor packages to external engines.
+Felencho Studio does not currently upload source media, analyze source
+quality, conduct the discovery interview, generate complete actors
+automatically, or export production actor packages to external engines.
 
 ## Product Goals
 
-Genesis AI Forge should eventually allow a creator to:
+Felencho Studio should eventually allow a creator to:
 
-1. Define a character and intended use.
-2. Supply authorized source material.
-3. Analyze and organize multimodal evidence.
-4. Generate or assemble candidate actor assets.
-5. Configure performance systems.
-6. Review uncertainty and generated content.
-7. Approve identity-sensitive output.
-8. Validate a complete actor package.
-9. Export to supported runtimes and production targets.
+1. Describe what they want to create through conversation.
+2. Supply an authorized photograph or short video.
+3. Receive source-quality guidance.
+4. Explain knowledge, audience, languages, boundaries, and personality
+   naturally.
+5. Review structured knowledge derived from that conversation.
+6. Generate or assemble candidate actor assets.
+7. Review uncertainty and generated content.
+8. Approve identity-sensitive output.
+9. Validate a complete actor package.
+10. Export to supported runtimes and production targets.
 
 Human review and creator control are mandatory throughout.
 
 ## Product Architecture
 
 ```text
-Digital Human Wizard
+Felencho Studio Conversation
         │
         ▼
 Multimodal Actor Builder
@@ -88,7 +113,12 @@ Genesis Actor Package
 ```
 
 Every imported actor must converge on the same `ActorDefinition` and Genesis
-runtime contracts. AI Forge must not create a parallel actor model.
+Engine runtime contracts. Felencho Studio must not create a parallel actor
+model.
+
+The conversation is not a conventional setup wizard. Forms and professional
+configuration panels remain hidden unless they are essential to consent,
+rights, safety, or explicit Advanced Mode work.
 
 ## Capability Map
 
@@ -231,7 +261,7 @@ Requires output-target adapters and calibration described in
 ## Multimodal Actor Builder
 
 The Multimodal Actor Builder is a planned orchestration subsystem within AI
-Forge.
+creation architecture.
 
 It should:
 
@@ -249,7 +279,7 @@ which outputs.
 
 ## Human Review
 
-AI Forge must provide review at the level of:
+Felencho Studio must eventually provide review at the level of:
 
 - Source
 - Trait
@@ -270,7 +300,7 @@ preselected checkbox.
 Every real-person workflow must integrate
 [ETHICAL_DIGITAL_IDENTITY.md](./ETHICAL_DIGITAL_IDENTITY.md).
 
-AI Forge must enforce:
+Felencho Studio must enforce:
 
 - Identity classification
 - Consent verification
@@ -329,9 +359,12 @@ A Forge actor must not be finalized until it passes:
 
 ## Non-Goals
 
-Genesis AI Forge must not:
+Felencho Studio must not:
 
 - Claim complete automation before it exists
+- Present itself as Genesis Engine
+- Require beginners to operate Advanced Mode
+- Turn the conversational experience into a technical setup wizard
 - Hide generated or reconstructed regions
 - Replace creator approval
 - Bypass identity rights

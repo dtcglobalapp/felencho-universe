@@ -1,9 +1,9 @@
-# Genesis Studio OS
+# Felencho Studio OS and Genesis Advanced Mode
 
 ## Purpose
 
-Studio OS is the long-term operating architecture of the Genesis professional
-Avatar Studio.
+Studio OS is the long-term operating architecture of Felencho Studio Advanced
+Mode and the internal Genesis Engine authoring environment.
 
 It coordinates editor modules, actor documents, commands, history, selection,
 viewport state, preview runtime, validation, and export. It is not an operating
@@ -12,7 +12,13 @@ Genesis authoring tools behave as one product.
 
 ## Current Status
 
-The current Genesis Studio provides:
+Felencho Studio now has two distinct current surfaces:
+
+- A public, conversation-led Phase 1 creation entry with on-device photo and
+  short-video capture
+- A protected Advanced Mode containing the complete professional actor editor
+
+The current Advanced Mode provides:
 
 - Actor loading
 - Actor schema normalization and structural validation
@@ -36,7 +42,21 @@ The current Genesis Studio provides:
 - `actor.json` export
 - Portable actor-package export and re-import
 
-The current composition root is `AvatarStudio`.
+The Advanced Mode composition root is `AvatarStudio`.
+
+## Product Boundary
+
+Felencho Studio is the public product. Genesis Engine is the internal
+technology layer.
+
+Most users should never encounter layers, masks, hierarchy, pivots, rigging,
+timelines, blend modes, or transforms. Studio OS must progressively disclose
+professional tooling and keep it behind authorization.
+
+The public creation experience should feel like an intelligent assistant, not
+a setup wizard. It discovers knowledge, audience, languages, personality,
+services, and content boundaries through future conversation while internal
+systems perform technical work.
 
 ## Design Principles
 
@@ -57,7 +77,7 @@ clear ownership.
 
 ### AvatarStudio
 
-Composition root and current owner of shared editor state.
+Advanced Mode composition root and current owner of shared editor state.
 
 ### Toolbar
 
@@ -316,6 +336,10 @@ requests redesign.
 
 UI styling should eventually move toward a reusable design system, but that
 work must be scoped and approved independently.
+
+Public Felencho Studio product design is a separate surface from Advanced
+Mode. Improving the beginner experience must not remove or silently rewrite
+professional editor capabilities.
 
 ## Performance
 

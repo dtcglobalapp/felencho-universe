@@ -1,4 +1,4 @@
-# Genesis Manifesto
+# Genesis Engine Manifesto
 
 ## Constitutional Foundation
 
@@ -14,18 +14,37 @@ conflicts with the Founding Principles, the principles take precedence.
 
 ## Our Vision
 
-Genesis is a professional Avatar Studio for building, configuring, animating,
-and operating AI-powered digital humans.
+Genesis Engine is the internal digital-human technology foundation of
+Felencho Studio.
 
-Its ambition is comparable to Live2D Cubism, while its purpose is distinct:
-Genesis is designed for intelligent characters that can speak, listen, react,
-express emotion, and participate in real-time digital experiences. It is both
-an authoring environment and the foundation of a shared runtime for characters
-that must remain visually expressive, operationally reliable, and capable of
-evolving with advances in artificial intelligence.
+Its professional authoring ambition is comparable to Live2D Cubism, while its
+purpose is distinct: Genesis is designed to power intelligent characters that
+can eventually speak, listen, react, express emotion, and participate in
+real-time digital experiences. It provides the shared actor contracts,
+loading, rendering, authoring, packaging, and runtime foundations required for
+that future.
 
-Genesis is not a collection of isolated character demos. It is a long-term
-platform for creating digital people.
+Felencho Studio is the product creators use. Genesis Engine is the technology
+that performs the technical work behind it. Genesis must not become a public
+workflow that forces teachers, doctors, lawyers, musicians, business owners,
+parents, creators, or other professionals to operate an avatar editor.
+
+Genesis is not a collection of isolated character demos or the identity of a
+layer-editing product. It is a long-term engine for creating and operating
+digital people.
+
+## Felencho Studio Product Boundary
+
+The public product asks what the user wants to create, accepts a photograph or
+short video, and progressively guides the user through conversation.
+
+Professional concepts such as layers, masks, hierarchy, pivots, rigging,
+timelines, blend modes, and transforms belong behind that experience. They
+should appear only in protected Advanced Mode when an authorized professional
+needs them.
+
+The software must adapt to the user. The user must not be required to adapt to
+the engine.
 
 ## One Engine, Every Character
 
@@ -60,8 +79,9 @@ library without expanding the engine's collection of exceptions.
 
 ## Professional Authoring
 
-Genesis must support a workflow suitable for serious creative and production
-work. The editor should become a coherent environment for:
+Genesis must preserve a workflow suitable for serious creative and production
+work. The existing editor is Felencho Studio Advanced Mode and should remain a
+coherent environment for:
 
 - Constructing actors from layered visual assets
 - Inspecting and editing actor properties
@@ -73,7 +93,8 @@ work. The editor should become a coherent environment for:
 
 Each tool must contribute to a consistent editing model. Selection, history,
 timelines, transforms, asset management, and export must operate as parts of
-one system rather than unrelated features.
+one system rather than unrelated features. Advanced Mode is a correction and
+power-user surface, not the public creation experience.
 
 ## Intelligent Arts and Human Agency
 

@@ -1,48 +1,121 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { fullName, email, reason } = await req.json();
+    const supabaseUrl =
+      process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-    if (!fullName || !email) {
+    const serviceRoleKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
-        { error: "Nombre y email requeridos." },
-        { status: 400 }
+        {
+          error:
+            "El servicio de acceso no está configurado.",
+        },
+        { status: 500 },
       );
     }
 
-    const cleanEmail = String(email).trim().toLowerCase();
+    const payload: unknown =
+      await request.json();
 
-    const { error } = await supabase
+    if (!isRecord(payload)) {
+      return NextResponse.json(
+        { error: "Solicitud inválida." },
+        { status: 400 },
+      );
+    }
+
+    const fullName = String(
+      payload.fullName ?? "",
+    ).trim();
+
+    const email = String(
+      payload.email ?? "",
+    )
+      .trim()
+      .toLowerCase();
+
+    const reason = String(
+      payload.reason ?? "",
+    ).trim();
+
+    if (!fullName || !email) {
+      return NextResponse.json(
+        {
+          error:
+            "Nombre y email requeridos.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const supabase = createClient(
+      supabaseUrl,
+      serviceRoleKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
+
+    const requestRecord = {
+      full_name: fullName,
+      email,
+      reason: reason || null,
+      status: "pending",
+      requested_role: "guest",
+    };
+
+    let { error } = await supabase
       .from("studio_access_requests")
-      .insert({
-        full_name: String(fullName).trim(),
-        email: cleanEmail,
-        reason: reason ? String(reason).trim() : null,
-        status: "pending",
-        requested_role: "viewer",
-      });
+      .insert(requestRecord);
+
+    // The remote database retains the legacy role constraint until the
+    // local Phase 1 migration receives separate deployment approval.
+    if (error?.code === "23514") {
+      ({ error } = await supabase
+        .from("studio_access_requests")
+        .insert({
+          ...requestRecord,
+          requested_role: "viewer",
+        }));
+    }
 
     if (error) {
       return NextResponse.json(
         { error: error.message },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+    });
   } catch {
     return NextResponse.json(
-      { error: "Error enviando solicitud." },
-      { status: 500 }
+      {
+        error:
+          "Error enviando solicitud.",
+      },
+      { status: 500 },
     );
   }
 }

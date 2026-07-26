@@ -238,11 +238,33 @@ Whenever architecture changes, update the following when appropriate:
 
 Documentation is considered part of the codebase.
 
+## Product and Engine Boundary
+
+Felencho Studio is the public product.
+
+Genesis Engine is the internal technology layer that powers actor loading,
+rendering, authoring, packages, and future animation, rigging, lip sync,
+vision, and AI processing.
+
+Public experiences must use Felencho Studio language. The existing
+professional editor is preserved as protected **Advanced Mode** for owners,
+developers, explicitly authorized artists, and internal correction workflows.
+It is not the default customer experience.
+
+The public interaction model must favor conversation, progressive disclosure,
+and automatic assistance. It must not require nontechnical users to understand
+layers, masks, pivots, rigs, hierarchies, blend modes, or transforms.
+
+The historical term "Genesis AI Forge" now refers to the internal creation
+architecture, not a public product name. New product UI must not present
+Genesis as the application the customer is using.
+
 ## Long-Term Vision
 
 Genesis is intended to evolve into:
 
-- Professional Avatar Studio
+- Internal digital-human engine
+- Advanced professional authoring foundation
 - Animation Engine
 - Lip Sync Engine
 - Emotion Engine
@@ -256,8 +278,8 @@ Genesis is intended to evolve into:
 - VR Connector
 - Hologram Connector
 - Digital Human Platform
-- Genesis AI Forge
-- Digital Human Wizard
+- Felencho Studio creation services
+- Conversational creation experience
 - AI-Assisted Actor Pipeline
 - Multimodal Actor Builder
 - Digital Identity Safety

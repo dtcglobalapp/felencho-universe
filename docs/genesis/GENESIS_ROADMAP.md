@@ -2,9 +2,10 @@
 
 ## Purpose
 
-This roadmap defines the planned progression of Genesis from its current
-modular editor foundation to a production-ready Avatar Studio for AI-powered
-digital humans.
+This roadmap defines the planned progression of Felencho Studio and its
+internal Genesis Engine from the current professional authoring foundation to
+a conversation-first AI Studio for creating digital professionals, digital
+actors, and intelligent characters.
 
 The roadmap is directional. Sprint scope may be refined as the architecture
 evolves, but the core requirements remain constant:
@@ -26,7 +27,53 @@ rendering and manipulation, folders and transform groups, local PNG assets,
 portable actor packages, mouth-pose mapping, structural validation, and
 profile-based construction completeness.
 
+Felencho Studio Phase 1 now places that editor behind protected Advanced Mode
+and establishes Felencho Studio as the public product. Genesis v0.6 remains
+the current internal engine release; Phase 1 does not change the actor schema
+or claim new AI-generation capability.
+
 ## Completed
+
+### Felencho Studio Phase 1 — Public Product and Access Foundation
+
+Status: **Completed locally; remote role migration pending final approval**
+
+Delivered:
+
+- Established Felencho Studio as the public product identity
+- Repositioned Genesis as the internal engine
+- Added the public `/felencho-studio` entry
+- Added a conversation-led creation-direction prompt
+- Added seven initial creation directions
+- Added working on-device photo selection
+- Added working on-device short-video recording
+- Disclosed that media upload and AI analysis are not yet implemented
+- Preserved the complete v0.6 editor as protected Advanced Mode
+- Added server-side temporary-session, expiration, role, and permission checks
+- Added Owner, Developer, Artist, Tester, and Guest authorization contracts
+- Added legacy role normalization for the current database
+- Added focused authorization tests
+- Prepared but did not remotely apply the role-and-permission migration
+- Kept all actor JSON packages and renderer architecture unchanged
+
+Architectural result:
+
+The public product no longer opens into professional actor-editing controls.
+Felencho Studio owns the customer experience; Genesis Engine owns the
+technical actor foundation. Advanced Mode remains available to Owner and
+Developer roles and to Artists with an explicit area permission. Tester and
+Guest roles cannot enter the editor directly.
+
+Known limitations:
+
+- Phase 1 media remains only in browser memory
+- There is no upload, persistence, account project, or cloud workspace
+- AI quality analysis is not implemented
+- Conversational knowledge discovery is not implemented
+- Automatic separation, masking, pivot detection, rigging, and actor
+  generation remain planned or experimental
+- The new database role constraints and permission columns are not active
+  remotely until the prepared migration receives separate approval
 
 ### Sprint 1 — Toolbar Extraction
 
@@ -264,9 +311,9 @@ Exit criteria:
 
 ## Future Product Phases
 
-The phases below follow the initial Genesis Studio production release. They
-describe product direction, not implemented capability or committed delivery
-dates.
+The phases below extend the initial Genesis Engine and Advanced Mode
+production foundation. They describe product direction, not implemented
+capability or committed delivery dates.
 
 ### Phase A — Identity Safety and Creation Contracts
 
@@ -289,31 +336,35 @@ Related documents:
 - [ETHICAL_DIGITAL_IDENTITY.md](./ETHICAL_DIGITAL_IDENTITY.md)
 - [ACTOR_SPEC.md](./ACTOR_SPEC.md)
 
-### Phase B — Digital Human Wizard and Multimodal Intake
+### Phase B — Conversational Creation and Multimodal Intake
 
 Status: **Planned**
 
 Goals:
 
-- Adaptive guided character creation
+- Natural assistant-led character creation
 - Source and rights intake
 - Character-category branching
 - Multimodal source inventory
 - Source coverage and quality diagnostics
 - Creator-controlled traits
+- Conversational discovery of knowledge, audience, languages, personality,
+  services, and prohibited topics
 - Review of detected, selected, uncertain, and generated traits
 
 This phase produces creation briefs and validated source manifests. It does
-not promise automatic production-ready actors.
+not promise automatic production-ready actors and must not become a
+traditional setup wizard.
 
 Related documents:
 
 - [DIGITAL_HUMAN_WIZARD.md](./DIGITAL_HUMAN_WIZARD.md)
 - [AI_PIPELINE.md](./AI_PIPELINE.md)
 
-### Phase C — Genesis AI Forge Assisted Creation
+### Phase C — Felencho Studio Assisted Creation
 
-Status: **Planned product layer with experimental subsystems**
+Status: **Planned automation over the current product foundation, with
+experimental subsystems**
 
 Goals:
 
