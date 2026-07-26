@@ -19,6 +19,9 @@ responsibilities include:
 - Opacity
 - Translation, rotation, and scale
 - Pivot-aware transforms
+- Parent and transform-group inheritance
+- Effective folder, group, and layer visibility
+- Typed Canvas 2D blend modes
 - Eye movement
 - Blink deformation
 - Head movement
@@ -50,6 +53,7 @@ The loaded actor contains:
 
 - One authoritative `ActorDefinition`
 - A layer-image lookup keyed by layer ID
+- An asset-image and runtime-URL lookup keyed by logical asset path
 - Normalization and asset diagnostics
 
 The renderer must never maintain its own copy of layer definitions.
@@ -74,13 +78,16 @@ The current pipeline is:
 3. Apply the configured display scale and offsets.
 4. Calculate the actor center.
 5. Apply head and idle body transforms.
-6. Sort `ActorDefinition.layers` by z-index and stable ID.
-7. Skip invisible, unsupported, or unavailable layers.
-8. Resolve the layer image by ID.
-9. Apply runtime offsets for semantic rig roles.
-10. Apply layer opacity and its pivot-aware transform.
-11. Draw the image.
-12. Restore canvas state.
+6. Build runtime transform overrides for semantic rig roles.
+7. Resolve effective folder, group, and layer visibility through
+   `ActorHierarchy`.
+8. Resolve each layer world matrix through `ActorTransformResolver`.
+9. Sort `ActorDefinition.layers` by z-index and stable ID.
+10. Skip invisible, unsupported, or unavailable layers.
+11. Resolve the layer image by ID.
+12. Apply layer opacity and its supported blend mode.
+13. Apply the resolved world transform and draw the image.
+14. Restore canvas state.
 
 Every canvas `save()` operation must have a corresponding `restore()`.
 
@@ -117,6 +124,39 @@ Physical canvas backing-store pixels after device-pixel-ratio scaling.
 Conversions between these spaces must be explicit. Editor hit testing and
 selection geometry must agree with renderer transforms.
 
+## Hierarchy and Shared Transform Resolution
+
+Folders are organizational and never contribute a transform. Logical groups
+and parented layers form the actor transform hierarchy.
+
+`ActorHierarchy` validates effective visibility and locking and rejects
+self-parenting, missing references, and cycles. `ActorTransformResolver`
+composes local transforms into actor-space world matrices with caching and
+recursion protection.
+
+ActorRenderer and StudioCanvas use these shared systems. A hierarchy rule must
+not be reimplemented independently in the editor, because selection handles,
+hit testing, and final rendering must agree.
+
+Deleting a transform parent clears child references through
+`ActorDocumentCommands`. Invalid external hierarchy data is reported by
+ActorValidator before rendering.
+
+## Blend Modes
+
+The Canvas 2D renderer supports and exports only:
+
+- `source-over`
+- `multiply`
+- `screen`
+- `overlay`
+- `darken`
+- `lighten`
+
+These values map to `globalCompositeOperation`. Unsupported source values
+receive a safe `source-over` normalization warning rather than being exported
+as a working feature.
+
 ## Semantic Rig Behavior
 
 The renderer may apply behavior based on semantic rig references such as:
@@ -138,6 +178,10 @@ the remaining actor to reach a usable ready state.
 
 The current renderer supports `type: "image"`. Unsupported future layer types
 are preserved for inspection but skipped with diagnostics.
+
+Bundled assets resolve from public URLs. Local and packaged assets resolve from
+blobs owned by `ActorAssetRepository`. A missing blob produces a diagnostic;
+the renderer receives no image for that asset and safely skips it.
 
 ## Performance Rules
 
@@ -166,8 +210,6 @@ Preview-only changes must not enter history or exported actor data.
 Planned capabilities include:
 
 - Masks and clipping
-- Blend modes
-- Hierarchical transforms
 - Mesh deformation
 - Animation blending
 - Physics results

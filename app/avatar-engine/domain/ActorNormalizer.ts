@@ -1,18 +1,38 @@
 import type {
   ActorAnimationDefinition,
+  ActorAssetDefinition,
+  ActorAssetSource,
+  ActorBlendMode,
+  ActorConstructionDefinition,
   ActorDefinition,
   ActorDiagnostic,
   ActorDisplayDefinition,
+  ActorFolderDefinition,
+  ActorGroupDefinition,
   ActorLayerDefinition,
   ActorLayerMetadata,
+  ActorMouthPose,
   ActorNormalizationResult,
   ActorRigDefinition,
   ActorTransform,
 } from "./ActorDefinition";
 
 import {
+  ACTOR_MOUTH_POSES,
+  ACTOR_SCHEMA_VERSION,
+} from "./ActorDefinition";
+
+import {
+  CUSTOM_CONSTRUCTION_PROFILE,
+  DEFAULT_ACTOR_FOLDERS,
+  DEFAULT_CONSTRUCTION_PROFILE,
+  GENESIS_BLEND_MODES,
+} from "../config/ActorEditorConfig";
+
+import {
   ActorDefinitionValidationError,
   assertActorDefinition,
+  isActorBlinkDefinition,
 } from "./ActorValidator";
 
 interface NormalizeActorOptions {
@@ -28,6 +48,9 @@ interface NormalizeLayerOptions {
 
 type LayerOrder = "ascending" | "descending";
 
+const mouthPoseSet =
+  new Set<string>(ACTOR_MOUTH_POSES);
+
 function isRecord(
   value: unknown,
 ): value is Record<string, unknown> {
@@ -35,6 +58,14 @@ function isRecord(
     Boolean(value) &&
     typeof value === "object" &&
     !Array.isArray(value)
+  );
+}
+
+function actorBlendMode(
+  value: unknown,
+): ActorBlendMode | undefined {
+  return GENESIS_BLEND_MODES.find(
+    (mode) => mode === value,
   );
 }
 
@@ -243,7 +274,7 @@ function normalizeTransform(
       `Layer "${layerId}" has an invalid vertical pivot.`,
       layerId,
     ),
-  } as ActorTransform;
+  };
 }
 
 function normalizeOpacity(
@@ -286,14 +317,14 @@ function normalizeOpacity(
   return normalized;
 }
 
-function normalizeOptionalRecord<T>(
+function normalizeOptionalRecord(
   value: unknown,
   warnings: ActorDiagnostic[],
   code: string,
   path: string,
   message: string,
   layerId: string,
-): T | undefined {
+): Record<string, unknown> | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -313,7 +344,104 @@ function normalizeOptionalRecord<T>(
 
   return {
     ...value,
-  } as T;
+  };
+}
+
+function normalizeLayerMetadata(
+  value: unknown,
+  warnings: ActorDiagnostic[],
+  path: string,
+  layerId: string,
+  layerName: string,
+): ActorLayerMetadata | undefined {
+  const record =
+    normalizeOptionalRecord(
+      value,
+      warnings,
+      "INVALID_LAYER_METADATA",
+      path,
+      `Layer "${layerName}" has invalid metadata; it was omitted.`,
+      layerId,
+    );
+
+  if (!record) {
+    return undefined;
+  }
+
+  const {
+    category,
+    semanticRole,
+    ...futureMetadata
+  } = record;
+
+  return {
+    ...futureMetadata,
+    ...(typeof category ===
+    "string"
+      ? { category }
+      : {}),
+    ...(typeof semanticRole ===
+    "string"
+      ? { semanticRole }
+      : {}),
+  };
+}
+
+function optionalIdentifier(
+  value: unknown,
+): string | undefined {
+  if (
+    typeof value !== "string" ||
+    !value.trim()
+  ) {
+    return undefined;
+  }
+
+  return value.trim();
+}
+
+function deriveFolderId(
+  declaredFolderId: unknown,
+  metadata: ActorLayerMetadata | undefined,
+  asset: string,
+): string | undefined {
+  const explicit =
+    optionalIdentifier(declaredFolderId);
+
+  if (explicit) {
+    return explicit.toLowerCase();
+  }
+
+  const category =
+    optionalIdentifier(
+      metadata?.category,
+    );
+
+  if (category) {
+    return category.toLowerCase();
+  }
+
+  const layerPathMatch =
+    asset.match(
+      /\/layers\/([^/]+)\//i,
+    );
+
+  if (!layerPathMatch?.[1]) {
+    return undefined;
+  }
+
+  const folder =
+    layerPathMatch[1].toLowerCase();
+
+  if (folder === "armor") {
+    return "accessories";
+  }
+
+  if (folder === "mustache") {
+    return "beard";
+  }
+
+  return folder;
 }
 
 export function normalizeActorLayer(
@@ -397,6 +525,10 @@ export function normalizeActorLayer(
   const opacitySource =
     value.opacity ??
     rawTransform.opacity;
+  const blendMode =
+    actorBlendMode(
+      value.blendMode,
+    );
 
   const futureLayer = {
     ...value,
@@ -409,19 +541,16 @@ export function normalizeActorLayer(
   delete futureLayer.physics;
 
   const metadata =
-    normalizeOptionalRecord<ActorLayerMetadata>(
+    normalizeLayerMetadata(
       value.metadata,
       warnings,
-      "INVALID_LAYER_METADATA",
       `${path}.metadata`,
-      `Layer "${name}" has invalid metadata; it was omitted.`,
       id,
+      name,
     );
 
   const animation =
-    normalizeOptionalRecord<
-      Record<string, unknown>
-    >(
+    normalizeOptionalRecord(
       value.animation,
       warnings,
       "INVALID_LAYER_ANIMATION",
@@ -431,9 +560,7 @@ export function normalizeActorLayer(
     );
 
   const physics =
-    normalizeOptionalRecord<
-      Record<string, unknown>
-    >(
+    normalizeOptionalRecord(
       value.physics,
       warnings,
       "INVALID_LAYER_PHYSICS",
@@ -487,6 +614,21 @@ export function normalizeActorLayer(
       id,
       `${path}.transform`,
     ),
+    folderId: deriveFolderId(
+      value.folderId,
+      metadata,
+      declaredAsset,
+    ),
+    parentId: optionalIdentifier(
+      value.parentId,
+    ),
+    inheritTransform:
+      typeof value.inheritTransform ===
+      "boolean"
+        ? value.inheritTransform
+        : true,
+    blendMode:
+      blendMode ?? "source-over",
     ...(metadata
       ? { metadata }
       : {}),
@@ -526,9 +668,450 @@ export function normalizeActorLayer(
     );
   }
 
+  if (
+    value.blendMode !== undefined &&
+    (
+      !blendMode
+    )
+  ) {
+    warnings.push(
+      diagnostic(
+        "UNSUPPORTED_BLEND_MODE",
+        `Layer "${name}" uses an unsupported blend mode and defaults to source-over.`,
+        `${path}.blendMode`,
+        id,
+      ),
+    );
+  }
+
   return {
     layer,
     warnings,
+  };
+}
+
+function normalizeFolders(
+  value: unknown,
+  warnings: ActorDiagnostic[],
+): ActorFolderDefinition[] {
+  const folders = new Map(
+    DEFAULT_ACTOR_FOLDERS.map(
+      (folder) => [
+        folder.id,
+        {
+          ...folder,
+        },
+      ],
+    ),
+  );
+
+  if (
+    value !== undefined &&
+    !Array.isArray(value)
+  ) {
+    warnings.push(
+      diagnostic(
+        "INVALID_FOLDERS",
+        "Actor folders were invalid and received safe defaults.",
+        "folders",
+      ),
+    );
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      if (!isRecord(entry)) {
+        warnings.push(
+          diagnostic(
+            "INVALID_FOLDER",
+            `Folder at position ${index + 1} is invalid and was skipped.`,
+            `folders[${index}]`,
+          ),
+        );
+        return;
+      }
+
+      const id =
+        optionalIdentifier(entry.id);
+
+      if (!id) {
+        warnings.push(
+          diagnostic(
+            "INVALID_FOLDER",
+            `Folder at position ${index + 1} has no stable ID and was skipped.`,
+            `folders[${index}].id`,
+          ),
+        );
+        return;
+      }
+
+      const normalizedId =
+        id.toLowerCase();
+      const existing =
+        folders.get(normalizedId);
+
+      folders.set(normalizedId, {
+        id: normalizedId,
+        name:
+          optionalIdentifier(
+            entry.name,
+          ) ??
+          existing?.name ??
+          id,
+        parentId:
+          optionalIdentifier(
+            entry.parentId,
+          )?.toLowerCase(),
+        order: finiteOrDefault(
+          entry.order,
+          existing?.order ??
+            folders.size,
+          warnings,
+          "INVALID_FOLDER_ORDER",
+          `folders[${index}].order`,
+          `Folder "${id}" has an invalid order.`,
+        ),
+        visible:
+          typeof entry.visible ===
+          "boolean"
+            ? entry.visible
+            : existing?.visible ??
+              true,
+        locked:
+          typeof entry.locked ===
+          "boolean"
+            ? entry.locked
+            : existing?.locked ??
+              false,
+      });
+    });
+  }
+
+  return [...folders.values()].sort(
+    (first, second) =>
+      first.order - second.order ||
+      first.id.localeCompare(second.id),
+  );
+}
+
+function normalizeGroups(
+  value: unknown,
+  warnings: ActorDiagnostic[],
+): ActorGroupDefinition[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    warnings.push(
+      diagnostic(
+        "INVALID_GROUPS",
+        "Actor groups were invalid and were omitted.",
+        "groups",
+      ),
+    );
+    return [];
+  }
+
+  return value.flatMap(
+    (entry, index) => {
+      if (!isRecord(entry)) {
+        warnings.push(
+          diagnostic(
+            "INVALID_GROUP",
+            `Group at position ${index + 1} is invalid and was skipped.`,
+            `groups[${index}]`,
+          ),
+        );
+        return [];
+      }
+
+      const id =
+        optionalIdentifier(entry.id);
+
+      if (!id) {
+        warnings.push(
+          diagnostic(
+            "INVALID_GROUP",
+            `Group at position ${index + 1} has no stable ID and was skipped.`,
+            `groups[${index}].id`,
+          ),
+        );
+        return [];
+      }
+
+      return [
+        {
+          id,
+          name:
+            optionalIdentifier(
+              entry.name,
+            ) ?? id,
+          parentId:
+            optionalIdentifier(
+              entry.parentId,
+            ),
+          visible:
+            typeof entry.visible ===
+            "boolean"
+              ? entry.visible
+              : true,
+          locked:
+            typeof entry.locked ===
+            "boolean"
+              ? entry.locked
+              : false,
+          transform: normalizeTransform(
+            entry.transform,
+            warnings,
+            id,
+            `groups[${index}].transform`,
+          ),
+        },
+      ];
+    },
+  );
+}
+
+function normalizeAssetSource(
+  value: unknown,
+): ActorAssetSource {
+  return value === "local" ||
+    value === "packaged"
+    ? value
+    : "bundled";
+}
+
+function normalizeAssets(
+  value: unknown,
+  layers: readonly ActorLayerDefinition[],
+  assetBasePath: string,
+  warnings: ActorDiagnostic[],
+): ActorAssetDefinition[] {
+  const assets = new Map<
+    string,
+    ActorAssetDefinition
+  >();
+
+  if (
+    value !== undefined &&
+    !Array.isArray(value)
+  ) {
+    warnings.push(
+      diagnostic(
+        "INVALID_ASSETS",
+        "Actor assets were invalid and were reconstructed from layer references.",
+        "assets",
+      ),
+    );
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      if (!isRecord(entry)) {
+        warnings.push(
+          diagnostic(
+            "INVALID_ASSET",
+            `Asset at position ${index + 1} is invalid and was skipped.`,
+            `assets[${index}]`,
+          ),
+        );
+        return;
+      }
+
+      const declaredPath =
+        optionalIdentifier(entry.path);
+
+      if (!declaredPath) {
+        warnings.push(
+          diagnostic(
+            "INVALID_ASSET",
+            `Asset at position ${index + 1} has no path and was skipped.`,
+            `assets[${index}].path`,
+          ),
+        );
+        return;
+      }
+
+      const path = normalizeAssetPath(
+        declaredPath,
+        assetBasePath,
+        warnings,
+        `assets[${index}].path`,
+        `asset-${index + 1}`,
+      );
+
+      if (!path) {
+        return;
+      }
+
+      const fileName =
+        path.split("/").at(-1) ??
+        `asset-${index + 1}.png`;
+
+      assets.set(path, {
+        path,
+        name:
+          optionalIdentifier(
+            entry.name,
+          ) ?? fileName,
+        mediaType: "image/png",
+        source: normalizeAssetSource(
+          entry.source,
+        ),
+        ...(isFiniteNumber(
+          entry.width,
+        ) &&
+        entry.width > 0
+          ? { width: entry.width }
+          : {}),
+        ...(isFiniteNumber(
+          entry.height,
+        ) &&
+        entry.height > 0
+          ? { height: entry.height }
+          : {}),
+        ...(typeof entry.hasAlpha ===
+        "boolean"
+          ? {
+              hasAlpha:
+                entry.hasAlpha,
+            }
+          : {}),
+        ...(isFiniteNumber(
+          entry.byteLength,
+        ) &&
+        entry.byteLength >= 0
+          ? {
+              byteLength:
+                entry.byteLength,
+            }
+          : {}),
+      });
+    });
+  }
+
+  for (const layer of layers) {
+    if (!layer.asset) {
+      continue;
+    }
+
+    if (!assets.has(layer.asset)) {
+      assets.set(layer.asset, {
+        path: layer.asset,
+        name:
+          layer.asset
+            .split("/")
+            .at(-1) ??
+          layer.name,
+        mediaType: "image/png",
+        source: "bundled",
+      });
+    }
+  }
+
+  return [...assets.values()].sort(
+    (first, second) =>
+      first.path.localeCompare(
+        second.path,
+      ),
+  );
+}
+
+function normalizeConstruction(
+  value: unknown,
+  warnings: ActorDiagnostic[],
+): ActorConstructionDefinition {
+  const raw = isRecord(value)
+    ? value
+    : {};
+
+  if (
+    value !== undefined &&
+    !isRecord(value)
+  ) {
+    warnings.push(
+      diagnostic(
+        "INVALID_CONSTRUCTION",
+        "Actor construction settings were invalid and received safe defaults.",
+        "construction",
+      ),
+    );
+  }
+
+  const profile =
+    optionalIdentifier(raw.profile) ??
+    DEFAULT_CONSTRUCTION_PROFILE.profile;
+
+  const base =
+    profile === "custom"
+      ? CUSTOM_CONSTRUCTION_PROFILE
+      : DEFAULT_CONSTRUCTION_PROFILE;
+
+  const stringArray = (
+    source: unknown,
+    fallback: readonly string[],
+  ): string[] =>
+    Array.isArray(source)
+      ? source.flatMap((item) => {
+          const normalized =
+            optionalIdentifier(item);
+          return normalized
+            ? [normalized]
+            : [];
+        })
+      : [...fallback];
+
+  const requiredMouthPoses =
+    stringArray(
+      raw.requiredMouthPoses,
+      base.requiredMouthPoses,
+    ).filter(
+      (
+        pose,
+      ): pose is ActorMouthPose =>
+        mouthPoseSet.has(pose),
+    );
+
+  const mouthPoses: Partial<
+    Record<ActorMouthPose, string>
+  > = {};
+
+  if (isRecord(raw.mouthPoses)) {
+    for (
+      const [pose, layerId] of
+      Object.entries(raw.mouthPoses)
+    ) {
+      const normalizedPose =
+        ACTOR_MOUTH_POSES.find(
+          (item) => item === pose,
+        );
+      const normalizedLayerId =
+        optionalIdentifier(layerId);
+
+      if (
+        normalizedPose &&
+        normalizedLayerId
+      ) {
+        mouthPoses[
+          normalizedPose
+        ] = normalizedLayerId;
+      }
+    }
+  }
+
+  return {
+    profile,
+    requiredRoles: stringArray(
+      raw.requiredRoles,
+      base.requiredRoles,
+    ),
+    optionalRoles: stringArray(
+      raw.optionalRoles,
+      base.optionalRoles,
+    ),
+    requiredMouthPoses,
+    mouthPoses,
   };
 }
 
@@ -628,7 +1211,7 @@ function normalizeDisplay(
     ),
     maxStageWidth,
     maxStageHeight,
-  } as ActorDisplayDefinition;
+  };
 }
 
 function positiveRequiredNumber(
@@ -654,6 +1237,114 @@ function positiveRequiredNumber(
     error.message,
     [error],
   );
+}
+
+function normalizeRig(
+  value: unknown,
+  warnings: ActorDiagnostic[],
+  actorId: string,
+): ActorRigDefinition {
+  if (!isRecord(value)) {
+    warnings.push(
+      diagnostic(
+        "INVALID_RIG",
+        `Actor "${actorId}" has no valid rig object; an empty rig is used.`,
+        "rig",
+      ),
+    );
+    return {};
+  }
+
+  const rig: ActorRigDefinition = {};
+
+  for (
+    const [role, target] of
+    Object.entries(value)
+  ) {
+    if (
+      typeof target === "string" &&
+      target.trim()
+    ) {
+      rig[role] = target.trim();
+      continue;
+    }
+
+    if (
+      Array.isArray(target) &&
+      target.every(
+        (item) =>
+          typeof item === "string" &&
+          Boolean(item.trim()),
+      )
+    ) {
+      rig[role] = target.map(
+        (item) => item.trim(),
+      );
+      continue;
+    }
+
+    if (target !== undefined) {
+      warnings.push(
+        diagnostic(
+          "INVALID_RIG_TARGET",
+          `Rig role "${role}" has an invalid target and was omitted.`,
+          `rig.${role}`,
+        ),
+      );
+    }
+  }
+
+  return rig;
+}
+
+function normalizeAnimations(
+  value: unknown,
+  actorId: string,
+  warnings: ActorDiagnostic[],
+): ActorAnimationDefinition | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    warnings.push(
+      diagnostic(
+        "INVALID_ANIMATIONS",
+        `Actor "${actorId}" has invalid animation data; it was omitted.`,
+        "animations",
+      ),
+    );
+    return undefined;
+  }
+
+  const {
+    blink,
+    ...futureAnimations
+  } = value;
+
+  if (blink === undefined) {
+    return futureAnimations;
+  }
+
+  if (!isActorBlinkDefinition(blink)) {
+    const error: ActorDiagnostic = {
+      severity: "error",
+      code:
+        "INVALID_BLINK_DEFINITION",
+      message: `Actor "${actorId}" has an invalid blink animation definition.`,
+      path: "animations.blink",
+    };
+
+    throw new ActorDefinitionValidationError(
+      error.message,
+      [error],
+    );
+  }
+
+  return {
+    ...futureAnimations,
+    blink,
+  };
 }
 
 export function normalizeActorDefinition(
@@ -751,42 +1442,17 @@ export function normalizeActorDefinition(
       },
     );
 
-  const rig: ActorRigDefinition =
-    isRecord(value.rig)
-      ? {
-          ...value.rig,
-        } as ActorRigDefinition
-      : {};
-
-  if (!isRecord(value.rig)) {
-    warnings.push(
-      diagnostic(
-        "INVALID_RIG",
-        `Actor "${id}" has no valid rig object; an empty rig is used.`,
-        "rig",
-      ),
-    );
-  }
-
+  const rig = normalizeRig(
+    value.rig,
+    warnings,
+    id,
+  );
   const animations =
-    isRecord(value.animations)
-      ? {
-          ...value.animations,
-        } as ActorAnimationDefinition
-      : undefined;
-
-  if (
-    value.animations !== undefined &&
-    !isRecord(value.animations)
-  ) {
-    warnings.push(
-      diagnostic(
-        "INVALID_ANIMATIONS",
-        `Actor "${id}" has invalid animation data; it was omitted.`,
-        "animations",
-      ),
+    normalizeAnimations(
+      value.animations,
+      id,
+      warnings,
     );
-  }
 
   const fps =
     isFiniteNumber(value.fps) &&
@@ -809,12 +1475,18 @@ export function normalizeActorDefinition(
   };
 
   delete futureDefinition.layers;
+  delete futureDefinition.assets;
+  delete futureDefinition.folders;
+  delete futureDefinition.groups;
+  delete futureDefinition.construction;
   delete futureDefinition.display;
   delete futureDefinition.rig;
   delete futureDefinition.animations;
 
   const definition: ActorDefinition = {
     ...futureDefinition,
+    schemaVersion:
+      ACTOR_SCHEMA_VERSION,
     id,
     name:
       typeof value.name === "string" &&
@@ -835,14 +1507,33 @@ export function normalizeActorDefinition(
       height,
       warnings,
     ),
+    assets: normalizeAssets(
+      value.assets,
+      normalizedLayers,
+      assetBasePath,
+      warnings,
+    ),
+    folders: normalizeFolders(
+      value.folders,
+      warnings,
+    ),
+    groups: normalizeGroups(
+      value.groups,
+      warnings,
+    ),
     layers: sortActorLayers(
       normalizedLayers,
     ),
     rig,
+    construction:
+      normalizeConstruction(
+        value.construction,
+        warnings,
+      ),
     ...(animations
       ? { animations }
       : {}),
-  } as ActorDefinition;
+  };
 
   warnings.push(
     ...assertActorDefinition(definition),

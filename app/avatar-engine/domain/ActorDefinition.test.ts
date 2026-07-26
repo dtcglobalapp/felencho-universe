@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import {
+  readFile,
+} from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -10,8 +13,8 @@ import {
   ActorDefinitionValidationError,
 } from "./ActorValidator";
 
-import type {
-  ActorLayerDefinition,
+import {
+  ACTOR_SCHEMA_VERSION,
 } from "./ActorDefinition";
 
 function createRawActor(
@@ -115,6 +118,23 @@ test(
           .transform,
       false,
     );
+
+    assert.equal(
+      result.definition.schemaVersion,
+      ACTOR_SCHEMA_VERSION,
+    );
+
+    assert.equal(
+      result.definition.layers[0]
+        .blendMode,
+      "source-over",
+    );
+
+    assert.equal(
+      result.definition.layers[0]
+        .inheritTransform,
+      true,
+    );
   },
 );
 
@@ -187,6 +207,14 @@ test(
     assert.equal(layer.locked, false);
     assert.equal(layer.opacity, 1);
     assert.equal(layer.zIndex, 0);
+    assert.equal(
+      layer.blendMode,
+      "source-over",
+    );
+    assert.equal(
+      layer.inheritTransform,
+      true,
+    );
     assert.deepEqual(
       layer.transform,
       {
@@ -198,6 +226,43 @@ test(
         pivotX: 0.5,
         pivotY: 0.5,
       },
+    );
+  },
+);
+
+test(
+  "creates safe v0.6 folders, assets, and construction defaults for a legacy actor",
+  () => {
+    const result =
+      normalizeActorDefinition(
+        createRawActor([
+          createLayer(),
+        ]),
+        {
+          sourceActorId:
+            "test-actor",
+        },
+      );
+
+    assert.ok(
+      result.definition.folders.some(
+        (folder) =>
+          folder.id === "face",
+      ),
+    );
+    assert.equal(
+      result.definition.assets[0]
+        ?.path,
+      "/actors/test-actor/layers/face.png",
+    );
+    assert.equal(
+      result.definition.construction
+        .profile,
+      "digital-human",
+    );
+    assert.deepEqual(
+      result.definition.groups,
+      [],
     );
   },
 );
@@ -305,7 +370,7 @@ test(
 
     assert.deepEqual(
       sortActorLayers(
-        layers as ActorLayerDefinition[],
+        layers,
       ).map((layer) => layer.id),
       [
         "first",
@@ -349,3 +414,56 @@ test(
   },
 );
 
+test(
+  "normalizes the unchanged Bob, Lina, and Felencho actor packages",
+  async () => {
+    const actorIds = [
+      "Bob",
+      "Lina",
+      "Felencho",
+    ] as const;
+
+    for (const actorId of actorIds) {
+      const source: unknown = JSON.parse(
+        await readFile(
+          new URL(
+            `../../../public/actors/${actorId}/actor.json`,
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      );
+
+      assert.ok(
+        source &&
+          typeof source ===
+            "object" &&
+          "id" in source &&
+          typeof source.id ===
+            "string",
+      );
+      const normalized =
+        normalizeActorDefinition(
+          source,
+          {
+            sourceActorId: actorId,
+          },
+        );
+
+      assert.equal(
+        normalized.definition.id,
+        source.id,
+      );
+      assert.equal(
+        normalized.definition
+          .schemaVersion,
+        ACTOR_SCHEMA_VERSION,
+      );
+      assert.ok(
+        Array.isArray(
+          normalized.definition.layers,
+        ),
+      );
+    }
+  },
+);

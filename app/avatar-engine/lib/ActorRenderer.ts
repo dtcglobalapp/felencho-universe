@@ -6,6 +6,16 @@ import type {
 import {
   sortActorLayers,
 } from "../domain/ActorNormalizer";
+import {
+  getEffectiveLayerState,
+} from "../domain/ActorHierarchy";
+import {
+  createActorTransformResolver,
+} from "../domain/ActorTransformResolver";
+
+import type {
+  ActorTransform,
+} from "../types/Actor";
 
 export interface ActorStageMetrics {
   width: number;
@@ -180,26 +190,16 @@ export function renderActor(
     sortActorLayers(
       definition.layers,
     );
+  const transformOverrides = new Map<
+    string,
+    ActorTransform
+  >();
 
   for (
     const layerDefinition of orderedLayers
   ) {
     if (
       layerDefinition.type !== "image"
-    ) {
-      continue;
-    }
-
-    const image = layerImages.get(
-      layerDefinition.id,
-    );
-
-    if (
-      !layerDefinition.visible ||
-      !image ||
-      !image.complete ||
-      image.naturalWidth === 0 ||
-      image.naturalHeight === 0
     ) {
       continue;
     }
@@ -291,64 +291,90 @@ export function renderActor(
       );
     }
 
-    context.save();
+    if (
+      runtimeOffsetX !== 0 ||
+      runtimeOffsetY !== 0 ||
+      runtimeScaleY !== 1
+    ) {
+      transformOverrides.set(
+        layerDefinition.id,
+        {
+          ...transform,
+          x:
+            transform.x +
+            runtimeOffsetX,
+          y:
+            transform.y +
+            runtimeOffsetY,
+          scaleY:
+            transform.scaleY *
+            runtimeScaleY,
+        },
+      );
+    }
+  }
 
+  const resolveTransform =
+    createActorTransformResolver(
+      definition,
+      transformOverrides,
+    );
+
+  for (
+    const layerDefinition of orderedLayers
+  ) {
+    if (
+      layerDefinition.type !== "image" ||
+      !getEffectiveLayerState(
+        definition,
+        layerDefinition,
+      ).visible
+    ) {
+      continue;
+    }
+
+    const image = layerImages.get(
+      layerDefinition.id,
+    );
+
+    if (
+      !image ||
+      !image.complete ||
+      image.naturalWidth === 0 ||
+      image.naturalHeight === 0
+    ) {
+      continue;
+    }
+
+    const matrix = resolveTransform(
+      layerDefinition.id,
+    );
+
+    context.save();
     context.globalAlpha = clamp(
       layerDefinition.opacity,
       0,
       1,
     );
-
-    const layerX =
-      actorOriginX +
-      (
-        transform.x +
-        runtimeOffsetX +
-        transform.pivotX
-      ) *
-        actorScale;
-
-    const layerY =
-      actorOriginY +
-      (
-        transform.y +
-        runtimeOffsetY +
-        transform.pivotY
-      ) *
-        actorScale;
-
+    context.globalCompositeOperation =
+      layerDefinition.blendMode;
     context.translate(
-      layerX,
-      layerY,
+      actorOriginX,
+      actorOriginY,
     );
-
-    context.rotate(
-      (
-        transform.rotation *
-        Math.PI
-      ) /
-        180,
-    );
-
     context.scale(
-      actorScale *
-        transform.scaleX,
-      actorScale *
-        transform.scaleY *
-        runtimeScaleY,
+      actorScale,
+      actorScale,
     );
-
-    context.translate(
-      -transform.pivotX,
-      -transform.pivotY,
+    context.transform(
+      matrix.a,
+      matrix.b,
+      matrix.c,
+      matrix.d,
+      matrix.e,
+      matrix.f,
     );
-
-    context.drawImage(
-      image,
-      0,
-      0,
-    );
-
+    context.drawImage(image, 0, 0);
     context.restore();
   }
 

@@ -17,13 +17,14 @@ evolves, but the core requirements remain constant:
 
 ## Current Version
 
-**Genesis v0.5**
+**Genesis v0.6**
 
-Genesis v0.5 establishes the Actor-Driven Foundation. The current editor
-normalizes compatible actor packages, renders all supported layers declared by
-actor data, exposes recoverable diagnostics, derives selection and Inspector
-state from stable layer IDs, manages visibility, navigates the viewport,
-persists a local draft, and preserves changes through Undo/Redo.
+Genesis v0.6 establishes the Professional Digital Actor Editor foundation.
+The current editor provides schema-versioned actor documents, centralized
+commands, transaction history, first-class multi-selection, hierarchy-aware
+rendering and manipulation, folders and transform groups, local PNG assets,
+portable actor packages, mouth-pose mapping, structural validation, and
+profile-based construction completeness.
 
 ## Completed
 
@@ -108,29 +109,49 @@ Known limitations:
 - Timeline, keyframes, general animation, physics, lip sync, emotions, and AI
   generation remain planned
 
+### Genesis v0.6 — Professional Digital Actor Editor
+
+Status: **Completed**
+
+Delivered:
+
+- Introduced actor schema version `1.0.0`, independently versioned from Studio
+- Preserved Bob, Lina, and Felencho actor JSON through in-memory normalization
+- Added typed assets, folders, transform groups, parent relationships,
+  construction profiles, mouth mappings, and supported blend modes
+- Added centralized commands for every implemented document mutation
+- Added transaction-based Undo/Redo with document and selection restoration
+- Added first-class single, additive, range, and Canvas-compatible selection
+- Extracted StudioCanvas and unified Canvas/renderer hierarchy transforms
+- Added pan, zoom, center, Reset View, grid, safe area, rulers, guides, and
+  snapping
+- Added layer and folder drag-and-drop, folder movement, and logical grouping
+- Added multi-layer movement and safe direct layer/group transforms
+- Added local PNG import, metadata, thumbnails, replacement, deletion, layer
+  creation, and canvas drop
+- Isolated browser binary persistence behind ActorAssetRepository
+- Added standalone actor JSON and complete portable actor-package workflows
+- Added explicit Mouth Builder mappings for all v0.6 pose keys
+- Separated structural validation from profile-driven construction progress
+- Expanded tests and long-term engineering documentation
+
+Architectural result:
+
+`AvatarStudio` is now an orchestrator over focused domain, UI, asset, export,
+and history modules. ActorRenderer and StudioCanvas share hierarchy and
+transform rules. Actor structure remains in `actor.json`; browser storage is a
+recoverable binary cache, and portable export refuses incomplete archives.
+
+Known limitations:
+
+- Imported binary assets remain browser-local until portable export
+- History remains session-based
+- Portable package import supports the stored-ZIP format Genesis produces
+- The renderer remains Canvas 2D and image-layer based
+- Timeline, animation playback, physics, lip-sync playback, expressions, AI,
+  speech, and networking are not implemented by this release
+
 ## Planned
-
-### Sprint 3 — Layer Drag & Drop
-
-Proposed target: **Genesis v0.6**
-
-Goal:
-
-Add direct layer reordering with clear visual feedback.
-
-Expected outcomes:
-
-- Drag layers within the layer stack
-- Translate visual order into deterministic z-index data
-- Record one history action per completed drag
-- Preserve selection and visibility state
-- Handle invalid or interrupted drops safely
-
-Exit criteria:
-
-- Layer ordering is data-driven and reversible
-- Actor rendering reflects the updated order
-- The project compiles and is deployable
 
 ### Sprint 4 — Timeline
 

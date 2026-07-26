@@ -9,86 +9,111 @@ import {
 } from "react";
 
 import {
+  calculateActorCompleteness,
+} from "../domain/ActorCompleteness";
+import {
   normalizeActorDefinition,
   sortActorLayers,
 } from "../domain/ActorNormalizer";
-import { loadActor } from "../lib/ActorLoader";
-import { renderActor } from "../lib/ActorRenderer";
+import {
+  canAssignActorParent,
+  getEffectiveLayerState,
+} from "../domain/ActorHierarchy";
+import {
+  validateActorDefinition,
+} from "../domain/ActorValidator";
+import {
+  ActorAssetRepository,
+  createImportedAssetPath,
+  inspectPngMetadata,
+} from "../lib/ActorAssetRepository";
+import {
+  loadActorImage,
+  resolveActorAssets,
+} from "../lib/ActorAssetResolver";
+import {
+  createPortableActorPackage,
+  readPortableActorPackage,
+  serializeActorJson,
+} from "../lib/ActorExporter";
+import {
+  loadActor,
+} from "../lib/ActorLoader";
+import ActorValidationPanel from "./components/ActorValidationPanel";
+import AssetLibrary from "./components/AssetLibrary";
 import Inspector from "./components/Inspector";
 import LayersPanel from "./components/LayersPanel";
+import MouthBuilder from "./components/MouthBuilder";
+import StudioCanvas from "./components/StudioCanvas";
 import Toolbar from "./components/Toolbar";
+import {
+  ActorDocumentCommands,
+} from "./domain/ActorDocumentCommands";
+import {
+  EMPTY_STUDIO_SELECTION,
+  StudioSelection,
+} from "./domain/StudioSelection";
+import {
+  StudioHistory,
+} from "./domain/StudioHistory";
 
 import type {
+  ActorAssetDefinition,
+  ActorDefinition,
+  ActorDiagnostic,
+  ActorMouthPose,
   ActorTransform,
   LoadedActor,
 } from "../types/Actor";
+import type {
+  ActorPoint,
+} from "../domain/ActorTransformResolver";
+import type {
+  ActorDocumentCommandResult,
+} from "./domain/ActorDocumentCommands";
+import type {
+  LayerRowSelectModifiers,
+} from "./components/LayerRow";
+import type {
+  StudioGuide,
+  StudioViewportState,
+} from "./components/StudioCanvas";
+import type {
+  StudioSelectionState,
+} from "./domain/StudioSelection";
 
 const DEFAULT_ACTOR_ID = "Bob";
 const HISTORY_LIMIT = 100;
+const LIVE_VALIDATION_CODES =
+  new Set([
+    "EMPTY_LAYER_COLLECTION",
+    "MISSING_LAYER_ASSET",
+    "UNSUPPORTED_LAYER_TYPE",
+    "MISSING_LAYER_FOLDER",
+    "UNDECLARED_LAYER_ASSET",
+    "MISSING_RIG_TARGET",
+    "MISSING_REQUIRED_MOUTH_POSE",
+    "MISSING_MOUTH_POSE_TARGET",
+  ]);
+const ASSET_RUNTIME_DIAGNOSTIC_CODES =
+  new Set([
+    "LOCAL_ASSET_MISSING",
+    "ASSET_STORAGE_UNAVAILABLE",
+    "LAYER_ASSET_LOAD_FAILED",
+  ]);
 
-type ActorDefinition = LoadedActor["definition"];
-type ActorLayer = ActorDefinition["layers"][number];
+type ActorLoadState =
+  | "loading"
+  | "ready"
+  | "error";
 
-interface Point {
-  x: number;
-  y: number;
-}
+type RightPanel =
+  | "inspector"
+  | "mouth"
+  | "validation";
 
-interface ActorLayout {
-  scale: number;
-  originX: number;
-  originY: number;
-}
-
-interface ViewportState {
-  zoom: number;
-  panX: number;
-  panY: number;
-}
-
-interface PointerState {
-  dragging: boolean;
-  pointerId: number | null;
-  lastX: number;
-  lastY: number;
-}
-
-interface AlphaBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface SelectionGeometry {
-  corners: [Point, Point, Point, Point];
-  center: Point;
-}
-
-function clamp(
-  value: number,
-  minimum: number,
-  maximum: number,
-): number {
-  return Math.min(maximum, Math.max(minimum, value));
-}
-
-function cloneDefinition(
-  definition: ActorDefinition,
-): ActorDefinition {
-  return JSON.parse(
-    JSON.stringify(definition),
-  ) as ActorDefinition;
-}
-
-function restoreActorDefinition(
-  actor: LoadedActor,
-  definition: ActorDefinition,
-): LoadedActor {
-  return {
-    ...actor,
-    definition: cloneDefinition(definition),
-  };
+interface AvatarStudioProps {
+  actorId?: string;
 }
 
 function getDraftStorageKey(
@@ -97,608 +122,99 @@ function getDraftStorageKey(
   return `felencho-avatar-studio:${actorId.toLowerCase()}:draft`;
 }
 
-function applyStoredDefinition(
-  actor: LoadedActor,
-  storageKey: string,
-): LoadedActor {
-  try {
-    const stored = window.localStorage.getItem(
-      storageKey,
-    );
-
-    if (!stored) {
-      return actor;
-    }
-
-    const parsed: unknown =
-      JSON.parse(stored);
-
-    const normalized =
-      normalizeActorDefinition(
-        parsed,
-        {
-          sourceActorId:
-            actor.definition.id,
-        },
-      );
-
-    const storedLayers = new Map(
-      normalized.definition.layers.map((layer) => [
-        layer.id,
-        layer,
-      ]),
-    );
-
-    const definition: ActorDefinition = {
-      ...actor.definition,
-
-      layers: actor.definition.layers.map(
-        (layer) => {
-          const storedLayer =
-            storedLayers.get(layer.id);
-
-          if (!storedLayer) {
-            return layer;
-          }
-
-          return {
-            ...layer,
-            visible:
-              storedLayer.visible,
-            opacity:
-              storedLayer.opacity,
-            zIndex:
-              storedLayer.zIndex,
-            transform: {
-              ...storedLayer.transform,
-            },
-          };
-        },
-      ),
-    };
-
-    return restoreActorDefinition(actor, definition);
-  } catch {
-    return actor;
+function actorIdFromUnknown(
+  value: unknown,
+  fallback: string,
+): string {
+  if (
+    value &&
+    typeof value === "object" &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    value.id.trim()
+  ) {
+    return value.id.trim();
   }
+
+  return fallback;
 }
 
-function synchronizeActorLayer(
+function withDefinition(
   actor: LoadedActor,
-  layerId: string,
-  update: (layer: ActorLayer) => ActorLayer,
+  definition: ActorDefinition,
 ): LoadedActor {
-  const nextDefinitionLayers =
-    actor.definition.layers.map((layer) =>
-      layer.id === layerId
-        ? update(layer)
-        : layer,
-    );
+  const layerImages = new Map<
+    string,
+    HTMLImageElement
+  >();
+
+  for (const layer of definition.layers) {
+    const image =
+      actor.assetImages.get(
+        layer.asset,
+      );
+
+    if (image) {
+      layerImages.set(layer.id, image);
+    }
+  }
 
   return {
     ...actor,
-
-    definition: {
-      ...actor.definition,
-      layers: nextDefinitionLayers,
-    },
+    definition,
+    layerImages,
   };
 }
 
-function calculateActorLayout(
-  actor: LoadedActor,
-  stageWidth: number,
-  stageHeight: number,
-  viewport: ViewportState,
-): ActorLayout {
-  const display = actor.definition.display;
-
-  const configuredWidth = display.maxStageWidth;
-  const configuredHeight = display.maxStageHeight;
-
-  const availableWidth =
-    configuredWidth <= 2
-      ? stageWidth * configuredWidth
-      : Math.min(stageWidth, configuredWidth);
-
-  const availableHeight =
-    configuredHeight <= 2
-      ? stageHeight * configuredHeight
-      : Math.min(stageHeight, configuredHeight);
-
-  const fitScale = Math.min(
-    availableWidth / actor.definition.width,
-    availableHeight / actor.definition.height,
-  );
-
-  const calculatedScale =
-    fitScale *
-    display.scale *
-    viewport.zoom;
-
-  const scale =
-    Number.isFinite(calculatedScale) &&
-    calculatedScale > 0
-      ? calculatedScale
-      : 1;
-
-  return {
-    scale,
-
-    originX:
-      stageWidth / 2 -
-      (actor.definition.width * scale) / 2 +
-      display.offsetX +
-      viewport.panX,
-
-    originY:
-      stageHeight / 2 -
-      (actor.definition.height * scale) / 2 +
-      display.offsetY +
-      viewport.panY,
-  };
-}
-
-function rotatePoint(
-  point: Point,
-  angleRadians: number,
-): Point {
-  const cosine = Math.cos(angleRadians);
-  const sine = Math.sin(angleRadians);
-
-  return {
-    x:
-      point.x * cosine -
-      point.y * sine,
-
-    y:
-      point.x * sine +
-      point.y * cosine,
-  };
-}
-
-function localToStage(
-  localPoint: Point,
-  layer: ActorLayer,
-  layout: ActorLayout,
-): Point {
-  const transform = layer.transform;
-
-  const scaledPoint = {
-    x:
-      (
-        localPoint.x -
-        transform.pivotX
-      ) *
-      layout.scale *
-      transform.scaleX,
-
-    y:
-      (
-        localPoint.y -
-        transform.pivotY
-      ) *
-      layout.scale *
-      transform.scaleY,
-  };
-
-  const rotated = rotatePoint(
-    scaledPoint,
-    (transform.rotation * Math.PI) / 180,
-  );
-
-  return {
-    x:
-      layout.originX +
-      (
-        transform.x +
-        transform.pivotX
-      ) *
-        layout.scale +
-      rotated.x,
-
-    y:
-      layout.originY +
-      (
-        transform.y +
-        transform.pivotY
-      ) *
-        layout.scale +
-      rotated.y,
-  };
-}
-
-function stageToLocal(
-  stagePoint: Point,
-  layer: ActorLayer,
-  layout: ActorLayout,
-): Point | null {
-  const transform = layer.transform;
-
-  const scaleX =
-    layout.scale * transform.scaleX;
-
-  const scaleY =
-    layout.scale * transform.scaleY;
-
-  if (
-    Math.abs(scaleX) < 0.000001 ||
-    Math.abs(scaleY) < 0.000001
-  ) {
-    return null;
-  }
-
-  const translated = {
-    x:
-      stagePoint.x -
-      layout.originX -
-      (
-        transform.x +
-        transform.pivotX
-      ) *
-        layout.scale,
-
-    y:
-      stagePoint.y -
-      layout.originY -
-      (
-        transform.y +
-        transform.pivotY
-      ) *
-        layout.scale,
-  };
-
-  const unrotated = rotatePoint(
-    translated,
-    (-transform.rotation * Math.PI) / 180,
-  );
-
-  return {
-    x:
-      unrotated.x / scaleX +
-      transform.pivotX,
-    y:
-      unrotated.y / scaleY +
-      transform.pivotY,
-  };
-}
-
-function hitTestImageAlpha(
-  image: HTMLImageElement,
-  x: number,
-  y: number,
-  context: CanvasRenderingContext2D,
-): boolean {
-  if (
-    x < 0 ||
-    y < 0 ||
-    x >= image.naturalWidth ||
-    y >= image.naturalHeight
-  ) {
-    return false;
-  }
-
-  context.clearRect(0, 0, 1, 1);
-
-  context.drawImage(
-    image,
-    -Math.floor(x),
-    -Math.floor(y),
-  );
-
-  const alpha = context.getImageData(
-    0,
-    0,
-    1,
-    1,
-  ).data[3];
-
-  return alpha > 20;
-}
-
-function findLayerAtPoint(
-  actor: LoadedActor,
-  stagePoint: Point,
-  layout: ActorLayout,
-  hitContext: CanvasRenderingContext2D,
-): string | null {
-  const candidates =
-    sortActorLayers(
-      actor.definition.layers.filter(
-      (layer) =>
-        layer.visible &&
-        layer.opacity > 0,
-      ),
-      "descending",
-    );
-
-  for (const layer of candidates) {
-    const image = actor.layerImages.get(
-      layer.id,
-    );
-
-    if (!image) {
-      continue;
-    }
-
-    const localPoint = stageToLocal(
-      stagePoint,
-      layer,
-      layout,
-    );
-
-    if (!localPoint) {
-      continue;
-    }
-
-    if (
-      hitTestImageAlpha(
-        image,
-        localPoint.x,
-        localPoint.y,
-        hitContext,
-      )
-    ) {
-      return layer.id;
-    }
-  }
-
-  return null;
-}
-
-function computeAlphaBounds(
-  image: HTMLImageElement,
-): AlphaBounds {
-  const maximumSampleSize = 900;
-
-  const sourceWidth = image.naturalWidth;
-  const sourceHeight = image.naturalHeight;
-
-  const sampleScale = Math.min(
-    1,
-    maximumSampleSize /
-      Math.max(sourceWidth, sourceHeight),
-  );
-
-  const width = Math.max(
-    1,
-    Math.round(sourceWidth * sampleScale),
-  );
-
-  const height = Math.max(
-    1,
-    Math.round(sourceHeight * sampleScale),
-  );
-
-  const canvas = document.createElement("canvas");
-
-  canvas.width = width;
-  canvas.height = height;
-
-  const context = canvas.getContext("2d", {
-    willReadFrequently: true,
-  });
-
-  if (!context) {
-    return {
-      x: 0,
-      y: 0,
-      width: sourceWidth,
-      height: sourceHeight,
-    };
-  }
-
-  context.clearRect(0, 0, width, height);
-  context.drawImage(image, 0, 0, width, height);
-
-  const pixels = context.getImageData(
-    0,
-    0,
-    width,
-    height,
-  ).data;
-
-  let minimumX = width;
-  let minimumY = height;
-  let maximumX = -1;
-  let maximumY = -1;
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const alpha =
-        pixels[(y * width + x) * 4 + 3];
-
-      if (alpha <= 12) {
-        continue;
-      }
-
-      minimumX = Math.min(minimumX, x);
-      minimumY = Math.min(minimumY, y);
-      maximumX = Math.max(maximumX, x);
-      maximumY = Math.max(maximumY, y);
-    }
-  }
-
-  if (
-    maximumX < minimumX ||
-    maximumY < minimumY
-  ) {
-    return {
-      x: 0,
-      y: 0,
-      width: sourceWidth,
-      height: sourceHeight,
-    };
-  }
-
-  const inverseScale = 1 / sampleScale;
-
-  return {
-    x: minimumX * inverseScale,
-    y: minimumY * inverseScale,
-
-    width:
-      (maximumX - minimumX + 1) *
-      inverseScale,
-
-    height:
-      (maximumY - minimumY + 1) *
-      inverseScale,
-  };
-}
-
-function buildSelectionGeometry(
-  layer: ActorLayer,
-  bounds: AlphaBounds,
-  layout: ActorLayout,
-): SelectionGeometry {
-  const topLeft = localToStage(
-    {
-      x: bounds.x,
-      y: bounds.y,
-    },
-    layer,
-    layout,
-  );
-
-  const topRight = localToStage(
-    {
-      x: bounds.x + bounds.width,
-      y: bounds.y,
-    },
-    layer,
-    layout,
-  );
-
-  const bottomRight = localToStage(
-    {
-      x: bounds.x + bounds.width,
-      y: bounds.y + bounds.height,
-    },
-    layer,
-    layout,
-  );
-
-  const bottomLeft = localToStage(
-    {
-      x: bounds.x,
-      y: bounds.y + bounds.height,
-    },
-    layer,
-    layout,
-  );
-
-  return {
-    corners: [
-      topLeft,
-      topRight,
-      bottomRight,
-      bottomLeft,
-    ],
-
-    center: localToStage(
-      {
-        x: bounds.x + bounds.width / 2,
-        y: bounds.y + bounds.height / 2,
-      },
-      layer,
-      layout,
-    ),
-  };
-}
-
-function drawSelectionGeometry(
-  context: CanvasRenderingContext2D,
-  geometry: SelectionGeometry,
+function downloadBlob(
+  blob: Blob,
+  fileName: string,
 ): void {
-  const [
-    topLeft,
-    topRight,
-    bottomRight,
-    bottomLeft,
-  ] = geometry.corners;
+  const url =
+    URL.createObjectURL(blob);
+  const link =
+    document.createElement("a");
 
-  context.save();
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 0);
+}
 
-  context.strokeStyle = "#69dcff";
-  context.fillStyle = "#69dcff";
-  context.lineWidth = 2;
-  context.setLineDash([7, 5]);
+function diagnosticsKey(
+  diagnostic: ActorDiagnostic,
+): string {
+  return [
+    diagnostic.severity,
+    diagnostic.code,
+    diagnostic.path ?? "",
+    diagnostic.layerId ?? "",
+    diagnostic.message,
+  ].join(":");
+}
 
-  context.beginPath();
-  context.moveTo(topLeft.x, topLeft.y);
-  context.lineTo(topRight.x, topRight.y);
-  context.lineTo(bottomRight.x, bottomRight.y);
-  context.lineTo(bottomLeft.x, bottomLeft.y);
-  context.closePath();
-  context.stroke();
+function uniqueDiagnostics(
+  diagnostics:
+    readonly ActorDiagnostic[],
+): ActorDiagnostic[] {
+  const unique = new Map<
+    string,
+    ActorDiagnostic
+  >();
 
-  context.setLineDash([]);
-
-  for (const point of geometry.corners) {
-    context.beginPath();
-
-    context.rect(
-      point.x - 4,
-      point.y - 4,
-      8,
-      8,
+  for (const item of diagnostics) {
+    unique.set(
+      diagnosticsKey(item),
+      item,
     );
-
-    context.fill();
   }
 
-  context.beginPath();
-
-  context.arc(
-    geometry.center.x,
-    geometry.center.y,
-    5,
-    0,
-    Math.PI * 2,
-  );
-
-  context.fill();
-
-  context.strokeStyle =
-    "rgba(255,255,255,0.85)";
-
-  context.lineWidth = 1;
-
-  context.beginPath();
-
-  context.moveTo(
-    geometry.center.x - 13,
-    geometry.center.y,
-  );
-
-  context.lineTo(
-    geometry.center.x + 13,
-    geometry.center.y,
-  );
-
-  context.moveTo(
-    geometry.center.x,
-    geometry.center.y - 13,
-  );
-
-  context.lineTo(
-    geometry.center.x,
-    geometry.center.y + 13,
-  );
-
-  context.stroke();
-  context.restore();
+  return [...unique.values()];
 }
-
-interface AvatarStudioProps {
-  actorId?: string;
-}
-
-type ActorLoadState =
-  | "loading"
-  | "ready"
-  | "error";
 
 export default function AvatarStudio({
   actorId = DEFAULT_ACTOR_ID,
@@ -706,7 +222,6 @@ export default function AvatarStudio({
   const requestedActorId =
     actorId.trim() ||
     DEFAULT_ACTOR_ID;
-
   const storageKey = useMemo(
     () =>
       getDraftStorageKey(
@@ -714,422 +229,485 @@ export default function AvatarStudio({
       ),
     [requestedActorId],
   );
-
-  const canvasRef =
-    useRef<HTMLCanvasElement | null>(null);
-
+  const repositoryRef = useRef(
+    new ActorAssetRepository(),
+  );
+  const historyRef = useRef(
+    new StudioHistory(HISTORY_LIMIT),
+  );
   const actorRef =
     useRef<LoadedActor | null>(null);
-
-  const selectedLayerIdRef =
-    useRef<string | null>(null);
-
-  const viewportRef = useRef<ViewportState>({
-    zoom: 1,
-    panX: 0,
-    panY: 0,
-  });
-
-  const soloModeRef = useRef(false);
-  const dimOthersRef = useRef(true);
-
-  const alphaBoundsCacheRef = useRef<
-    Map<string, AlphaBounds>
-  >(new Map());
-
-  const pointerRef = useRef<PointerState>({
-    dragging: false,
-    pointerId: null,
-    lastX: 0,
-    lastY: 0,
-  });
-
-  const historyPastRef = useRef<
-    ActorDefinition[]
-  >([]);
-
-  const historyFutureRef = useRef<
-    ActorDefinition[]
-  >([]);
-
-  const [actor, setActor] =
-    useState<LoadedActor | null>(null);
-
+  const selectionRef =
+    useRef<StudioSelectionState>({
+      ...EMPTY_STUDIO_SELECTION,
+    });
+  const viewportRef =
+    useRef<StudioViewportState>({
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+    });
+  const transactionChangedRef =
+    useRef(false);
+  const [
+    actor,
+    setActor,
+  ] = useState<LoadedActor | null>(
+    null,
+  );
   const [
     actorLoadState,
     setActorLoadState,
   ] = useState<ActorLoadState>(
     "loading",
   );
-
   const [
     actorLoadError,
     setActorLoadError,
   ] = useState<string | null>(
     null,
   );
-
   const [
-    selectedLayerId,
-    setSelectedLayerId,
-  ] = useState<string | null>(null);
-
-  const [status, setStatus] = useState(
-    "Cargando actor...",
-  );
-
+    selection,
+    setSelection,
+  ] = useState<StudioSelectionState>({
+    ...EMPTY_STUDIO_SELECTION,
+  });
   const [viewport, setViewport] =
-    useState<ViewportState>({
+    useState<StudioViewportState>({
       zoom: 1,
       panX: 0,
       panY: 0,
     });
-
   const [showGrid, setShowGrid] =
     useState(true);
-
+  const [
+    showSafeArea,
+    setShowSafeArea,
+  ] = useState(false);
+  const [
+    showRulers,
+    setShowRulers,
+  ] = useState(true);
+  const [
+    snapToGrid,
+    setSnapToGrid,
+  ] = useState(false);
+  const [guides, setGuides] =
+    useState<StudioGuide[]>([]);
   const [soloMode, setSoloMode] =
     useState(false);
-
   const [dimOthers, setDimOthers] =
     useState(true);
-
+  const [status, setStatus] =
+    useState("Cargando actor...");
   const [savedAt, setSavedAt] =
     useState<string | null>(null);
-
-  const [historyVersion, setHistoryVersion] =
-    useState(0);
-
-  useEffect(() => {
-    actorRef.current = actor;
-  }, [actor]);
-
-  useEffect(() => {
-    selectedLayerIdRef.current =
-      selectedLayerId;
-  }, [selectedLayerId]);
-
-  useEffect(() => {
-    viewportRef.current = viewport;
-  }, [viewport]);
-
-  useEffect(() => {
-    soloModeRef.current = soloMode;
-  }, [soloMode]);
-
-  useEffect(() => {
-    dimOthersRef.current = dimOthers;
-  }, [dimOthers]);
-
-  const refreshHistoryState = useCallback(() => {
-    setHistoryVersion((value) => value + 1);
-  }, []);
-
-  const pushHistorySnapshot = useCallback(
-    (definition: ActorDefinition) => {
-      historyPastRef.current = [
-        ...historyPastRef.current,
-        cloneDefinition(definition),
-      ].slice(-HISTORY_LIMIT);
-
-      historyFutureRef.current = [];
-      refreshHistoryState();
-    },
-    [refreshHistoryState],
+  const [
+    historyStatus,
+    setHistoryStatus,
+  ] = useState({
+    canUndo: false,
+    canRedo: false,
+    pastCount: 0,
+  });
+  const [
+    rightPanel,
+    setRightPanel,
+  ] = useState<RightPanel>(
+    "inspector",
   );
 
-  const undo = useCallback(() => {
-    const currentActor = actorRef.current;
+  const refreshHistory = useCallback(
+    () => {
+      const history =
+        historyRef.current;
 
-    if (
-      !currentActor ||
-      historyPastRef.current.length === 0
-    ) {
-      setStatus("No hay cambios para deshacer");
-      return;
-    }
+      setHistoryStatus({
+        canUndo: history.canUndo,
+        canRedo: history.canRedo,
+        pastCount:
+          history.pastCount,
+      });
+    },
+    [],
+  );
 
-    const previous =
-      historyPastRef.current[
-        historyPastRef.current.length - 1
-      ];
-
-    historyPastRef.current =
-      historyPastRef.current.slice(0, -1);
-
-    historyFutureRef.current = [
-      cloneDefinition(currentActor.definition),
-      ...historyFutureRef.current,
-    ].slice(0, HISTORY_LIMIT);
-
-    const restored = restoreActorDefinition(
-      currentActor,
-      previous,
-    );
-
-    actorRef.current = restored;
-    setActor(restored);
-    refreshHistoryState();
-
-    setStatus("Cambio deshecho");
-  }, [refreshHistoryState]);
-
-  const redo = useCallback(() => {
-    const currentActor = actorRef.current;
-
-    if (
-      !currentActor ||
-      historyFutureRef.current.length === 0
-    ) {
-      setStatus("No hay cambios para rehacer");
-      return;
-    }
-
-    const next = historyFutureRef.current[0];
-
-    historyFutureRef.current =
-      historyFutureRef.current.slice(1);
-
-    historyPastRef.current = [
-      ...historyPastRef.current,
-      cloneDefinition(currentActor.definition),
-    ].slice(-HISTORY_LIMIT);
-
-    const restored = restoreActorDefinition(
-      currentActor,
-      next,
-    );
-
-    actorRef.current = restored;
-    setActor(restored);
-    refreshHistoryState();
-
-    setStatus("Cambio rehecho");
-  }, [refreshHistoryState]);
-
-  const updateLayer = useCallback(
+  const updateSelection = useCallback(
     (
-      layerId: string,
-      update: (layer: ActorLayer) => ActorLayer,
-      recordHistory = true,
+      next:
+        | StudioSelectionState
+        | ((
+            current:
+              StudioSelectionState,
+          ) => StudioSelectionState),
     ) => {
+      const resolved =
+        typeof next === "function"
+          ? next(selectionRef.current)
+          : next;
+
+      selectionRef.current =
+        resolved;
+      setSelection(resolved);
+    },
+    [],
+  );
+
+  const updateViewport = useCallback(
+    (next: StudioViewportState) => {
+      viewportRef.current = next;
+      setViewport(next);
+    },
+    [],
+  );
+
+  const setCurrentActor = useCallback(
+    (next: LoadedActor | null) => {
+      const current =
+        actorRef.current;
+      const retainedUrls = new Set(
+        next?.objectUrls ?? [],
+      );
+
+      for (
+        const url of
+        current?.objectUrls ?? []
+      ) {
+        if (!retainedUrls.has(url)) {
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      actorRef.current = next;
+      setActor(next);
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      for (
+        const url of
+        actorRef.current
+          ?.objectUrls ?? []
+      ) {
+        URL.revokeObjectURL(url);
+      }
+    },
+    [],
+  );
+
+  const applyCommand = useCallback(
+    (
+      label: string,
+      command:
+        ActorDocumentCommandResult,
+    ): boolean => {
+      const current =
+        actorRef.current;
+
+      if (!current || !command.changed) {
+        return false;
+      }
+
+      historyRef.current.record(
+        label,
+        current.definition,
+        selectionRef.current,
+      );
+
+      const nextActor =
+        withDefinition(
+          current,
+          command.definition,
+        );
+      const orderedIds = [
+        ...command.definition.groups.map(
+          (group) => group.id,
+        ),
+        ...sortActorLayers(
+          command.definition.layers,
+          "descending",
+        ).map((layer) => layer.id),
+      ];
+      const nextSelection =
+        StudioSelection.replace(
+          command.selectionIds,
+          orderedIds,
+        );
+
+      setCurrentActor(nextActor);
+      updateSelection(nextSelection);
+      transactionChangedRef.current =
+        true;
+      refreshHistory();
+      setStatus(label);
+      return true;
+    },
+    [
+      refreshHistory,
+      setCurrentActor,
+      updateSelection,
+    ],
+  );
+
+  const runCommand = useCallback(
+    (
+      label: string,
+      create: (
+        definition: ActorDefinition,
+        selectionIds:
+          readonly string[],
+      ) => ActorDocumentCommandResult,
+    ): boolean => {
       const current =
         actorRef.current;
 
       if (!current) {
-        return;
+        return false;
       }
 
-      const currentLayer =
-        current.definition.layers.find(
-          (layer) =>
-            layer.id === layerId,
-        );
-
-      if (!currentLayer) {
-        return;
-      }
-
-      const nextLayer =
-        update(currentLayer);
-
-      if (nextLayer === currentLayer) {
-        return;
-      }
-
-      if (recordHistory) {
-        pushHistorySnapshot(
+      return applyCommand(
+        label,
+        create(
           current.definition,
-        );
-      }
-
-      const nextActor =
-        synchronizeActorLayer(
-          current,
-          layerId,
-          () => nextLayer,
-        );
-
-      actorRef.current = nextActor;
-      setActor(nextActor);
-    },
-    [pushHistorySnapshot],
-  );
-
-  const updateTransform = useCallback(
-    (
-      key: keyof ActorTransform,
-      value: number,
-    ) => {
-      if (!selectedLayerId) {
-        return;
-      }
-
-      updateLayer(
-        selectedLayerId,
-        (layer) =>
-          layer.locked
-            ? layer
-            : {
-                ...layer,
-
-                transform: {
-                  ...layer.transform,
-                  [key]: value,
-                },
-              },
+          selectionRef.current.ids,
+        ),
       );
     },
-    [
-      selectedLayerId,
-      updateLayer,
-    ],
+    [applyCommand],
   );
 
-  const nudgeLayer = useCallback(
-    (
-      deltaX: number,
-      deltaY: number,
-    ) => {
-      const layerId =
-        selectedLayerIdRef.current;
+  const hydrateDefinition =
+    useCallback(
+      async (
+        definition: ActorDefinition,
+        baseDiagnostics:
+          readonly ActorDiagnostic[] = [],
+      ): Promise<LoadedActor> => {
+        const resolved =
+          await resolveActorAssets(
+            definition,
+            repositoryRef.current,
+          );
 
-      if (!layerId) {
-        return;
-      }
+        return {
+          definition,
+          layerImages:
+            resolved.layerImages,
+          assetImages:
+            resolved.assetImages,
+          assetUrls:
+            resolved.assetUrls,
+          diagnostics:
+            uniqueDiagnostics([
+              ...baseDiagnostics,
+              ...resolved.diagnostics,
+            ]),
+          objectUrls:
+            resolved.objectUrls,
+        };
+      },
+      [],
+    );
 
-      const currentLayer =
-        actorRef.current?.definition.layers.find(
-          (layer) =>
-            layer.id === layerId,
-        );
+  const restoreHistory =
+    useCallback(
+      async (
+        direction: "undo" | "redo",
+      ) => {
+        const current =
+          actorRef.current;
 
-      if (currentLayer?.locked) {
-        setStatus(
-          `La capa ${currentLayer.name} está bloqueada`,
-        );
-        return;
-      }
+        if (!current) {
+          return;
+        }
 
-      updateLayer(
-        layerId,
-        (layer) => ({
-          ...layer,
+        const restored =
+          direction === "undo"
+            ? historyRef.current.undo(
+                current.definition,
+                selectionRef.current,
+              )
+            : historyRef.current.redo(
+                current.definition,
+                selectionRef.current,
+              );
 
-          transform: {
-            ...layer.transform,
+        if (!restored) {
+          setStatus(
+            direction === "undo"
+              ? "No hay cambios para deshacer"
+              : "No hay cambios para rehacer",
+          );
+          return;
+        }
 
-            x:
-              layer.transform.x +
-              deltaX,
+        try {
+          const nextActor =
+            await hydrateDefinition(
+              restored.snapshot
+                .definition,
+            );
+          const orderedIds = [
+            ...nextActor.definition.groups.map(
+              (group) => group.id,
+            ),
+            ...sortActorLayers(
+              nextActor.definition.layers,
+              "descending",
+            ).map(
+              (layer) => layer.id,
+            ),
+          ];
 
-            y:
-              layer.transform.y +
-              deltaY,
-          },
-        }),
-      );
-    },
-    [updateLayer],
-  );
-
-  const resetSelectedLayerPosition =
-    useCallback(() => {
-      const current =
-        actorRef.current;
-      const layerId =
-        selectedLayerIdRef.current;
-
-      if (!current || !layerId) {
-        return;
-      }
-
-      const selected =
-        current.definition.layers.find(
-          (layer) =>
-            layer.id === layerId,
-        );
-
-      if (!selected || selected.locked) {
-        return;
-      }
-
-      pushHistorySnapshot(
-        current.definition,
-      );
-
-      const next =
-        synchronizeActorLayer(
-          current,
-          layerId,
-          (layer) => ({
-            ...layer,
-            transform: {
-              ...layer.transform,
-              x: 0,
-              y: 0,
-            },
-          }),
-        );
-
-      actorRef.current = next;
-      setActor(next);
-    }, [pushHistorySnapshot]);
+          setCurrentActor(nextActor);
+          updateSelection(
+            StudioSelection.reconcile(
+              restored.snapshot
+                .selection,
+              orderedIds,
+            ),
+          );
+          setStatus(
+            `${direction === "undo" ? "Undo" : "Redo"} · ${restored.label}`,
+          );
+          refreshHistory();
+        } catch (error: unknown) {
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "No se pudo restaurar el historial.",
+          );
+        }
+      },
+      [
+        hydrateDefinition,
+        refreshHistory,
+        setCurrentActor,
+        updateSelection,
+      ],
+    );
 
   useEffect(() => {
     let active = true;
 
-    actorRef.current = null;
-    selectedLayerIdRef.current = null;
-    alphaBoundsCacheRef.current.clear();
-    historyPastRef.current = [];
-    historyFutureRef.current = [];
+    window.queueMicrotask(() => {
+      if (!active) {
+        return;
+      }
 
-    setActor(null);
-    setSelectedLayerId(null);
-    setActorLoadState("loading");
-    setActorLoadError(null);
-    setSavedAt(null);
-    setStatus(
-      `Cargando ${requestedActorId}...`,
-    );
-    refreshHistoryState();
+      setCurrentActor(null);
+      updateSelection(
+        StudioSelection.clear(),
+      );
+      historyRef.current.clear();
+      setActorLoadState("loading");
+      setActorLoadError(null);
+      setSavedAt(null);
+      setStatus(
+        `Cargando ${requestedActorId}...`,
+      );
+      refreshHistory();
+    });
 
-    loadActor(requestedActorId)
-      .then((loadedActor) => {
-        if (!active) {
-          return;
-        }
+    const prepare = async () => {
+      const base = await loadActor(
+        requestedActorId,
+        repositoryRef.current,
+      );
+      let definition =
+        base.definition;
+      let diagnostics = [
+        ...base.diagnostics,
+      ];
 
-        const prepared =
-          applyStoredDefinition(
-            loadedActor,
+      try {
+        const stored =
+          window.localStorage.getItem(
             storageKey,
           );
 
-        actorRef.current = prepared;
-        setActor(prepared);
+        if (stored) {
+          const parsed: unknown =
+            JSON.parse(stored);
+          const normalized =
+            normalizeActorDefinition(
+              parsed,
+              {
+                sourceActorId:
+                  actorIdFromUnknown(
+                    parsed,
+                    requestedActorId,
+                  ),
+              },
+            );
+
+          definition =
+            normalized.definition;
+          diagnostics = [
+            ...normalized.warnings,
+          ];
+        }
+      } catch {
+        diagnostics.push({
+          severity: "warning",
+          code:
+            "DRAFT_RESTORE_FAILED",
+          message:
+            "El borrador local no pudo restaurarse; se cargó la definición original.",
+        });
+      }
+
+      if (
+        definition === base.definition
+      ) {
+        return base;
+      }
+
+      for (const url of base.objectUrls) {
+        URL.revokeObjectURL(url);
+      }
+
+      return hydrateDefinition(
+        definition,
+        diagnostics,
+      );
+    };
+
+    prepare()
+      .then((loaded) => {
+        if (!active) {
+          for (
+            const url of
+            loaded.objectUrls
+          ) {
+            URL.revokeObjectURL(url);
+          }
+          return;
+        }
+
+        setCurrentActor(loaded);
         setActorLoadState("ready");
-
-        historyPastRef.current = [];
-        historyFutureRef.current = [];
-        refreshHistoryState();
-
-        const firstLayer =
+        const ordered =
           sortActorLayers(
-            prepared.definition.layers,
+            loaded.definition.layers,
             "descending",
-          )[0];
+          );
+        const initial =
+          StudioSelection.replace(
+            ordered[0]
+              ? [ordered[0].id]
+              : [],
+            ordered.map(
+              (layer) => layer.id,
+            ),
+          );
 
-        setSelectedLayerId(
-          firstLayer?.id ?? null,
-        );
-
-        const warningCount =
-          prepared.diagnostics.length;
-
+        updateSelection(initial);
         setStatus(
-          `${prepared.definition.name} · ${prepared.layerImages.size}/${prepared.definition.layers.length} capas cargadas${warningCount > 0 ? ` · ${warningCount} avisos` : ""}`,
+          `${loaded.definition.name} · ${loaded.layerImages.size}/${loaded.definition.layers.length} capas cargadas`,
         );
       })
       .catch((error: unknown) => {
@@ -1142,11 +720,10 @@ export default function AvatarStudio({
             ? error.message
             : "No se pudo cargar el actor.";
 
-        actorRef.current = null;
-        selectedLayerIdRef.current =
-          null;
-        setActor(null);
-        setSelectedLayerId(null);
+        setCurrentActor(null);
+        updateSelection(
+          StudioSelection.clear(),
+        );
         setActorLoadState("error");
         setActorLoadError(message);
         setStatus(message);
@@ -1156,9 +733,12 @@ export default function AvatarStudio({
       active = false;
     };
   }, [
-    refreshHistoryState,
+    hydrateDefinition,
+    refreshHistory,
     requestedActorId,
+    setCurrentActor,
     storageKey,
+    updateSelection,
   ]);
 
   useEffect(() => {
@@ -1166,16 +746,24 @@ export default function AvatarStudio({
       return;
     }
 
-    const timeout = window.setTimeout(() => {
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify(actor.definition),
-      );
-
-      setSavedAt(
-        new Date().toLocaleTimeString(),
-      );
-    }, 250);
+    const timeout =
+      window.setTimeout(() => {
+        try {
+          window.localStorage.setItem(
+            storageKey,
+            serializeActorJson(
+              actor.definition,
+            ),
+          );
+          setSavedAt(
+            new Date().toLocaleTimeString(),
+          );
+        } catch {
+          setStatus(
+            "El borrador local no pudo guardarse. Exporta el actor para conservar los cambios.",
+          );
+        }
+      }, 300);
 
     return () => {
       window.clearTimeout(timeout);
@@ -1186,753 +774,1001 @@ export default function AvatarStudio({
   ]);
 
   useEffect(() => {
-    if (!selectedLayerId) {
+    if (!actor) {
       return;
     }
 
-    const selectionExists =
-      actor?.definition.layers.some(
-        (layer) =>
-          layer.id ===
-          selectedLayerId,
-      ) ?? false;
+    const orderedIds = [
+      ...actor.definition.groups.map(
+        (group) => group.id,
+      ),
+      ...sortActorLayers(
+        actor.definition.layers,
+        "descending",
+      ).map((layer) => layer.id),
+    ];
+    const reconciled =
+      StudioSelection.reconcile(
+        selectionRef.current,
+        orderedIds,
+      );
 
-    if (!selectionExists) {
-      selectedLayerIdRef.current =
-        null;
-      setSelectedLayerId(null);
+    if (
+      reconciled !==
+      selectionRef.current
+    ) {
+      updateSelection(reconciled);
     }
   }, [
     actor,
-    selectedLayerId,
+    updateSelection,
   ]);
 
-  useEffect(() => {
-    const handleKeyDown = (
-      event: KeyboardEvent,
-    ) => {
-      const target = event.target as HTMLElement;
-
-      const isTyping =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable;
-
-      const commandKey =
-        event.ctrlKey || event.metaKey;
-
-      if (
-        commandKey &&
-        event.key.toLowerCase() === "z"
-      ) {
-        event.preventDefault();
-
-        if (event.shiftKey) {
-          redo();
-        } else {
-          undo();
+  const deleteSelectedLayers =
+    useCallback(
+      (
+        layerIds:
+          readonly string[] =
+          selectionRef.current.ids,
+      ) => {
+        if (layerIds.length === 0) {
+          return;
         }
 
+        runCommand(
+          "Delete selection",
+          (definition) => {
+            const selectedLayers =
+              layerIds.filter((id) =>
+                definition.layers.some(
+                  (layer) =>
+                    layer.id === id,
+                ),
+              );
+            const selectedGroups =
+              layerIds.filter((id) =>
+                definition.groups.some(
+                  (group) =>
+                    group.id === id,
+                ),
+              );
+            const layersCommand =
+              ActorDocumentCommands.deleteLayers(
+                definition,
+                selectedLayers,
+              );
+            const groupCommand =
+              ActorDocumentCommands.deleteGroups(
+                layersCommand.definition,
+                selectedGroups,
+                layersCommand.selectionIds,
+              );
+
+            return {
+              definition:
+                groupCommand.definition,
+              selectionIds:
+                groupCommand.selectionIds,
+              changed:
+                layersCommand.changed ||
+                groupCommand.changed,
+            };
+          },
+        );
+      },
+      [runCommand],
+    );
+
+  const duplicateLayers = useCallback(
+    (
+      layerIds:
+        readonly string[] =
+        selectionRef.current.ids,
+    ): readonly string[] => {
+      const current =
+        actorRef.current;
+
+      if (!current) {
+        return [];
+      }
+
+      const command =
+        ActorDocumentCommands.duplicateLayers(
+          current.definition,
+          layerIds,
+        );
+
+      applyCommand(
+        "Duplicate layers",
+        command,
+      );
+      return command.changed
+        ? command.selectionIds
+        : layerIds;
+    },
+    [applyCommand],
+  );
+
+  const nudgeSelection = useCallback(
+    (
+      deltaX: number,
+      deltaY: number,
+    ) => {
+      runCommand(
+        "Move selection",
+        (
+          definition,
+          selectionIds,
+        ) => {
+          const layerIds =
+            selectionIds.filter((id) =>
+              definition.layers.some(
+                (layer) =>
+                  layer.id === id,
+              ),
+            );
+          const groupIds =
+            selectionIds.filter((id) =>
+              definition.groups.some(
+                (group) =>
+                  group.id === id,
+              ),
+            );
+          let currentDefinition =
+            definition;
+          let changed = false;
+          const layerCommand =
+            ActorDocumentCommands.moveLayers(
+              currentDefinition,
+              layerIds,
+              deltaX,
+              deltaY,
+            );
+
+          currentDefinition =
+            layerCommand.definition;
+          changed =
+            layerCommand.changed;
+
+          for (
+            const groupId of groupIds
+          ) {
+            const group =
+              currentDefinition.groups.find(
+                (item) =>
+                  item.id === groupId,
+              );
+
+            if (!group || group.locked) {
+              continue;
+            }
+
+            const groupCommand =
+              ActorDocumentCommands.updateGroup(
+                currentDefinition,
+                groupId,
+                {
+                  transform: {
+                    x:
+                      group.transform.x +
+                      deltaX,
+                    y:
+                      group.transform.y +
+                      deltaY,
+                  },
+                },
+                selectionIds,
+              );
+
+            currentDefinition =
+              groupCommand.definition;
+            changed =
+              changed ||
+              groupCommand.changed;
+          }
+
+          return {
+            definition:
+              currentDefinition,
+            selectionIds: [
+              ...selectionIds,
+            ],
+            changed,
+          };
+        },
+      );
+    },
+    [runCommand],
+  );
+
+  useEffect(() => {
+    const keyDown = (
+      event: KeyboardEvent,
+    ) => {
+      const target =
+        event.target instanceof
+        HTMLElement
+          ? event.target
+          : null;
+      const typing =
+        target?.tagName === "INPUT" ||
+        target?.tagName ===
+          "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+      const commandKey =
+        event.metaKey ||
+        event.ctrlKey;
+
+      if (typing) {
         return;
       }
 
       if (
         commandKey &&
-        event.key.toLowerCase() === "y"
+        event.key.toLowerCase() ===
+          "z"
       ) {
         event.preventDefault();
-        redo();
+        void restoreHistory(
+          event.shiftKey
+            ? "redo"
+            : "undo",
+        );
         return;
       }
 
-      if (isTyping) {
+      if (
+        commandKey &&
+        event.key.toLowerCase() ===
+          "y"
+      ) {
+        event.preventDefault();
+        void restoreHistory("redo");
+        return;
+      }
+
+      if (
+        commandKey &&
+        event.key.toLowerCase() ===
+          "d"
+      ) {
+        event.preventDefault();
+        duplicateLayers();
+        return;
+      }
+
+      if (
+        event.key === "Delete" ||
+        event.key === "Backspace"
+      ) {
+        event.preventDefault();
+        deleteSelectedLayers();
         return;
       }
 
       const amount =
         event.shiftKey ? 10 : 1;
 
-      if (event.key === "ArrowLeft") {
+      if (
+        event.key === "ArrowLeft"
+      ) {
         event.preventDefault();
-        nudgeLayer(-amount, 0);
-      }
-
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        nudgeLayer(amount, 0);
-      }
-
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        nudgeLayer(0, -amount);
-      }
-
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        nudgeLayer(0, amount);
+        nudgeSelection(-amount, 0);
       }
 
       if (
-        event.key.toLowerCase() === "s" &&
-        !commandKey
+        event.key === "ArrowRight"
       ) {
-        setSoloMode((current) => !current);
+        event.preventDefault();
+        nudgeSelection(amount, 0);
+      }
+
+      if (
+        event.key === "ArrowUp"
+      ) {
+        event.preventDefault();
+        nudgeSelection(0, -amount);
+      }
+
+      if (
+        event.key === "ArrowDown"
+      ) {
+        event.preventDefault();
+        nudgeSelection(0, amount);
       }
     };
 
     window.addEventListener(
       "keydown",
-      handleKeyDown,
+      keyDown,
     );
 
     return () => {
       window.removeEventListener(
         "keydown",
-        handleKeyDown,
+        keyDown,
       );
     };
   }, [
-    nudgeLayer,
-    redo,
-    undo,
+    deleteSelectedLayers,
+    duplicateLayers,
+    nudgeSelection,
+    restoreHistory,
   ]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-
-    if (!canvas) {
-      return;
-    }
-
-    const context = canvas.getContext("2d");
-
-    if (!context) {
-      return;
-    }
-
-    const hitCanvas =
-      document.createElement("canvas");
-
-    hitCanvas.width = 1;
-    hitCanvas.height = 1;
-
-    const hitContext = hitCanvas.getContext(
-      "2d",
-      {
-        willReadFrequently: true,
-      },
-    );
-
-    if (!hitContext) {
-      return;
-    }
-
-    let frameRequest = 0;
-
-    const resizeCanvas = () => {
-      const bounds =
-        canvas.getBoundingClientRect();
-
-      const pixelRatio = Math.min(
-        window.devicePixelRatio || 1,
-        2,
-      );
-
-      canvas.width = Math.max(
-        1,
-        Math.round(bounds.width * pixelRatio),
-      );
-
-      canvas.height = Math.max(
-        1,
-        Math.round(bounds.height * pixelRatio),
-      );
-
-      context.setTransform(
-        pixelRatio,
-        0,
-        0,
-        pixelRatio,
-        0,
-        0,
-      );
-    };
-
-    const drawGrid = (
-      width: number,
-      height: number,
+  const importPngs = useCallback(
+    async (
+      files: readonly File[],
     ) => {
-      if (!showGrid) {
+      const current =
+        actorRef.current;
+
+      if (!current) {
         return;
       }
 
-      context.save();
-      context.lineWidth = 1;
+      let workingActor = current;
+      let workingSelection =
+        selectionRef.current;
+      const beforeDefinition =
+        current.definition;
+      const beforeSelection =
+        selectionRef.current;
+      let imported = 0;
+      let failed = 0;
+      let lastFailure:
+        string | null = null;
 
-      const gridSize = 40;
-      const majorGridSize = 200;
+      for (const file of files) {
+        let source:
+          string | null = null;
 
-      for (
-        let x = 0;
-        x <= width;
-        x += gridSize
-      ) {
-        context.beginPath();
-
-        context.strokeStyle =
-          x % majorGridSize === 0
-            ? "rgba(60,210,255,0.18)"
-            : "rgba(255,255,255,0.04)";
-
-        context.moveTo(x + 0.5, 0);
-        context.lineTo(x + 0.5, height);
-        context.stroke();
-      }
-
-      for (
-        let y = 0;
-        y <= height;
-        y += gridSize
-      ) {
-        context.beginPath();
-
-        context.strokeStyle =
-          y % majorGridSize === 0
-            ? "rgba(60,210,255,0.18)"
-            : "rgba(255,255,255,0.04)";
-
-        context.moveTo(0, y + 0.5);
-        context.lineTo(width, y + 0.5);
-        context.stroke();
-      }
-
-      context.restore();
-    };
-
-    const render = () => {
-      const bounds =
-        canvas.getBoundingClientRect();
-
-      const width = bounds.width;
-      const height = bounds.height;
-
-      context.clearRect(0, 0, width, height);
-
-      const background =
-        context.createRadialGradient(
-          width / 2,
-          height / 2,
-          20,
-          width / 2,
-          height / 2,
-          Math.max(width, height),
-        );
-
-      background.addColorStop(0, "#14232d");
-      background.addColorStop(0.5, "#080d12");
-      background.addColorStop(1, "#020304");
-
-      context.fillStyle = background;
-      context.fillRect(0, 0, width, height);
-
-      drawGrid(width, height);
-
-      const currentActor = actorRef.current;
-      const selectedId =
-        selectedLayerIdRef.current;
-
-      if (currentActor) {
-        const previewLayers =
-          sortActorLayers(
-            currentActor.definition.layers
-              .filter((layer) => {
-                if (!layer.visible) {
-                  return false;
-                }
-
-                if (
-                  soloModeRef.current &&
-                  selectedId
-                ) {
-                  return (
-                    layer.id ===
-                    selectedId
-                  );
-                }
-
-                return true;
-              })
-              .map((layer) => {
-                if (
-                  !selectedId ||
-                  layer.id ===
-                    selectedId ||
-                  !dimOthersRef.current ||
-                  soloModeRef.current
-                ) {
-                  return layer;
-                }
-
-                return {
-                  ...layer,
-                  opacity:
-                    layer.opacity *
-                    0.22,
-                };
-              }),
-          );
-
-        const currentViewport =
-          viewportRef.current;
-
-        const previewActor: LoadedActor = {
-          ...currentActor,
-
-          definition: {
-            ...currentActor.definition,
-
-            layers: previewLayers,
-
-            display: {
-              ...currentActor.definition.display,
-
-              scale:
-                currentActor.definition.display
-                  .scale *
-                currentViewport.zoom,
-
-              offsetX:
-                currentActor.definition.display
-                  .offsetX +
-                currentViewport.panX,
-
-              offsetY:
-                currentActor.definition.display
-                  .offsetY +
-                currentViewport.panY,
-            },
-          },
-        };
-
-        renderActor(
-          context,
-          previewActor,
-          {
-            width,
-            height,
-          },
-        );
-
-        if (selectedId) {
-          const selectedLayer =
-            currentActor.definition.layers.find(
-              (layer) =>
-                layer.id === selectedId,
-            );
-
-          const selectedLayerImage =
-            currentActor.layerImages.get(
-              selectedId,
-            );
-
+        try {
           if (
-            selectedLayer &&
-            selectedLayerImage
+            file.type !==
+              "image/png" &&
+            !file.name
+              .toLowerCase()
+              .endsWith(".png")
           ) {
-            let alphaBounds =
-              alphaBoundsCacheRef.current.get(
-                selectedId,
-              );
-
-            if (!alphaBounds) {
-              alphaBounds = computeAlphaBounds(
-                selectedLayerImage,
-              );
-
-              alphaBoundsCacheRef.current.set(
-                selectedId,
-                alphaBounds,
-              );
-            }
-
-            const layout = calculateActorLayout(
-              currentActor,
-              width,
-              height,
-              currentViewport,
-            );
-
-            const geometry =
-              buildSelectionGeometry(
-                selectedLayer,
-                alphaBounds,
-                layout,
-              );
-
-            drawSelectionGeometry(
-              context,
-              geometry,
+            throw new Error(
+              `${file.name} is not a PNG file.`,
             );
           }
+
+          const metadata =
+            await inspectPngMetadata(
+              file,
+            );
+          const path =
+            createImportedAssetPath(
+              workingActor.definition.id,
+              file.name,
+              new Set(
+                workingActor.definition.assets.map(
+                  (asset) =>
+                    asset.path,
+                ),
+              ),
+            );
+          const asset:
+            ActorAssetDefinition = {
+            path,
+            name: file.name,
+            mediaType:
+              "image/png",
+            source: "local",
+            ...metadata,
+          };
+
+          source =
+            URL.createObjectURL(file);
+          const image =
+            await loadActorImage(source);
+
+          await repositoryRef.current.putAsset(
+            workingActor.definition.id,
+            asset,
+            file,
+          );
+          const assetImages = new Map(
+            workingActor.assetImages,
+          );
+          const assetUrls = new Map(
+            workingActor.assetUrls,
+          );
+
+          assetImages.set(path, image);
+          assetUrls.set(path, source);
+          workingActor = {
+            ...workingActor,
+            assetImages,
+            assetUrls,
+            objectUrls: [
+              ...workingActor.objectUrls,
+              source,
+            ],
+          };
+
+          const assetCommand =
+            ActorDocumentCommands.addAsset(
+              workingActor.definition,
+              asset,
+              workingSelection.ids,
+            );
+          const layerCommand =
+            ActorDocumentCommands.createLayer(
+              assetCommand.definition,
+              {
+                id: file.name,
+                name: file.name.replace(
+                  /\.png$/i,
+                  "",
+                ),
+                asset: path,
+                width:
+                  metadata.width,
+                height:
+                  metadata.height,
+              },
+            );
+
+          workingActor =
+            withDefinition(
+              workingActor,
+              layerCommand.definition,
+            );
+          source = null;
+          workingSelection =
+            StudioSelection.replace(
+              layerCommand.selectionIds,
+              sortActorLayers(
+                layerCommand.definition
+                  .layers,
+                "descending",
+              ).map(
+                (layer) => layer.id,
+              ),
+            );
+          imported += 1;
+        } catch (error: unknown) {
+          if (source) {
+            URL.revokeObjectURL(
+              source,
+            );
+          }
+
+          failed += 1;
+          lastFailure =
+            error instanceof Error
+              ? error.message
+              : `No se pudo importar ${file.name}.`;
         }
       }
 
-      frameRequest =
-        window.requestAnimationFrame(render);
-    };
-
-    const stagePointFromEvent = (
-      event: PointerEvent,
-    ): Point => {
-      const bounds =
-        canvas.getBoundingClientRect();
-
-      return {
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top,
-      };
-    };
-
-    const handlePointerDown = (
-      event: PointerEvent,
-    ) => {
-      const currentActor = actorRef.current;
-
-      if (!currentActor) {
+      if (imported === 0) {
+        setStatus(
+          lastFailure ??
+            "No se importó ningún PNG.",
+        );
         return;
       }
 
-      const bounds =
-        canvas.getBoundingClientRect();
-
-      const stagePoint =
-        stagePointFromEvent(event);
-
-      const layout = calculateActorLayout(
-        currentActor,
-        bounds.width,
-        bounds.height,
-        viewportRef.current,
+      historyRef.current.record(
+        `Import ${imported} PNG asset${imported === 1 ? "" : "s"}`,
+        beforeDefinition,
+        beforeSelection,
       );
-
-      const selectedId = findLayerAtPoint(
-        currentActor,
-        stagePoint,
-        layout,
-        hitContext,
+      setCurrentActor(workingActor);
+      updateSelection(
+        workingSelection,
       );
+      refreshHistory();
+      setStatus(
+        `${imported} PNG asset${imported === 1 ? "" : "s"} imported${failed > 0 ? ` · ${failed} failed` : ""}`,
+      );
+    },
+    [
+      refreshHistory,
+      setCurrentActor,
+      updateSelection,
+    ],
+  );
 
-      if (!selectedId) {
-        setSelectedLayerId(null);
+  const replaceAsset = useCallback(
+    async (
+      oldPath: string,
+      file: File,
+    ) => {
+      const current =
+        actorRef.current;
 
-        pointerRef.current = {
-          dragging: false,
-          pointerId: null,
-          lastX: event.clientX,
-          lastY: event.clientY,
+      if (!current) {
+        return;
+      }
+
+      let source:
+        string | null = null;
+
+      try {
+        const metadata =
+          await inspectPngMetadata(
+            file,
+          );
+        const path =
+          createImportedAssetPath(
+            current.definition.id,
+            file.name,
+            new Set(
+              current.definition.assets
+                .filter(
+                  (asset) =>
+                    asset.path !==
+                    oldPath,
+                )
+                .map(
+                  (asset) =>
+                    asset.path,
+                ),
+            ),
+          );
+        const asset:
+          ActorAssetDefinition = {
+          path,
+          name: file.name,
+          mediaType: "image/png",
+          source: "local",
+          ...metadata,
         };
 
-        return;
-      }
+        source =
+          URL.createObjectURL(file);
+        const image =
+          await loadActorImage(source);
 
-      setSelectedLayerId(selectedId);
-      selectedLayerIdRef.current = selectedId;
-
-      const selectedLayer =
-        currentActor.definition.layers.find(
-          (layer) =>
-            layer.id === selectedId,
+        await repositoryRef.current.putAsset(
+          current.definition.id,
+          asset,
+          file,
+        );
+        const assetImages = new Map(
+          current.assetImages,
+        );
+        const assetUrls = new Map(
+          current.assetUrls,
         );
 
-      if (selectedLayer?.locked) {
-        pointerRef.current = {
-          dragging: false,
-          pointerId: null,
-          lastX: event.clientX,
-          lastY: event.clientY,
+        assetImages.set(path, image);
+        assetUrls.set(path, source);
+
+        const prepared: LoadedActor = {
+          ...current,
+          assetImages,
+          assetUrls,
+          objectUrls: [
+            ...current.objectUrls,
+            source,
+          ],
         };
+        actorRef.current = prepared;
+
+        const command =
+          ActorDocumentCommands.replaceAsset(
+            current.definition,
+            oldPath,
+            asset,
+            selectionRef.current.ids,
+          );
+
+        applyCommand(
+          "Replace asset",
+          command,
+        );
+        source = null;
+      } catch (error: unknown) {
+        if (source) {
+          URL.revokeObjectURL(source);
+        }
 
         setStatus(
-          `La capa ${selectedLayer.name} está bloqueada`,
+          error instanceof Error
+            ? error.message
+            : "No se pudo reemplazar el recurso.",
         );
+      }
+    },
+    [applyCommand],
+  );
+
+  const importPackage =
+    useCallback(
+      async (file: File) => {
+        const current =
+          actorRef.current;
+
+        if (!current) {
+          return;
+        }
+
+        try {
+          const imported =
+            await readPortableActorPackage(
+              file,
+            );
+          const importedActorId =
+            actorIdFromUnknown(
+              imported.definition,
+              requestedActorId,
+            );
+          const normalized =
+            normalizeActorDefinition(
+              imported.definition,
+              {
+                sourceActorId:
+                  importedActorId,
+              },
+            );
+          const packageAssets: {
+            asset:
+              ActorAssetDefinition;
+            blob: Blob;
+          }[] = [];
+
+          for (
+            const asset of
+            normalized.definition.assets
+          ) {
+            const packagePath = [
+              ...imported.assets.keys(),
+            ].find(
+              (path) =>
+                asset.path === path ||
+                asset.path.endsWith(
+                  `/${path}`,
+                ),
+            );
+
+            if (!packagePath) {
+              throw new Error(
+                `The package is missing required asset "${asset.path}".`,
+              );
+            }
+
+            const blob =
+              imported.assets.get(
+                packagePath,
+              );
+
+            if (!blob) {
+              throw new Error(
+                `The package asset "${packagePath}" is unavailable.`,
+              );
+            }
+
+            packageAssets.push({
+              blob,
+              asset: {
+                ...asset,
+                source: "packaged",
+              },
+            });
+          }
+
+          await repositoryRef.current.putAssets(
+            normalized.definition.id,
+            packageAssets,
+          );
+
+          const hydrated =
+            await hydrateDefinition(
+              {
+                ...normalized.definition,
+                assets:
+                  normalized.definition.assets.map(
+                    (asset) => ({
+                      ...asset,
+                      source:
+                        "packaged",
+                    }),
+                  ),
+              },
+              normalized.warnings,
+            );
+
+          historyRef.current.record(
+            "Import actor package",
+            current.definition,
+            selectionRef.current,
+          );
+          setCurrentActor(hydrated);
+          const ordered =
+            sortActorLayers(
+              hydrated.definition.layers,
+              "descending",
+            );
+          updateSelection(
+            StudioSelection.replace(
+              ordered[0]
+                ? [ordered[0].id]
+                : [],
+              ordered.map(
+                (layer) => layer.id,
+              ),
+            ),
+          );
+          refreshHistory();
+          setStatus(
+            `${hydrated.definition.name} package imported`,
+          );
+        } catch (error: unknown) {
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "No se pudo importar el actor package.",
+          );
+        }
+      },
+      [
+        hydrateDefinition,
+        refreshHistory,
+        requestedActorId,
+        setCurrentActor,
+        updateSelection,
+      ],
+    );
+
+  const exportActor = useCallback(
+    () => {
+      const current =
+        actorRef.current;
+
+      if (!current) {
         return;
       }
 
-      pushHistorySnapshot(
-        currentActor.definition,
-      );
-
-      pointerRef.current = {
-        dragging: true,
-        pointerId: event.pointerId,
-        lastX: event.clientX,
-        lastY: event.clientY,
-      };
-
-      canvas.setPointerCapture(
-        event.pointerId,
-      );
-    };
-
-    const handlePointerMove = (
-      event: PointerEvent,
-    ) => {
-      const pointer = pointerRef.current;
-      const currentActor = actorRef.current;
-      const layerId =
-        selectedLayerIdRef.current;
-
-      if (
-        !pointer.dragging ||
-        pointer.pointerId !== event.pointerId ||
-        !currentActor ||
-        !layerId
-      ) {
-        return;
-      }
-
-      const selectedLayer =
-        currentActor.definition.layers.find(
-          (layer) =>
-            layer.id === layerId,
-        );
-
-      if (selectedLayer?.locked) {
-        return;
-      }
-
-      const bounds =
-        canvas.getBoundingClientRect();
-
-      const layout = calculateActorLayout(
-        currentActor,
-        bounds.width,
-        bounds.height,
-        viewportRef.current,
-      );
-
-      const deltaX =
-        (event.clientX - pointer.lastX) /
-        layout.scale;
-
-      const deltaY =
-        (event.clientY - pointer.lastY) /
-        layout.scale;
-
-      pointerRef.current = {
-        dragging: true,
-        pointerId: event.pointerId,
-        lastX: event.clientX,
-        lastY: event.clientY,
-      };
-
-      updateLayer(
-        layerId,
-        (layer) => ({
-          ...layer,
-
-          transform: {
-            ...layer.transform,
-
-            x:
-              layer.transform.x +
-              deltaX,
-
-            y:
-              layer.transform.y +
-              deltaY,
+      downloadBlob(
+        new Blob(
+          [
+            serializeActorJson(
+              current.definition,
+            ),
+          ],
+          {
+            type:
+              "application/json;charset=utf-8",
           },
-        }),
-        false,
+        ),
+        "actor.json",
       );
-    };
+      setStatus(
+        "actor.json exportado",
+      );
+    },
+    [],
+  );
 
-    const stopDragging = (
-      event: PointerEvent,
-    ) => {
-      pointerRef.current = {
-        dragging: false,
-        pointerId: null,
-        lastX: pointerRef.current.lastX,
-        lastY: pointerRef.current.lastY,
-      };
+  const exportPackage =
+    useCallback(async () => {
+      const current =
+        actorRef.current;
 
-      if (
-        canvas.hasPointerCapture(
-          event.pointerId,
-        )
-      ) {
-        canvas.releasePointerCapture(
-          event.pointerId,
-        );
-      }
-    };
-
-    const handleWheel = (
-      event: WheelEvent,
-    ) => {
-      event.preventDefault();
-
-      const currentActor = actorRef.current;
-
-      if (!currentActor) {
+      if (!current) {
         return;
       }
 
-      const bounds =
-        canvas.getBoundingClientRect();
-
-      const cursorX =
-        event.clientX - bounds.left;
-
-      const cursorY =
-        event.clientY - bounds.top;
-
-      const oldViewport =
-        viewportRef.current;
-
-      const oldLayout = calculateActorLayout(
-        currentActor,
-        bounds.width,
-        bounds.height,
-        oldViewport,
+      setStatus(
+        "Preparando actor package...",
       );
 
-      const actorPointX =
-        (cursorX - oldLayout.originX) /
-        oldLayout.scale;
+      try {
+        const assetByPath = new Map(
+          current.definition.assets.map(
+            (asset) => [
+              asset.path,
+              asset,
+            ],
+          ),
+        );
+        const archive =
+          await createPortableActorPackage(
+            current.definition,
+            async (path) => {
+              const asset =
+                assetByPath.get(path);
 
-      const actorPointY =
-        (cursorY - oldLayout.originY) /
-        oldLayout.scale;
+              if (
+                asset?.source !==
+                "bundled"
+              ) {
+                return repositoryRef.current.getAssetBlob(
+                  current.definition.id,
+                  path,
+                );
+              }
 
-      const zoomMultiplier =
-        Math.exp(-event.deltaY * 0.0015);
+              try {
+                const response =
+                  await fetch(path, {
+                    cache: "no-store",
+                  });
 
-      const nextZoom = clamp(
-        oldViewport.zoom * zoomMultiplier,
-        0.25,
-        4,
-      );
+                return response.ok
+                  ? response.blob()
+                  : null;
+              } catch {
+                return null;
+              }
+            },
+          );
 
-      const temporaryViewport: ViewportState = {
-        zoom: nextZoom,
+        downloadBlob(
+          archive,
+          `${current.definition.id}.genesis.zip`,
+        );
+        setStatus(
+          "Portable actor package exportado",
+        );
+      } catch (error: unknown) {
+        setStatus(
+          error instanceof Error
+            ? error.message
+            : "No se pudo exportar el actor package.",
+        );
+      }
+    }, []);
+
+  const resetViewport = useCallback(
+    () => {
+      updateViewport({
+        zoom: 1,
         panX: 0,
         panY: 0,
-      };
+      });
+      setStatus("Vista restaurada");
+    },
+    [updateViewport],
+  );
 
-      const baseLayout = calculateActorLayout(
-        currentActor,
-        bounds.width,
-        bounds.height,
-        temporaryViewport,
-      );
+  const centerActor = useCallback(
+    () => {
+      updateViewport({
+        ...viewportRef.current,
+        panX: 0,
+        panY: 0,
+      });
+      setStatus("Actor centrado");
+    },
+    [updateViewport],
+  );
 
-      const nextViewport: ViewportState = {
-        zoom: nextZoom,
+  const resetActor = useCallback(
+    async () => {
+      const current =
+        actorRef.current;
 
-        panX:
-          cursorX -
-          actorPointX * baseLayout.scale -
-          baseLayout.originX,
+      if (!current) {
+        return;
+      }
 
-        panY:
-          cursorY -
-          actorPointY * baseLayout.scale -
-          baseLayout.originY,
-      };
+      if (
+        !window.confirm(
+          `¿Restaurar la definición original de ${current.definition.name}?`,
+        )
+      ) {
+        return;
+      }
 
-      viewportRef.current = nextViewport;
-      setViewport(nextViewport);
-    };
+      try {
+        const original =
+          await loadActor(
+            requestedActorId,
+            repositoryRef.current,
+          );
 
-    resizeCanvas();
+        historyRef.current.record(
+          "Reset actor",
+          current.definition,
+          selectionRef.current,
+        );
+        window.localStorage.removeItem(
+          storageKey,
+        );
+        setCurrentActor(original);
+        const ordered =
+          sortActorLayers(
+            original.definition.layers,
+            "descending",
+          );
 
-    const resizeObserver =
-      new ResizeObserver(resizeCanvas);
+        updateSelection(
+          StudioSelection.replace(
+            ordered[0]
+              ? [ordered[0].id]
+              : [],
+            ordered.map(
+              (layer) => layer.id,
+            ),
+          ),
+        );
+        resetViewport();
+        refreshHistory();
+        setStatus(
+          `${original.definition.name} restaurado`,
+        );
+      } catch (error: unknown) {
+        setStatus(
+          error instanceof Error
+            ? error.message
+            : "No se pudo restaurar el actor.",
+        );
+      }
+    },
+    [
+      refreshHistory,
+      requestedActorId,
+      resetViewport,
+      setCurrentActor,
+      storageKey,
+      updateSelection,
+    ],
+  );
 
-    resizeObserver.observe(canvas);
-
-    canvas.addEventListener(
-      "pointerdown",
-      handlePointerDown,
-    );
-
-    canvas.addEventListener(
-      "pointermove",
-      handlePointerMove,
-    );
-
-    canvas.addEventListener(
-      "pointerup",
-      stopDragging,
-    );
-
-    canvas.addEventListener(
-      "pointercancel",
-      stopDragging,
-    );
-
-    canvas.addEventListener(
-      "wheel",
-      handleWheel,
-      {
-        passive: false,
-      },
-    );
-
-    frameRequest =
-      window.requestAnimationFrame(render);
-
-    return () => {
-      window.cancelAnimationFrame(
-        frameRequest,
-      );
-
-      resizeObserver.disconnect();
-
-      canvas.removeEventListener(
-        "pointerdown",
-        handlePointerDown,
-      );
-
-      canvas.removeEventListener(
-        "pointermove",
-        handlePointerMove,
-      );
-
-      canvas.removeEventListener(
-        "pointerup",
-        stopDragging,
-      );
-
-      canvas.removeEventListener(
-        "pointercancel",
-        stopDragging,
-      );
-
-      canvas.removeEventListener(
-        "wheel",
-        handleWheel,
-      );
-    };
-  }, [
-    pushHistorySnapshot,
-    showGrid,
-    updateLayer,
-  ]);
-
-  const orderedLayers = useMemo(() => {
-    if (!actor) {
-      return [];
-    }
-
-    return sortActorLayers(
-      actor.definition.layers,
-      "descending",
-    );
-  }, [actor]);
-
+  const orderedLayers = useMemo(
+    () =>
+      actor
+        ? sortActorLayers(
+            actor.definition.layers,
+            "descending",
+          )
+        : [],
+    [actor],
+  );
+  const orderedLayerIds = useMemo(
+    () =>
+      orderedLayers.map(
+        (layer) => layer.id,
+      ),
+    [orderedLayers],
+  );
+  const selectedLayers = useMemo(
+    () =>
+      selection.ids.flatMap(
+        (id) => {
+          const layer =
+            actor?.definition.layers.find(
+              (item) =>
+                item.id === id,
+            );
+          return layer
+            ? [layer]
+            : [];
+        },
+      ),
+    [
+      actor,
+      selection.ids,
+    ],
+  );
+  const selectedGroups = useMemo(
+    () =>
+      selection.ids.flatMap(
+        (id) => {
+          const group =
+            actor?.definition.groups.find(
+              (item) =>
+                item.id === id,
+            );
+          return group
+            ? [group]
+            : [];
+        },
+      ),
+    [
+      actor,
+      selection.ids,
+    ],
+  );
   const loadedLayerIds = useMemo(
     () =>
       new Set(
@@ -1942,135 +1778,308 @@ export default function AvatarStudio({
       ),
     [actor],
   );
-
-  const selectedLayer = useMemo(() => {
-    if (!actor || !selectedLayerId) {
-      return null;
-    }
-
-    return (
-      actor.definition.layers.find(
-        (layer) =>
-          layer.id === selectedLayerId,
-      ) ?? null
+  const effectiveLockedLayerIds =
+    useMemo(
+      () =>
+        new Set(
+          actor
+            ? actor.definition.layers
+                .filter(
+                  (layer) =>
+                    getEffectiveLayerState(
+                      actor.definition,
+                      layer,
+                    ).locked,
+                )
+                .map(
+                  (layer) =>
+                    layer.id,
+                )
+            : [],
+        ),
+      [actor],
     );
-  }, [
-    actor,
-    selectedLayerId,
-  ]);
-
-  const canUndo =
-    historyPastRef.current.length > 0;
-
-  const canRedo =
-    historyFutureRef.current.length > 0;
-
-  void historyVersion;
-
-  const exportActor = () => {
-    if (!actor) {
-      return;
-    }
-
-    const content = JSON.stringify(
-      actor.definition,
-      null,
-      2,
-    );
-
-    const blob = new Blob([content], {
-      type: "application/json;charset=utf-8",
-    });
-
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "actor.json";
-
-    document.body.appendChild(link);
-
-    link.click();
-    link.remove();
-
-    URL.revokeObjectURL(url);
-
-    setStatus("actor.json exportado");
-  };
-
-  const resetViewport = () => {
-    const nextViewport = {
-      zoom: 1,
-      panX: 0,
-      panY: 0,
-    };
-
-    viewportRef.current = nextViewport;
-    setViewport(nextViewport);
-
-    setStatus("Vista restaurada");
-  };
-
-  const resetDraft = async () => {
-    const actorName =
-      actorRef.current?.definition.name ??
-      requestedActorId;
-
-    const confirmed = window.confirm(
-      `¿Restaurar la definición original de ${actorName}?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    window.localStorage.removeItem(
-      storageKey,
-    );
-
-    alphaBoundsCacheRef.current.clear();
-
-    setStatus(
-      `Restaurando ${actorName}...`,
-    );
-
-    try {
-      const original = await loadActor(
-        requestedActorId,
-      );
-
-      if (actorRef.current) {
-        pushHistorySnapshot(
-          actorRef.current.definition,
+  const validation = useMemo(
+    () =>
+      actor
+        ? validateActorDefinition(
+            actor.definition,
+          )
+        : null,
+    [actor],
+  );
+  const diagnostics = useMemo(
+    () => {
+      const currentLayerIds =
+        new Set(
+          actor?.definition.layers.map(
+            (layer) => layer.id,
+          ) ?? [],
         );
+      const retainedDiagnostics =
+        (
+          actor?.diagnostics ?? []
+        ).filter((item) => {
+          if (
+            LIVE_VALIDATION_CODES.has(
+              item.code,
+            )
+          ) {
+            return false;
+          }
+
+          if (
+            item.layerId &&
+            !currentLayerIds.has(
+              item.layerId,
+            )
+          ) {
+            return false;
+          }
+
+          return !(
+            item.layerId &&
+            loadedLayerIds.has(
+              item.layerId,
+            ) &&
+            ASSET_RUNTIME_DIAGNOSTIC_CODES.has(
+              item.code,
+            )
+          );
+        });
+
+      return uniqueDiagnostics([
+        ...retainedDiagnostics,
+        ...(validation?.errors ??
+          []),
+        ...(validation?.warnings ??
+          []),
+      ]);
+    },
+    [
+      actor,
+      loadedLayerIds,
+      validation,
+    ],
+  );
+  const completeness = useMemo(
+    () =>
+      actor
+        ? calculateActorCompleteness(
+            actor.definition,
+          )
+        : null,
+    [actor],
+  );
+
+  const selectLayer = useCallback(
+    (
+      layerId: string,
+      modifiers:
+        LayerRowSelectModifiers,
+    ): readonly string[] => {
+      const next =
+        StudioSelection.select(
+          selectionRef.current,
+          layerId,
+          orderedLayerIds,
+          modifiers,
+        );
+
+      updateSelection(next);
+      return next.ids;
+    },
+    [
+      orderedLayerIds,
+      updateSelection,
+    ],
+  );
+
+  const createLayerFromAsset =
+    useCallback(
+      (
+        assetPath: string,
+        point?: ActorPoint,
+      ) => {
+        const current =
+          actorRef.current;
+
+        if (!current) {
+          return;
+        }
+
+        const asset =
+          current.definition.assets.find(
+            (item) =>
+              item.path ===
+              assetPath,
+          );
+
+        if (!asset) {
+          return;
+        }
+
+        runCommand(
+          "Create layer from asset",
+          (definition) =>
+            ActorDocumentCommands.createLayer(
+              definition,
+              {
+                id: asset.name,
+                name:
+                  asset.name.replace(
+                    /\.png$/i,
+                    "",
+                  ),
+                asset: asset.path,
+                x:
+                  point?.x ??
+                  0,
+                y:
+                  point?.y ??
+                  0,
+                width: asset.width,
+                height: asset.height,
+              },
+            ),
+        );
+      },
+      [runCommand],
+    );
+
+  const handleReorderLayers =
+    useCallback(
+      (
+        draggedIds:
+          readonly string[],
+        targetLayerId: string,
+      ) => {
+        const dragged =
+          new Set(draggedIds);
+        const remaining =
+          orderedLayerIds.filter(
+            (id) => !dragged.has(id),
+          );
+        const targetIndex =
+          remaining.indexOf(
+            targetLayerId,
+          );
+
+        if (targetIndex < 0) {
+          return;
+        }
+
+        const nextOrder = [
+          ...remaining.slice(
+            0,
+            targetIndex,
+          ),
+          ...orderedLayerIds.filter(
+            (id) => dragged.has(id),
+          ),
+          ...remaining.slice(
+            targetIndex,
+          ),
+        ];
+
+        runCommand(
+          "Reorder layers",
+          (
+            definition,
+            selectionIds,
+          ) =>
+            ActorDocumentCommands.reorderLayers(
+              definition,
+              nextOrder,
+              selectionIds,
+            ),
+        );
+      },
+      [
+        orderedLayerIds,
+        runCommand,
+      ],
+    );
+
+  const beginCanvasTransform =
+    useCallback((label: string) => {
+      const current =
+        actorRef.current;
+
+      if (
+        !current ||
+        historyRef.current
+          .transactionActive
+      ) {
+        return;
       }
 
-      actorRef.current = original;
-      setActor(original);
-
-      const firstLayer =
-        sortActorLayers(
-          original.definition.layers,
-          "descending",
-        )[0];
-
-      setSelectedLayerId(
-        firstLayer?.id ?? null,
+      transactionChangedRef.current =
+        false;
+      historyRef.current.beginTransaction(
+        label,
+        current.definition,
+        selectionRef.current,
       );
+    }, []);
 
-      resetViewport();
-      setStatus(
-        `${original.definition.name} restaurado`,
-      );
-    } catch (error: unknown) {
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : "No se pudo restaurar.",
-      );
-    }
-  };
+  const endCanvasTransform =
+    useCallback(
+      (changed: boolean) => {
+        historyRef.current.commitTransaction(
+          changed ||
+            transactionChangedRef.current,
+        );
+        transactionChangedRef.current =
+          false;
+        refreshHistory();
+      },
+      [refreshHistory],
+    );
+
+  const moveCanvasSelection =
+    useCallback(
+      (
+        layerIds: readonly string[],
+        deltaX: number,
+        deltaY: number,
+      ) =>
+        runCommand(
+          "Move layers",
+          (definition) =>
+            ActorDocumentCommands.moveLayers(
+              definition,
+              layerIds,
+              deltaX,
+              deltaY,
+            ),
+        ),
+      [runCommand],
+    );
+
+  const setCanvasTransform =
+    useCallback(
+      (
+        layerIds: readonly string[],
+        patch:
+          Partial<ActorTransform>,
+      ) =>
+        runCommand(
+          "Transform layers",
+          (definition) =>
+            ActorDocumentCommands.setTransforms(
+              definition,
+              layerIds,
+              patch,
+            ),
+        ),
+      [runCommand],
+    );
+
+  const canUndo =
+    historyStatus.canUndo;
+  const canRedo =
+    historyStatus.canRedo;
 
   return (
     <main
@@ -2079,7 +2088,8 @@ export default function AvatarStudio({
         height: "100vh",
         overflow: "hidden",
         display: "grid",
-        gridTemplateRows: "58px 1fr 32px",
+        gridTemplateRows:
+          "auto minmax(0,1fr) 32px",
         color: "#ffffff",
         background: "#030506",
         fontFamily:
@@ -2087,21 +2097,68 @@ export default function AvatarStudio({
       }}
     >
       <Toolbar
+        actorLoaded={
+          actorLoadState === "ready"
+        }
         canUndo={canUndo}
         canRedo={canRedo}
         dimOthers={dimOthers}
         soloMode={soloMode}
-        onUndo={undo}
-        onRedo={redo}
+        showGrid={showGrid}
+        showSafeArea={showSafeArea}
+        showRulers={showRulers}
+        snapToGrid={snapToGrid}
+        onUndo={() => {
+          void restoreHistory("undo");
+        }}
+        onRedo={() => {
+          void restoreHistory("redo");
+        }}
         onToggleHighlight={() =>
-          setDimOthers((value) => !value)
+          setDimOthers(
+            (value) => !value,
+          )
         }
         onToggleSolo={() =>
-          setSoloMode((value) => !value)
+          setSoloMode(
+            (value) => !value,
+          )
         }
+        onToggleGrid={() =>
+          setShowGrid(
+            (value) => !value,
+          )
+        }
+        onToggleSafeArea={() =>
+          setShowSafeArea(
+            (value) => !value,
+          )
+        }
+        onToggleRulers={() =>
+          setShowRulers(
+            (value) => !value,
+          )
+        }
+        onToggleSnap={() =>
+          setSnapToGrid(
+            (value) => !value,
+          )
+        }
+        onCenterActor={centerActor}
         onResetView={resetViewport}
-        onResetActor={resetDraft}
+        onResetActor={() => {
+          void resetActor();
+        }}
         onExportActor={exportActor}
+        onExportPackage={() => {
+          void exportPackage();
+        }}
+        onImportPngs={(files) => {
+          void importPngs(files);
+        }}
+        onImportPackage={(file) => {
+          void importPackage(file);
+        }}
       />
 
       <section
@@ -2109,35 +2166,436 @@ export default function AvatarStudio({
           minHeight: 0,
           display: "grid",
           gridTemplateColumns:
-            "270px minmax(0,1fr) 310px",
+            "300px minmax(0,1fr) 340px",
         }}
       >
-        <LayersPanel
-          actorLoaded={
-            actorLoadState ===
-            "ready"
-          }
-          layers={orderedLayers}
-          selectedLayerId={selectedLayerId}
-          loadedLayerIds={
-            loadedLayerIds
-          }
-          diagnostics={
-            actor?.diagnostics ?? []
-          }
-          onSelectLayer={setSelectedLayerId}
-          onToggleLayerVisibility={(
-            layerId,
-          ) => {
-            updateLayer(
-              layerId,
-              (layer) => ({
-                ...layer,
-                visible: !layer.visible,
-              }),
-            );
+        <div
+          style={{
+            minHeight: 0,
+            display: "grid",
+            gridTemplateRows:
+              "minmax(250px,3fr) minmax(210px,2fr)",
           }}
-        />
+        >
+          <LayersPanel
+            actorLoaded={
+              actorLoadState ===
+              "ready"
+            }
+            folders={
+              actor?.definition.folders ??
+              []
+            }
+            groups={
+              actor?.definition.groups ??
+              []
+            }
+            layers={orderedLayers}
+            selectedLayerIds={
+              selectedLayers.map(
+                (layer) => layer.id,
+              )
+            }
+            selectedGroupId={
+              selectedGroups[0]?.id ??
+              null
+            }
+            loadedLayerIds={
+              loadedLayerIds
+            }
+            diagnostics={diagnostics}
+            onSelectLayer={
+              selectLayer
+            }
+            onSelectGroup={(
+              groupId,
+            ) =>
+              updateSelection({
+                ids: [groupId],
+                anchorId: groupId,
+              })
+            }
+            onToggleLayerVisibility={(
+              layerId,
+            ) => {
+              const layer =
+                actorRef.current?.definition.layers.find(
+                  (item) =>
+                    item.id ===
+                    layerId,
+                );
+
+              if (layer) {
+                runCommand(
+                  "Toggle layer visibility",
+                  (definition) =>
+                    ActorDocumentCommands.setLayerVisibility(
+                      definition,
+                      [layerId],
+                      !layer.visible,
+                    ),
+                );
+              }
+            }}
+            onToggleLayerLock={(
+              layerId,
+            ) => {
+              const layer =
+                actorRef.current?.definition.layers.find(
+                  (item) =>
+                    item.id ===
+                    layerId,
+                );
+
+              if (layer) {
+                runCommand(
+                  "Toggle layer lock",
+                  (definition) =>
+                    ActorDocumentCommands.setLayerLock(
+                      definition,
+                      [layerId],
+                      !layer.locked,
+                    ),
+                );
+              }
+            }}
+            onRenameLayer={(
+              layerId,
+              name,
+            ) =>
+              runCommand(
+                "Rename layer",
+                (
+                  definition,
+                  selectionIds,
+                ) =>
+                  ActorDocumentCommands.renameLayer(
+                    definition,
+                    layerId,
+                    name,
+                    selectionIds,
+                  ),
+              )
+            }
+            onDuplicateLayers={
+              duplicateLayers
+            }
+            onDeleteLayers={
+              deleteSelectedLayers
+            }
+            onCreateFolder={() =>
+              runCommand(
+                "Create folder",
+                (
+                  definition,
+                  selectionIds,
+                ) =>
+                  ActorDocumentCommands.createFolder(
+                    definition,
+                    "NEW FOLDER",
+                    selectionIds,
+                  ),
+              )
+            }
+            onToggleFolderVisibility={(
+              folderId,
+            ) => {
+              const folder =
+                actorRef.current?.definition.folders.find(
+                  (item) =>
+                    item.id ===
+                    folderId,
+                );
+
+              if (folder) {
+                runCommand(
+                  "Toggle folder visibility",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.updateFolder(
+                      definition,
+                      folderId,
+                      {
+                        visible:
+                          !folder.visible,
+                      },
+                      selectionIds,
+                    ),
+                );
+              }
+            }}
+            onToggleFolderLock={(
+              folderId,
+            ) => {
+              const folder =
+                actorRef.current?.definition.folders.find(
+                  (item) =>
+                    item.id ===
+                    folderId,
+                );
+
+              if (folder) {
+                runCommand(
+                  "Toggle folder lock",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.updateFolder(
+                      definition,
+                      folderId,
+                      {
+                        locked:
+                          !folder.locked,
+                      },
+                      selectionIds,
+                    ),
+                );
+              }
+            }}
+            onRenameFolder={(
+              folderId,
+              name,
+            ) =>
+              runCommand(
+                "Rename folder",
+                (
+                  definition,
+                  selectionIds,
+                ) =>
+                  ActorDocumentCommands.updateFolder(
+                    definition,
+                    folderId,
+                    { name },
+                    selectionIds,
+                  ),
+              )
+            }
+            onDeleteFolder={(
+              folderId,
+            ) =>
+              runCommand(
+                "Delete folder",
+                (
+                  definition,
+                  selectionIds,
+                ) =>
+                  ActorDocumentCommands.deleteFolder(
+                    definition,
+                    folderId,
+                    selectionIds,
+                  ),
+              )
+            }
+            onAssignLayersToFolder={(
+              layerIds,
+              folderId,
+            ) =>
+              runCommand(
+                "Move layers to folder",
+                (definition) =>
+                  ActorDocumentCommands.assignFolder(
+                    definition,
+                    layerIds,
+                    folderId,
+                  ),
+              )
+            }
+            onReorderLayers={
+              handleReorderLayers
+            }
+            onReorderFolders={(
+              folderId,
+              targetFolderId,
+            ) => {
+              const folderIds =
+                (
+                  actorRef.current
+                    ?.definition.folders ??
+                  []
+                ).map(
+                  (folder) =>
+                    folder.id,
+                );
+              const remaining =
+                folderIds.filter(
+                  (id) =>
+                    id !== folderId,
+                );
+              const targetIndex =
+                remaining.indexOf(
+                  targetFolderId,
+                );
+
+              if (targetIndex >= 0) {
+                const next = [
+                  ...remaining.slice(
+                    0,
+                    targetIndex,
+                  ),
+                  folderId,
+                  ...remaining.slice(
+                    targetIndex,
+                  ),
+                ];
+
+                runCommand(
+                  "Reorder folders",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.reorderFolders(
+                      definition,
+                      next,
+                      selectionIds,
+                    ),
+                );
+              }
+            }}
+            onCreateGroup={(
+              layerIds,
+            ) =>
+              runCommand(
+                "Create group",
+                (definition) =>
+                  ActorDocumentCommands.createGroup(
+                    definition,
+                    "Group",
+                    layerIds,
+                  ),
+              )
+            }
+            onToggleGroupVisibility={(
+              groupId,
+            ) => {
+              const group =
+                actorRef.current?.definition.groups.find(
+                  (item) =>
+                    item.id ===
+                    groupId,
+                );
+
+              if (group) {
+                runCommand(
+                  "Toggle group visibility",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.updateGroup(
+                      definition,
+                      groupId,
+                      {
+                        visible:
+                          !group.visible,
+                      },
+                      selectionIds,
+                    ),
+                );
+              }
+            }}
+            onToggleGroupLock={(
+              groupId,
+            ) => {
+              const group =
+                actorRef.current?.definition.groups.find(
+                  (item) =>
+                    item.id ===
+                    groupId,
+                );
+
+              if (group) {
+                runCommand(
+                  "Toggle group lock",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.updateGroup(
+                      definition,
+                      groupId,
+                      {
+                        locked:
+                          !group.locked,
+                      },
+                      selectionIds,
+                    ),
+                );
+              }
+            }}
+            onDeleteGroup={(
+              groupId,
+            ) =>
+              runCommand(
+                "Delete group",
+                (
+                  definition,
+                  selectionIds,
+                ) =>
+                  ActorDocumentCommands.deleteGroups(
+                    definition,
+                    [groupId],
+                    selectionIds,
+                  ),
+              )
+            }
+          />
+
+          <AssetLibrary
+            actorLoaded={
+              actorLoadState === "ready"
+            }
+            assets={
+              actor?.definition.assets ??
+              []
+            }
+            layers={
+              actor?.definition.layers ??
+              []
+            }
+            assetUrls={
+              actor?.assetUrls ??
+              new Map()
+            }
+            selectedLayerIds={
+              selectedLayers.map(
+                (layer) => layer.id,
+              )
+            }
+            onImportPngs={(files) => {
+              void importPngs(files);
+            }}
+            onReplaceAsset={(
+              path,
+              file,
+            ) => {
+              void replaceAsset(
+                path,
+                file,
+              );
+            }}
+            onDeleteAsset={(path) =>
+              runCommand(
+                "Delete asset",
+                (
+                  definition,
+                  selectionIds,
+                ) =>
+                  ActorDocumentCommands.deleteAsset(
+                    definition,
+                    path,
+                    selectionIds,
+                  ),
+              )
+            }
+            onCreateLayerFromAsset={
+              createLayerFromAsset
+            }
+          />
+        </div>
 
         <section
           style={{
@@ -2146,20 +2604,65 @@ export default function AvatarStudio({
             position: "relative",
           }}
         >
-          <canvas
-            ref={canvasRef}
-            aria-label="Genesis actor editing canvas"
-            style={{
-              display: "block",
-              width: "100%",
-              height: "100%",
-
-              cursor: selectedLayer
-                ? "move"
-                : "crosshair",
-
-              touchAction: "none",
-            }}
+          <StudioCanvas
+            actor={actor}
+            selectedLayerIds={
+              selection.ids
+            }
+            viewport={viewport}
+            showGrid={showGrid}
+            showSafeArea={
+              showSafeArea
+            }
+            showRulers={showRulers}
+            snapToGrid={snapToGrid}
+            guides={guides}
+            dimOthers={dimOthers}
+            soloMode={soloMode}
+            onViewportChange={
+              updateViewport
+            }
+            onCanvasSelect={(
+              layerId,
+              modifiers,
+            ) =>
+              selectLayer(
+                layerId,
+                modifiers,
+              )
+            }
+            onClearSelection={() =>
+              updateSelection(
+                StudioSelection.clear(),
+              )
+            }
+            onBeginTransform={
+              beginCanvasTransform
+            }
+            onMoveSelection={
+              moveCanvasSelection
+            }
+            onSetSelectionTransform={
+              setCanvasTransform
+            }
+            onEndTransform={
+              endCanvasTransform
+            }
+            onDuplicateSelection={
+              duplicateLayers
+            }
+            onDropAsset={(
+              path,
+              point,
+            ) =>
+              createLayerFromAsset(
+                path,
+                point,
+              )
+            }
+            onGuidesChange={(next) =>
+              setGuides([...next])
+            }
           />
 
           {actorLoadState ===
@@ -2177,280 +2680,461 @@ export default function AvatarStudio({
                   transform:
                     "translate(-50%, -50%)",
                   padding: 18,
-                  borderRadius: 8,
                   border:
                     "1px solid rgba(255,110,110,0.45)",
+                  borderRadius: 8,
                   color: "#ffb0b0",
                   background:
                     "rgba(24,4,6,0.92)",
-                  fontSize: 12,
+                  fontSize: 11,
                   lineHeight: 1.6,
                   textAlign:
                     "center",
                 }}
               >
-                <strong
-                  style={{
-                    display:
-                      "block",
-                    marginBottom: 6,
-                    letterSpacing:
-                      "0.08em",
-                  }}
-                >
+                <strong>
                   ACTOR LOAD FAILED
                 </strong>
-
-                {actorLoadError}
-              </div>
-            )}
-
-          {actor &&
-            actor.diagnostics.length >
-              0 && (
-              <div
-                role="status"
-                style={{
-                  position:
-                    "absolute",
-                  right: 14,
-                  top: 14,
-                  width: 280,
-                  maxHeight: 150,
-                  overflow: "auto",
-                  padding:
-                    "10px 12px",
-                  borderRadius: 6,
-                  border:
-                    "1px solid rgba(255,205,92,0.3)",
-                  color: "#ffd36a",
-                  background:
-                    "rgba(20,14,3,0.88)",
-                  fontSize: 10,
-                  lineHeight: 1.5,
-                }}
-              >
-                <strong>
-                  {
-                    actor.diagnostics
-                      .length
-                  }{" "}
-                  ACTOR WARNING
-                  {actor.diagnostics
-                    .length === 1
-                    ? ""
-                    : "S"}
-                </strong>
-
-                {actor.diagnostics
-                  .slice(0, 3)
-                  .map(
-                    (
-                      item,
-                      index,
-                    ) => (
-                      <div
-                        key={`${item.code}-${item.layerId ?? "actor"}-${index}`}
-                        style={{
-                          marginTop: 5,
-                          color:
-                            "rgba(255,231,171,0.82)",
-                        }}
-                      >
-                        {item.message}
-                      </div>
-                    ),
-                  )}
+                <div>
+                  {actorLoadError}
+                </div>
               </div>
             )}
 
           <div
             style={{
               position: "absolute",
-              left: 14,
-              top: 14,
-              padding: "9px 11px",
-              borderRadius: 6,
-
+              left: 34,
+              bottom: 12,
+              padding: "7px 9px",
               border:
-                "1px solid rgba(75,214,255,0.22)",
-
+                "1px solid rgba(75,214,255,0.2)",
+              borderRadius: 5,
+              color:
+                "rgba(255,255,255,0.52)",
               background:
                 "rgba(2,6,8,0.78)",
-
-              color:
-                "rgba(255,255,255,0.65)",
-
-              fontSize: 11,
-              lineHeight: 1.65,
+              fontSize: 9,
+              lineHeight: 1.55,
               pointerEvents: "none",
             }}
           >
-            Rueda: Zoom al cursor
-            <br />
-            Ctrl/Cmd + Z: Undo
-            <br />
-            Ctrl/Cmd + Shift + Z: Redo
-            <br />
-            Flechas: 1 px · Shift: 10 px
+            Wheel zoom · Space pan ·
+            Alt-drag duplicate ·
+            Arrows move · Shift 10 px
           </div>
 
           <div
             style={{
               position: "absolute",
-              right: 14,
-              bottom: 14,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: 8,
-              borderRadius: 7,
-
-              background:
-                "rgba(2,6,8,0.82)",
-
+              right: 12,
+              bottom: 12,
+              padding: "7px 9px",
               border:
                 "1px solid rgba(75,214,255,0.2)",
+              borderRadius: 5,
+              color: "#6ee6ff",
+              background:
+                "rgba(2,6,8,0.82)",
+              fontSize: 9,
+              pointerEvents: "none",
             }}
           >
-            <span
-              style={{
-                color:
-                  "rgba(255,255,255,0.45)",
-                fontSize: 11,
-              }}
-            >
-              ZOOM
-            </span>
-
-            <input
-              type="range"
-              min="0.25"
-              max="4"
-              step="0.05"
-              value={viewport.zoom}
-              onChange={(event) => {
-                const nextViewport = {
-                  ...viewportRef.current,
-
-                  zoom: Number(
-                    event.target.value,
-                  ),
-                };
-
-                viewportRef.current =
-                  nextViewport;
-
-                setViewport(nextViewport);
-              }}
-            />
-
-            <span
-              style={{
-                minWidth: 45,
-                fontSize: 11,
-              }}
-            >
-              {Math.round(
-                viewport.zoom * 100,
-              )}
-              %
-            </span>
+            {Math.round(
+              viewport.zoom * 100,
+            )}
+            %
           </div>
         </section>
 
-        <Inspector
-          actorLoaded={
-            actorLoadState ===
-            "ready"
-          }
-          layer={selectedLayer}
-          assetLoaded={
-            selectedLayer
-              ? loadedLayerIds.has(
-                  selectedLayer.id,
+        <section
+          style={{
+            minHeight: 0,
+            display: "grid",
+            gridTemplateRows:
+              "36px minmax(0,1fr)",
+            borderLeft:
+              "1px solid rgba(70,210,255,0.14)",
+            background: "#070b0e",
+          }}
+        >
+          <div
+            role="tablist"
+            aria-label="Actor editing panels"
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(3,1fr)",
+              borderBottom:
+                "1px solid rgba(70,210,255,0.1)",
+            }}
+          >
+            {(
+              [
+                [
+                  "inspector",
+                  "INSPECTOR",
+                ],
+                ["mouth", "MOUTH"],
+                [
+                  "validation",
+                  `VALIDATE ${diagnostics.length}`,
+                ],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={
+                  rightPanel === id
+                }
+                onClick={() =>
+                  setRightPanel(id)
+                }
+                style={{
+                  border: 0,
+                  borderBottom:
+                    rightPanel === id
+                      ? "2px solid #67d9ff"
+                      : "2px solid transparent",
+                  color:
+                    rightPanel === id
+                      ? "#67d9ff"
+                      : "rgba(255,255,255,0.42)",
+                  background:
+                    "transparent",
+                  fontSize: 8,
+                  letterSpacing:
+                    "0.08em",
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {rightPanel ===
+            "inspector" && (
+            <Inspector
+              actorLoaded={
+                actorLoadState ===
+                "ready"
+              }
+              layers={selectedLayers}
+              selectedGroups={
+                selectedGroups
+              }
+              allLayers={
+                actor?.definition.layers ??
+                []
+              }
+              folders={
+                actor?.definition.folders ??
+                []
+              }
+              groups={
+                actor?.definition.groups ??
+                []
+              }
+              loadedLayerIds={
+                loadedLayerIds
+              }
+              effectiveLockedLayerIds={
+                effectiveLockedLayerIds
+              }
+              onRenameLayer={(
+                layerId,
+                name,
+              ) =>
+                runCommand(
+                  "Rename layer",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.renameLayer(
+                      definition,
+                      layerId,
+                      name,
+                      selectionIds,
+                    ),
                 )
-              : false
-          }
-          onTransformChange={
-            updateTransform
-          }
-          onOpacityChange={(
-            value,
-          ) => {
-            if (!selectedLayer) {
-              return;
-            }
+              }
+              onChangeLayerId={(
+                layerId,
+                nextId,
+              ) =>
+                runCommand(
+                  "Change layer ID",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.changeLayerId(
+                      definition,
+                      layerId,
+                      nextId,
+                      selectionIds,
+                    ),
+                )
+              }
+              onTransformChange={(
+                layerIds,
+                key,
+                value,
+              ) =>
+                runCommand(
+                  "Edit transform",
+                  (definition) =>
+                    ActorDocumentCommands.setTransforms(
+                      definition,
+                      layerIds,
+                      {
+                        [key]: value,
+                      },
+                    ),
+                )
+              }
+              onOpacityChange={(
+                layerIds,
+                value,
+              ) =>
+                runCommand(
+                  "Edit opacity",
+                  (definition) =>
+                    ActorDocumentCommands.setLayerProperties(
+                      definition,
+                      layerIds,
+                      {
+                        opacity: value,
+                      },
+                    ),
+                )
+              }
+              onLayerPropertyChange={(
+                layerIds,
+                patch,
+              ) =>
+                runCommand(
+                  "Edit layer properties",
+                  (definition) =>
+                    ActorDocumentCommands.setLayerProperties(
+                      definition,
+                      layerIds,
+                      patch,
+                    ),
+                )
+              }
+              onParentChange={(
+                layerIds,
+                parentId,
+              ) =>
+                runCommand(
+                  "Edit layer relationship",
+                  (definition) =>
+                    ActorDocumentCommands.setParent(
+                      definition,
+                      layerIds,
+                      parentId,
+                    ),
+                )
+              }
+              canAssignParent={(
+                nodeIds,
+                parentId,
+              ) => {
+                const definition =
+                  actorRef.current
+                    ?.definition;
 
-            updateLayer(
-              selectedLayer.id,
-              (layer) =>
-                layer.locked
-                  ? layer
-                  : {
-                      ...layer,
-                      opacity: value,
-                    },
-            );
-          }}
-          onZIndexChange={(value) => {
-            if (!selectedLayer) {
-              return;
-            }
+                return Boolean(
+                  definition &&
+                    nodeIds.every(
+                      (nodeId) =>
+                        canAssignActorParent(
+                          definition,
+                          nodeId,
+                          parentId,
+                        ),
+                    ),
+                );
+              }}
+              onNudge={
+                nudgeSelection
+              }
+              onResetTransform={() =>
+                runCommand(
+                  "Reset transform",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.resetTransforms(
+                      definition,
+                      selectionIds,
+                    ),
+                )
+              }
+              onUpdateGroup={(
+                groupId,
+                patch,
+              ) =>
+                runCommand(
+                  "Edit group",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.updateGroup(
+                      definition,
+                      groupId,
+                      patch,
+                      selectionIds,
+                    ),
+                )
+              }
+              onDeleteGroup={(
+                groupId,
+              ) =>
+                runCommand(
+                  "Delete group",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.deleteGroups(
+                      definition,
+                      [groupId],
+                      selectionIds,
+                    ),
+                )
+              }
+            />
+          )}
 
-            updateLayer(
-              selectedLayer.id,
-              (layer) =>
-                layer.locked
-                  ? layer
-                  : {
-                      ...layer,
-                      zIndex: value,
-                    },
-            );
-          }}
-          onNudge={nudgeLayer}
-          onResetPosition={
-            resetSelectedLayerPosition
-          }
-        />
+          {rightPanel === "mouth" && (
+            <MouthBuilder
+              actorLoaded={
+                actorLoadState ===
+                "ready"
+              }
+              layers={
+                actor?.definition.layers ??
+                []
+              }
+              construction={
+                actor?.definition.construction ??
+                null
+              }
+              onMapPose={(
+                pose: ActorMouthPose,
+                layerId,
+              ) =>
+                runCommand(
+                  "Map mouth pose",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.setMouthPose(
+                      definition,
+                      pose,
+                      layerId,
+                      selectionIds,
+                    ),
+                )
+              }
+              onSelectLayer={(
+                layerId,
+              ) => {
+                selectLayer(
+                  layerId,
+                  {
+                    additive: false,
+                    range: false,
+                  },
+                );
+                setRightPanel(
+                  "inspector",
+                );
+              }}
+            />
+          )}
+
+          {rightPanel ===
+            "validation" && (
+            <ActorValidationPanel
+              actorLoaded={
+                actorLoadState ===
+                "ready"
+              }
+              diagnostics={
+                diagnostics
+              }
+              completeness={
+                completeness
+              }
+              onSelectLayer={(
+                layerId,
+              ) =>
+                selectLayer(
+                  layerId,
+                  {
+                    additive: false,
+                    range: false,
+                  },
+                )
+              }
+            />
+          )}
+        </section>
       </section>
 
       <footer
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 14px",
-
+          justifyContent:
+            "space-between",
+          gap: 12,
+          padding: "0 12px",
           borderTop:
             "1px solid rgba(70,210,255,0.16)",
-
-          background: "#05090b",
-
           color:
-            "rgba(255,255,255,0.45)",
-
+            "rgba(255,255,255,0.44)",
+          background: "#05090b",
           fontFamily:
             "ui-monospace, monospace",
-
-          fontSize: 10,
-          letterSpacing: "0.06em",
+          fontSize: 9,
+          letterSpacing: "0.04em",
         }}
       >
-        <span>{status}</span>
-
-        <span>
-          HISTORY {historyPastRef.current.length}/
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow:
+              "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {status}
+        </span>
+        <span
+          style={{
+            flexShrink: 0,
+          }}
+        >
+          HISTORY{" "}
+          {historyStatus.pastCount}/
           {HISTORY_LIMIT}
           {" · "}
-          {selectedLayer
-            ? `SELECTED: ${selectedLayer.name}`
-            : "NO LAYER SELECTED"}
+          {selection.ids.length} SELECTED
           {" · "}
           {savedAt
-            ? `DRAFT SAVED ${savedAt}`
-            : "GENESIS ONLINE"}
+            ? `DRAFT ${savedAt}`
+            : "SESSION READY"}
         </span>
       </footer>
     </main>

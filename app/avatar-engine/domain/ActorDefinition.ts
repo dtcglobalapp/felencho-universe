@@ -1,3 +1,5 @@
+export const ACTOR_SCHEMA_VERSION = "1.0.0";
+
 export interface ActorTransform {
   x: number;
   y: number;
@@ -14,6 +16,74 @@ export interface ActorLayerMetadata {
   [key: string]: unknown;
 }
 
+export type ActorBlendMode =
+  | "source-over"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten";
+
+export type ActorAssetSource =
+  | "bundled"
+  | "local"
+  | "packaged";
+
+export interface ActorAssetDefinition {
+  path: string;
+  name: string;
+  mediaType: "image/png";
+  source: ActorAssetSource;
+  width?: number;
+  height?: number;
+  hasAlpha?: boolean;
+  byteLength?: number;
+}
+
+export interface ActorFolderDefinition {
+  id: string;
+  name: string;
+  parentId?: string;
+  order: number;
+  visible: boolean;
+  locked: boolean;
+}
+
+export interface ActorGroupDefinition {
+  id: string;
+  name: string;
+  parentId?: string;
+  visible: boolean;
+  locked: boolean;
+  transform: ActorTransform;
+}
+
+export const ACTOR_MOUTH_POSES = [
+  "REST",
+  "AA",
+  "EE",
+  "OO",
+  "FV",
+  "L",
+  "MBP",
+  "SMILE",
+  "SAD",
+  "OPEN",
+] as const;
+
+export type ActorMouthPose =
+  (typeof ACTOR_MOUTH_POSES)[number];
+
+export interface ActorConstructionDefinition {
+  profile: string;
+  requiredRoles: string[];
+  optionalRoles: string[];
+  requiredMouthPoses: ActorMouthPose[];
+  mouthPoses: Partial<
+    Record<ActorMouthPose, string>
+  >;
+}
+
 export interface ActorLayerDefinition {
   id: string;
   name: string;
@@ -24,6 +94,10 @@ export interface ActorLayerDefinition {
   opacity: number;
   zIndex: number;
   transform: ActorTransform;
+  folderId?: string;
+  parentId?: string;
+  inheritTransform: boolean;
+  blendMode: ActorBlendMode;
   metadata?: ActorLayerMetadata;
   animation?: Record<string, unknown>;
   physics?: Record<string, unknown>;
@@ -106,6 +180,7 @@ export interface ActorAnimationDefinition {
 }
 
 export interface ActorDefinition {
+  schemaVersion: string;
   id: string;
   name: string;
   version: string;
@@ -113,8 +188,12 @@ export interface ActorDefinition {
   height: number;
   fps: number;
   display: ActorDisplayDefinition;
+  assets: ActorAssetDefinition[];
+  folders: ActorFolderDefinition[];
+  groups: ActorGroupDefinition[];
   layers: ActorLayerDefinition[];
   rig: ActorRigDefinition;
+  construction: ActorConstructionDefinition;
   animations?: ActorAnimationDefinition;
 }
 
@@ -134,4 +213,3 @@ export interface ActorNormalizationResult {
   definition: ActorDefinition;
   warnings: ActorDiagnostic[];
 }
-

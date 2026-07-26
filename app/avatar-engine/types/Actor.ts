@@ -5,13 +5,20 @@ import type {
 
 export type {
   ActorAnimationDefinition,
+  ActorAssetDefinition,
+  ActorAssetSource,
   ActorBlinkDefinition,
+  ActorBlendMode,
+  ActorConstructionDefinition,
   ActorDefinition,
   ActorDiagnostic,
   ActorDiagnosticSeverity,
   ActorDisplayDefinition,
+  ActorFolderDefinition,
+  ActorGroupDefinition,
   ActorLayerDefinition,
   ActorLayerMetadata,
+  ActorMouthPose,
   ActorNormalizationResult,
   ActorRigDefinition,
   ActorTransform,
@@ -20,7 +27,10 @@ export type {
 export interface LoadedActor {
   definition: ActorDefinition;
   layerImages: ReadonlyMap<string, HTMLImageElement>;
+  assetImages: ReadonlyMap<string, HTMLImageElement>;
+  assetUrls: ReadonlyMap<string, string>;
   diagnostics: readonly ActorDiagnostic[];
+  objectUrls: readonly string[];
 }
 
 export interface ActorRuntimeState {

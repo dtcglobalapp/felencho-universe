@@ -87,6 +87,10 @@ Types shared across the loader, editor, renderer, runtime, and exporter form
 part of the Genesis contract. Changes to those types must be evaluated across
 every consumer.
 
+Actor schema versions and Genesis Studio versions are independent. A schema
+change requires normalization, validation, export, compatibility, and test
+review. Never use the Studio release number as an actor-format substitute.
+
 ## React Component Rules
 
 - Keep components focused and reusable.
@@ -112,6 +116,10 @@ Actor definition state, selection state, viewport state, and history state may
 have different lifecycles. Treat them as separate concerns even when the
 composition layer coordinates them.
 
+Components must request actor changes through `ActorDocumentCommands`. Direct
+mutation or panel-specific document cloning is prohibited. Continuous pointer
+or drag interactions must use one history transaction per user gesture.
+
 ### Component Extraction
 
 A component should be extracted when it:
@@ -132,9 +140,12 @@ Genesis code should be organized by responsibility.
 ```text
 app/avatar-engine/
 ├── components/       Shared avatar-engine components
+├── config/           Genesis and actor-editor configuration
+├── domain/           Actor schema, normalization, validation, hierarchy
 ├── lib/              Loading, rendering, runtime, and engine logic
 ├── studio/           Genesis editor composition and routes
-│   └── components/   Modular editor UI
+│   ├── components/   Modular editor UI
+│   └── domain/       Commands, selection, and session history
 ├── tools/            Asset and actor-generation tools
 └── types/            Shared TypeScript contracts
 
@@ -149,6 +160,43 @@ their responsibility.
 
 Do not create a new folder or abstraction merely to move complexity out of
 sight. Folder boundaries should reflect stable architectural concepts.
+
+## Actor Document and Asset Rules
+
+- `actor.json` is authoritative for actor structure and configuration.
+- Normalize legacy documents in memory; do not rewrite source actor packages
+  as a side effect of loading.
+- Keep actor schema version independent of the Studio release version.
+- Store imported binary blobs only behind `ActorAssetRepository`.
+- Never make IndexedDB the sole owner of layers, hierarchy, rig, construction,
+  or other important actor structure.
+- Distinguish bundled, local, packaged, and missing assets in data and UI.
+- Preserve standalone JSON export and complete portable-package export.
+- Stop portable export when any declared binary asset is unavailable.
+- Keep organizational folders separate from transform groups and parent
+  relationships.
+- Use the shared hierarchy and transform resolver in both editor geometry and
+  rendering.
+
+## Command, Selection, and History Rules
+
+Every actor-document mutation must pass through `ActorDocumentCommands`,
+including create, rename, duplicate, delete, move, reorder, folder assignment,
+visibility, locking, transforms, relationships, mouth mappings, and asset
+replacement.
+
+`StudioSelection` owns selected stable IDs and range anchors. Components derive
+selected objects from the active actor document and must not cache stale
+copies.
+
+History is session-based in Genesis v0.6. It must:
+
+- Record complete document operations
+- Restore selection when appropriate
+- Group continuous gestures into one transaction
+- Clear Redo after a new committed mutation
+- Exclude viewport and preview-only state
+- Preserve actor validity across Undo and Redo
 
 ## Sprint Workflow
 
@@ -203,13 +251,19 @@ Never break the build.
 
 Before completing a Sprint:
 
-1. Run the production build.
-2. Confirm TypeScript compilation succeeds.
-3. Resolve all errors introduced by the Sprint.
-4. Confirm affected routes are generated successfully.
-5. Review warnings and determine whether they are relevant to the Sprint.
-6. Verify no unrelated generated files or source changes are included.
-7. Run targeted tests or interaction checks for the affected behavior.
+1. Run focused and affected automated tests.
+2. Run TypeScript validation.
+3. Run lint.
+4. Run the production build.
+5. Resolve all errors introduced by the Sprint.
+6. Confirm affected routes are generated successfully.
+7. Review warnings and determine whether they are relevant to the Sprint.
+8. Verify no unrelated generated files or source changes are included.
+9. Run targeted interaction checks for the affected behavior.
+
+Actor-document releases should explicitly verify legacy actor loading, export
+round trips, missing-asset behavior, Undo/Redo, selection reconciliation,
+hierarchy cycle prevention, and any new command paths.
 
 A Sprint is not complete until build verification succeeds.
 

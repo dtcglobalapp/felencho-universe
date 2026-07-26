@@ -23,13 +23,14 @@ mutates that data, the renderer interprets it, and the exporter packages it.
 Shared UI must not hardcode the layer structure, rig, or capabilities of a
 particular actor.
 
-`ActorDefinition.layers` is the single in-memory source of truth for layer
-identity, names, asset references, visibility, z-order, and transforms. Loaded
-bitmap assets are stored separately in a layer-ID lookup. The loader, editor,
+`ActorDefinition` is the single in-memory source of truth for actor structure,
+including layers, asset references, folders, transform groups, relationships,
+rig data, construction requirements, and mouth mappings. Loaded bitmap assets
+are runtime resources stored separately from the document. The loader, editor,
 Inspector, Canvas, History Engine, and renderer therefore cannot develop
-independent copies of layer definitions.
+independent copies of actor definitions.
 
-As of Genesis v0.5, external actor JSON passes through a dedicated domain
+As of Genesis v0.6, external actor JSON passes through a dedicated domain
 boundary before it reaches the editor or renderer:
 
 ```text
@@ -48,9 +49,13 @@ Normalized ActorDefinition
 `ActorDefinition` defines the canonical runtime contract.
 `ActorNormalizer` performs compatibility migration, default assignment, safe
 path normalization, opacity normalization, and deterministic ordering.
-`ActorValidator` verifies actor integrity, unique layer IDs, normalized
-transforms, display configuration, animation configuration, and rig
-references.
+`ActorValidator` verifies schema and structural integrity, unique node IDs,
+assets, folders, hierarchy, transforms, blend modes, display configuration,
+animation configuration, rig references, and mouth mappings.
+
+`ActorCompleteness` is a separate construction-progress system. It evaluates
+documented profile requirements without turning an incomplete actor into a
+structurally invalid actor.
 
 These responsibilities remain independent of React and browser presentation.
 
@@ -77,6 +82,40 @@ for each concern.
 Every user-editable operation must integrate with Undo/Redo. Editor mutations
 must be representable as deterministic changes to the actor definition or
 another explicitly managed history domain.
+
+Genesis v0.6 routes document mutations through `ActorDocumentCommands`.
+Panels and StudioCanvas request commands; they never mutate
+`ActorDefinition` directly. Continuous move, scale, rotate, and reorder
+gestures use history transactions so one gesture becomes one meaningful
+history entry.
+
+### Separate Organization, Hierarchy, and Selection
+
+Organizational folders, logical transform groups, parent relationships, and
+selection are separate domains:
+
+- Folders organize the Layers panel and can affect effective visibility and
+  locking, but do not contribute transforms.
+- Groups are actor transform nodes and may parent layers or other groups.
+- Parent references are validated independently of folder membership.
+- `StudioSelection` stores selected stable IDs and a range anchor; it is editor
+  state, not actor data.
+
+`ActorHierarchy` owns relationship inspection and effective state.
+`ActorTransformResolver` owns world-transform composition. ActorRenderer and
+StudioCanvas share these systems.
+
+### Asset Authority and Portability
+
+`actor.json` remains authoritative. Its typed asset manifest distinguishes
+bundled public assets, browser-local imports, packaged imports, and missing
+resources.
+
+`ActorAssetRepository` is the only IndexedDB boundary and stores binary blobs,
+not actor structure. `ActorAssetResolver` joins document references with
+runtime images and emits recoverable diagnostics. `ActorExporter` provides
+both standalone JSON and complete portable package workflows; portable export
+fails if a declared asset cannot be included.
 
 ### Performance by Design
 
@@ -168,8 +207,8 @@ See [GENESIS_AI_FORGE.md](./GENESIS_AI_FORGE.md).
 The main editor composition layer.
 
 `AvatarStudio` currently coordinates actor state, selection, viewport state,
-local draft persistence, history, canvas interaction, and communication
-between editor modules.
+local draft persistence, session history, asset hydration, import/export,
+validation, and communication between editor modules.
 
 Its long-term role is orchestration. Feature-specific UI and behavior should
 move into focused modules so that `AvatarStudio` does not become a permanent
@@ -187,9 +226,10 @@ Responsibilities:
 
 The primary command surface for editor-wide actions.
 
-The Toolbar exposes Undo, Redo, Highlight, Solo, Reset View, Reset Actor, and
-Actor Export. It receives command availability, active modes, and behavior
-through typed props.
+The Toolbar exposes Undo, Redo, Highlight, Solo, grid, safe area, rulers,
+snapping, actor centering, Reset View, Reset Actor, PNG import,
+portable-package import, actor JSON export, and portable-package export. It
+receives command availability, active modes, and behavior through typed props.
 
 The Toolbar does not own actor state. It presents commands whose implementation
 belongs to the editor composition layer or dedicated services.
@@ -201,10 +241,16 @@ The visual representation of the actor's layer stack.
 Current responsibilities include:
 
 - Receive arbitrary actor layers through a typed data contract
-- Display actor layers in z-order
-- Show selection state
-- Select layers
+- Display folders, logical groups, and actor layers
+- Display actor layers in deterministic z-order
+- Search and filter the tree
+- Support single, additive, and range selection
 - Toggle layer visibility
+- Toggle locking
+- Rename and delete folders
+- Reorder layers and folders through drag and drop
+- Move layers between folders
+- Create transform groups from selected layers
 - Present layer identity and ordering information
 
 `LayersPanel` is an extracted editor component. It does not know the identity
@@ -212,8 +258,8 @@ or layer structure of the active actor. Names and rows are generated entirely
 from `ActorDefinition.layers`, and all mutations return to the central editor
 state through explicit commands.
 
-Future responsibilities include drag-and-drop ordering, grouping, locking,
-filtering, and context commands. The panel must remain completely data-driven.
+The panel remains completely data-driven. It issues typed callbacks to the
+composition layer and does not mutate the actor document.
 
 ### Inspector
 
@@ -229,12 +275,14 @@ Current responsibilities include:
 - Edit scale
 - Edit opacity
 - Edit rotation pivots
-- Edit z-index
+- Edit folder, asset, blend mode, visibility, lock, and transform parent
 - Provide precision nudge controls
 - Prevent transform editing when a normalized layer is locked
+- Present shared values and mixed states for multi-layer selection
+- Inspect and edit logical transform groups
 
-The Inspector is an extracted presentation component. Selection remains a
-stable layer ID owned by `AvatarStudio`, and the selected layer is derived from
+The Inspector is an extracted presentation component. Selection remains stable
+IDs owned by `StudioSelection`, and selected layers or groups are derived from
 the current actor definition.
 
 Future inspector sections may support pivots, rigging, constraints, physics,
@@ -248,24 +296,29 @@ The interactive visual workspace.
 
 Current responsibilities include:
 
-- Render the actor preview
+- Render the actor preview through ActorRenderer
 - Render the editor grid
-- Manage viewport zoom
-- Display selection geometry
+- Render safe area, rulers, and draggable guides
+- Manage viewport pan and zoom
+- Display hierarchy-aware selection geometry
 - Perform alpha-aware hit testing
-- Support direct layer movement
+- Support direct layer movement, scale, and rotation
+- Support multi-layer movement and safe group manipulation
+- Support grid snapping and asset drop
 - Reflect Highlight and Solo modes
 
-The Canvas must distinguish actor-space coordinates, stage-space coordinates,
-and viewport transformations consistently. Future manipulation tools should
-build upon a shared transform model.
+`StudioCanvas` is extracted from `AvatarStudio`. It distinguishes actor-space,
+stage-space, viewport, and device-pixel transforms and delegates document
+changes through commands. It reuses ActorRenderer and
+ActorTransformResolver instead of duplicating rendering or hierarchy rules.
 
 ### History Engine
 
 The Undo/Redo system.
 
-The current History Engine stores bounded actor-definition snapshots and
-restores editor state without mutating stored history entries.
+The current History Engine stores bounded actor-definition and selection
+snapshots and restores editor state without mutating stored history entries.
+It supports explicit begin, commit, and cancel transaction boundaries.
 
 Long-term responsibilities include:
 
@@ -288,7 +341,7 @@ Current responsibilities include:
 - Assign safe defaults for omitted compatible fields
 - Validate actor and layer integrity
 - Reject duplicate layer identifiers
-- Resolve local actor-package asset paths
+- Resolve bundled, local, and packaged asset paths
 - Load every supported declared layer image independently
 - Separate fatal actor errors from recoverable layer warnings
 - Produce the loaded actor representation
@@ -318,6 +371,9 @@ Current responsibilities include:
 - Render supported visible image layers in deterministic z-order
 - Apply layer transforms and opacity
 - Apply rotation pivots
+- Apply validated parent/group transform inheritance
+- Apply effective folder/group/layer visibility
+- Apply the typed Canvas 2D blend mode
 - Apply runtime eye movement
 - Apply blink behavior
 - Apply head and body runtime transforms
@@ -330,29 +386,85 @@ definitions by their data-defined z-index, and resolves each bitmap through
 the loaded layer-image lookup. Consequently, the editor, Inspector, and
 renderer all observe the same layer model.
 
+### ActorDocumentCommands
+
+The only mutation API for the active actor document.
+
+Current commands cover layer creation, rename, stable-ID changes,
+duplication, deletion, movement, transforms, relationships, visibility,
+locking, ordering, folder assignment and lifecycle, group lifecycle, mouth
+pose mappings, asset addition/replacement/deletion, and blend modes.
+
+Commands return a new definition, reconciled selection IDs, and an explicit
+changed flag. This makes history recording deterministic and keeps UI modules
+presentation-focused.
+
+### StudioSelection
+
+Owns selected stable IDs and the selection anchor. It supports single click,
+Command/Ctrl additive selection, Shift range selection, reconciliation after
+document changes, and shared Canvas/Layer-tree selection.
+
+### ActorHierarchy and ActorTransformResolver
+
+`ActorHierarchy` prevents and diagnoses missing parents, self-parenting, and
+cycles and resolves effective visibility and locking.
+`ActorTransformResolver` composes world matrices with caching and a recursion
+guard. Both StudioCanvas and ActorRenderer consume the same results.
+
+### AssetLibrary and ActorAssetRepository
+
+AssetLibrary displays PNG metadata and thumbnails, organizes asset references,
+imports or replaces PNGs, deletes safe unused assets, creates layers, and
+supports canvas drop. Browser binary persistence is accessed only through
+ActorAssetRepository. Missing or denied storage degrades to diagnostics.
+
+### MouthBuilder, ActorValidator, and ActorCompleteness
+
+MouthBuilder maps the supported pose keys to arbitrary layer IDs.
+ActorValidator reports structural errors and warnings.
+ActorCompleteness reports profile-based construction progress. These concerns
+remain separate so an actor can be valid but unfinished.
+
+### ActorExporter
+
+Exports normalized `actor.json` and a `.genesis.zip` archive containing
+`actor.json` plus every declared binary asset. It also validates and imports
+the safe stored-ZIP format produced by Genesis. Archive paths and CRC values
+are checked before data enters normalization or browser storage.
+
 ## Current Module Flow
 
 ```text
-public/actors/<ActorId>/actor.json
+actor.json + bundled/local/packaged PNG assets
                 │
                 ▼
-          Actor Loader
-          ├── Actor Normalizer
-          ├── Actor Validator
-          ├── Validated ActorDefinition
-          ├── Layer Images by ID
-          └── Recoverable Diagnostics
+ ActorNormalizer ── ActorValidator
                 │
+                ▼
+       Normalized ActorDefinition
+                │
+       ┌────────┴─────────┐
+       ▼                  ▼
+ActorAssetResolver   ActorCompleteness
+       │                  │
+       └────────┬─────────┘
                 ▼
           AvatarStudio
-          ├── Toolbar
-          ├── LayersPanel
-          ├── Inspector
-          ├── History Engine
-          └── Canvas
+  ┌─────────────┼──────────────────┐
+  ▼             ▼                  ▼
+Toolbar   Layers/Assets       Inspector/
+          StudioSelection     Mouth/Validation
                 │
                 ▼
-          Actor Renderer
+ ActorDocumentCommands + StudioHistory
+                │
+                ▼
+          StudioCanvas
+       ┌────────┴────────┐
+       ▼                 ▼
+ActorRenderer   ActorHierarchy/
+                ActorTransformResolver
                 │
                 ▼
           Canvas Output
@@ -362,9 +474,9 @@ Commands flow from editor modules into the state owner. Updated actor data
 flows back into panels and the rendering pipeline. History surrounds
 persistent mutations so that changes remain reversible.
 
-The Studio's active selection is `selectedLayerId: string | null`. It never
-stores a second layer object. Actor changes clear a stale selection when its
-ID is absent from the newly loaded definition.
+The Studio's active selection is a `StudioSelectionState` containing stable
+node IDs and an anchor. It never stores copied layer or group objects. Actor
+changes reconcile stale IDs against the current definition.
 
 ## Future Modules
 
@@ -420,18 +532,21 @@ Lip Sync must define a stable contract between speech providers and actor
 mouth rigs. Provider-specific events should be adapted into Genesis runtime
 data before they reach the renderer.
 
-### Asset Browser
+### Asset Browser Evolution
 
-A structured interface for importing, organizing, previewing, replacing, and
-assigning actor assets.
+Genesis v0.6 includes the local PNG AssetLibrary foundation. Future work may
+add richer categorization, bulk operations, provenance, optimization, and
+cloud-backed project assets.
 
 The Asset Browser should manage references safely, detect missing assets, and
 avoid coupling asset storage to a single editor view.
 
-### Exporter
+### Exporter Evolution
 
-A production pipeline for validating and packaging actor definitions, assets,
-rigs, animations, expressions, physics, and runtime metadata.
+Genesis v0.6 includes actor JSON and portable actor-package export. Future
+production work may add signatures, compression formats, target adapters,
+provenance, and packaged animation/expression/physics data after those schemas
+exist.
 
 The Exporter is responsible for ensuring that a package is complete,
 portable, versioned, and compatible with the target Genesis runtime.
@@ -503,11 +618,13 @@ should consider:
 Silent interpretation differences between the editor and runtime are not
 acceptable. Both must agree on the meaning of actor data.
 
-Genesis v0.5 introduces a backward-compatible normalization boundary rather
+Genesis v0.6 extends the backward-compatible normalization boundary rather
 than rewriting existing actor packages. Legacy `image` fields normalize to
 `asset`, legacy `transform.opacity` values normalize to layer-level `opacity`,
-and omitted compatible display or optional layer fields receive documented
-defaults. Exported working definitions use the normalized contract.
+and omitted schema, asset, folder, group, construction, relationship, blend,
+display, or optional layer fields receive documented defaults. Exported
+working definitions use the normalized contract and current actor schema
+version, independently of the Genesis Studio release.
 
 ## Integration Boundaries
 

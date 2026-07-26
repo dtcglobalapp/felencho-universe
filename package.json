@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:genesis": "tsx --test app/avatar-engine/domain/ActorDefinition.test.ts",
+    "test:genesis": "tsx --test app/avatar-engine/domain/*.test.ts app/avatar-engine/studio/domain/*.test.ts app/avatar-engine/lib/*.test.ts",
     "fae:generate": "node app/avatar-engine/tools/fae-builder.mjs Bob",
     "fae:deploy": "npm run fae:generate && npm run build"
   },
