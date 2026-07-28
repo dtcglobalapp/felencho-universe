@@ -7,7 +7,7 @@ import {
 
 import {
   FELENCHO_STUDIO,
-  GENESIS_ENGINE_VERSION_LABEL,
+  FELENCHO_STUDIO_VERSION_LABEL,
 } from "../../avatar-engine/config/GenesisConfig";
 import MediaCapture from "./MediaCapture";
 
@@ -273,7 +273,7 @@ export default function StudioWelcome() {
       </div>
 
       <footer className="relative z-10 border-t border-white/[0.07] px-5 py-6 text-center text-[10px] uppercase tracking-[0.2em] text-white/25">
-        {`${FELENCHO_STUDIO.name} · Powered by ${GENESIS_ENGINE_VERSION_LABEL}`}
+        {FELENCHO_STUDIO_VERSION_LABEL}
       </footer>
     </main>
   );

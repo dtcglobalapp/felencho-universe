@@ -1,17 +1,21 @@
 import type {
   Metadata,
 } from "next";
+import {
+  redirect,
+} from "next/navigation";
 
 import {
   FELENCHO_STUDIO,
 } from "../avatar-engine/config/GenesisConfig";
-import StudioWelcome from "./components/StudioWelcome";
 
 export const metadata: Metadata = {
-  title: `${FELENCHO_STUDIO.name} | Create an Intelligent Digital Professional`,
+  title: `${FELENCHO_STUDIO.name} v${FELENCHO_STUDIO.version}`,
   description: FELENCHO_STUDIO.tagline,
 };
 
 export default function FelenchoStudioPage() {
-  return <StudioWelcome />;
+  redirect(
+    "/felencho-studio/advanced",
+  );
 }

@@ -109,15 +109,15 @@ export default function GenesisAccessForm({
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-md items-center">
         <section className="w-full rounded-[2rem] border border-cyan-300/15 bg-[#0b1114] p-7 shadow-2xl shadow-cyan-950/30 sm:p-9">
           <Link
-            href="/felencho-studio"
+            href="/"
             className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70 transition hover:text-cyan-100"
           >
-            ← Back to Felencho Studio
+            ← Back to Felencho
           </Link>
 
           <div className="mt-8">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
-              Private Beta
+              Private Production System
             </p>
 
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">
@@ -125,7 +125,7 @@ export default function GenesisAccessForm({
             </h1>
 
             <p className="mt-3 text-sm leading-6 text-white/55">
-              Advanced Mode is reserved for
+              The Actor Editor is reserved for
               authorized owners, developers,
               artists, and internal collaborators.
             </p>

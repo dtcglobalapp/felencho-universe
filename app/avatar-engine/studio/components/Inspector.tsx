@@ -56,8 +56,21 @@ interface InspectorProps {
         | "visible"
         | "locked"
         | "blendMode"
+        | "inheritTransform"
       >
     >,
+  ) => void;
+  onLayerMetadataChange: (
+    layerIds: readonly string[],
+    patch: {
+      category?: string;
+      semanticRole?: string;
+    },
+  ) => void;
+  onLayerRuntimeChange: (
+    layerIds: readonly string[],
+    kind: "animation" | "physics",
+    profile: string,
   ) => void;
   onParentChange: (
     layerIds: readonly string[],
@@ -72,6 +85,18 @@ interface InspectorProps {
     deltaY: number,
   ) => void;
   onResetTransform: () => void;
+  onAlign: (
+    axis:
+      | "left"
+      | "centerX"
+      | "right"
+      | "top"
+      | "centerY"
+      | "bottom",
+  ) => void;
+  onDistribute: (
+    axis: "x" | "y",
+  ) => void;
   onUpdateGroup: (
     groupId: string,
     patch: Partial<
@@ -140,10 +165,14 @@ export default function Inspector({
   onTransformChange,
   onOpacityChange,
   onLayerPropertyChange,
+  onLayerMetadataChange,
+  onLayerRuntimeChange,
   onParentChange,
   canAssignParent,
   onNudge,
   onResetTransform,
+  onAlign,
+  onDistribute,
   onUpdateGroup,
   onDeleteGroup,
 }: InspectorProps) {
@@ -336,6 +365,114 @@ export default function Inspector({
             }
           />
 
+          <TextField
+            label="Semantic Role"
+            value={
+              multiple
+                ? ""
+                : (
+                    layer.metadata
+                      ?.semanticRole ?? ""
+                  )
+            }
+            placeholder={
+              multiple
+                ? "Multiple selection"
+                : "Example: leftEye"
+            }
+            disabled={multiple}
+            onCommit={(semanticRole) =>
+              onLayerMetadataChange(
+                [layer.id],
+                { semanticRole },
+              )
+            }
+          />
+
+          <TextField
+            label="Category"
+            value={
+              multiple
+                ? ""
+                : (
+                    layer.metadata
+                      ?.category ?? ""
+                  )
+            }
+            placeholder={
+              multiple
+                ? "Multiple selection"
+                : "Example: face"
+            }
+            disabled={multiple}
+            onCommit={(category) =>
+              onLayerMetadataChange(
+                [layer.id],
+                { category },
+              )
+            }
+          />
+
+          <TextField
+            label="Animation Profile"
+            value={
+              multiple
+                ? ""
+                : (
+                    typeof layer
+                      .animation
+                      ?.profile ===
+                    "string"
+                      ? layer.animation
+                          .profile
+                      : ""
+                  )
+            }
+            placeholder={
+              multiple
+                ? "Multiple selection"
+                : "Optional runtime profile"
+            }
+            disabled={multiple}
+            onCommit={(profile) =>
+              onLayerRuntimeChange(
+                [layer.id],
+                "animation",
+                profile,
+              )
+            }
+          />
+
+          <TextField
+            label="Physics Profile"
+            value={
+              multiple
+                ? ""
+                : (
+                    typeof layer
+                      .physics
+                      ?.profile ===
+                    "string"
+                      ? layer.physics
+                          .profile
+                      : ""
+                  )
+            }
+            placeholder={
+              multiple
+                ? "Multiple selection"
+                : "Optional runtime profile"
+            }
+            disabled={multiple}
+            onCommit={(profile) =>
+              onLayerRuntimeChange(
+                [layer.id],
+                "physics",
+                profile,
+              )
+            }
+          />
+
           <SelectField
             label="Visible"
             value={
@@ -508,6 +645,39 @@ export default function Inspector({
                   </option>
                 ))}
             </optgroup>
+          </SelectField>
+
+          <SelectField
+            label="Inherit Transform"
+            value={
+              sharedValue(
+                layers.map(
+                  (item) =>
+                    item.inheritTransform
+                      ? "true"
+                      : "false",
+                ),
+              ) ?? "__mixed__"
+            }
+            onChange={(value) =>
+              onLayerPropertyChange(
+                layerIds,
+                {
+                  inheritTransform:
+                    value === "true",
+                },
+              )
+            }
+          >
+            <option value="__mixed__" disabled>
+              Mixed
+            </option>
+            <option value="true">
+              Yes
+            </option>
+            <option value="false">
+              No
+            </option>
           </SelectField>
 
           <SectionLabel>
@@ -741,6 +911,81 @@ export default function Inspector({
             />
             <span />
           </div>
+
+          {multiple && (
+            <>
+              <SectionLabel>
+                ALIGN PIVOTS
+              </SectionLabel>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(3,1fr)",
+                  gap: 6,
+                }}
+              >
+                <ActionButton
+                  label="LEFT"
+                  onClick={() =>
+                    onAlign("left")
+                  }
+                />
+                <ActionButton
+                  label="CENTER X"
+                  onClick={() =>
+                    onAlign(
+                      "centerX",
+                    )
+                  }
+                />
+                <ActionButton
+                  label="RIGHT"
+                  onClick={() =>
+                    onAlign("right")
+                  }
+                />
+                <ActionButton
+                  label="TOP"
+                  onClick={() =>
+                    onAlign("top")
+                  }
+                />
+                <ActionButton
+                  label="CENTER Y"
+                  onClick={() =>
+                    onAlign(
+                      "centerY",
+                    )
+                  }
+                />
+                <ActionButton
+                  label="BOTTOM"
+                  onClick={() =>
+                    onAlign("bottom")
+                  }
+                />
+                <ActionButton
+                  label="SPACE X"
+                  disabled={
+                    layers.length < 3
+                  }
+                  onClick={() =>
+                    onDistribute("x")
+                  }
+                />
+                <ActionButton
+                  label="SPACE Y"
+                  disabled={
+                    layers.length < 3
+                  }
+                  onClick={() =>
+                    onDistribute("y")
+                  }
+                />
+              </div>
+            </>
+          )}
 
           {multiple && (
             <div
@@ -1166,11 +1411,11 @@ function NumberField({
 function ActionButton({
   label,
   onClick,
-  disabled,
+  disabled = false,
 }: {
   label: string;
   onClick: () => void;
-  disabled: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button

@@ -14,14 +14,14 @@ import {
 } from "../../avatar-engine/auth/GenesisSession";
 import {
   FELENCHO_STUDIO,
-  GENESIS_ENGINE_VERSION_LABEL,
+  FELENCHO_STUDIO_VERSION_LABEL,
 } from "../../avatar-engine/config/GenesisConfig";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title:
-    `${FELENCHO_STUDIO.name} ${FELENCHO_STUDIO.advancedMode} | ${GENESIS_ENGINE_VERSION_LABEL}`,
+    `${FELENCHO_STUDIO_VERSION_LABEL} | ${FELENCHO_STUDIO.advancedMode}`,
   description:
     "Protected professional authoring tools for authorized Felencho Studio collaborators.",
 };

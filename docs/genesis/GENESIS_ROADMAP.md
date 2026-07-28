@@ -2,10 +2,8 @@
 
 ## Purpose
 
-This roadmap defines the planned progression of Felencho Studio and its
-internal Genesis Engine from the current professional authoring foundation to
-a conversation-first AI Studio for creating digital professionals, digital
-actors, and intelligent characters.
+This roadmap defines the private production sequence for Felencho Studio and
+its internal actor engine.
 
 The roadmap is directional. Sprint scope may be refined as the architecture
 evolves, but the core requirements remain constant:
@@ -18,19 +16,43 @@ evolves, but the core requirements remain constant:
 
 ## Current Version
 
-**Genesis v0.6**
+**Felencho Studio v1.0**
 
-Genesis v0.6 establishes the Professional Digital Actor Editor foundation.
-The current editor provides schema-versioned actor documents, centralized
-commands, transaction history, first-class multi-selection, hierarchy-aware
-rendering and manipulation, folders and transform groups, local PNG assets,
-portable actor packages, mouth-pose mapping, structural validation, and
-profile-based construction completeness.
+Felencho Studio v1.0 is the private professional environment for authoring
+Bob, Lina, and Felencho Virtual. The Genesis name remains an internal
+historical engine identifier where required for compatibility, but it is no
+longer the Studio product identity.
 
-Felencho Studio Phase 1 now places that editor behind protected Advanced Mode
-and establishes Felencho Studio as the public product. Genesis v0.6 remains
-the current internal engine release; Phase 1 does not change the actor schema
-or claim new AI-generation capability.
+The earlier public-platform direction is superseded by the private-studio
+mission described in [FELENCHO_STUDIO_V1.md](./FELENCHO_STUDIO_V1.md).
+
+## Immediate Production Sequence
+
+### Mission 02 — Complete Felencho Studio V1.0
+
+Status: **Implementation**
+
+Exit criteria:
+
+- Complete actor project lifecycle
+- Complete actor settings, rig, runtime metadata, and blink authoring
+- Complete asset, performance, package, and structural diagnostics
+- Preserve data-driven actor packages and portable import/export
+- Require no manual JSON editing for normal actor construction
+
+### Mission 03 — Build Bob
+
+Status: **Next**
+
+Bob will be the first complete actor authored inside Felencho Studio. No
+Bob-specific editor architecture is permitted.
+
+### Later Production
+
+1. Build and validate Lina through the same engine.
+2. Build and validate Felencho Virtual through the same engine.
+3. Integrate the accepted actors with the separate studio runtime, voice,
+   Gateway, Presence, and television systems.
 
 ## Completed
 

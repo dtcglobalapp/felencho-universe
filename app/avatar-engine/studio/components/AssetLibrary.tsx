@@ -28,6 +28,9 @@ interface AssetLibraryProps {
   onCreateLayerFromAsset: (
     path: string,
   ) => void;
+  onSelectAssetLayers: (
+    path: string,
+  ) => void;
 }
 
 function assetFolder(path: string): string {
@@ -49,6 +52,7 @@ export default function AssetLibrary({
   onReplaceAsset,
   onDeleteAsset,
   onCreateLayerFromAsset,
+  onSelectAssetLayers,
 }: AssetLibraryProps) {
   const importInputRef =
     useRef<HTMLInputElement | null>(
@@ -354,7 +358,7 @@ export default function AssetLibrary({
           style={{
             display: "grid",
             gridTemplateColumns:
-              "repeat(4,minmax(0,1fr))",
+              "repeat(5,minmax(0,1fr))",
             gap: 5,
           }}
         >
@@ -385,6 +389,24 @@ export default function AssetLibrary({
             onClick={() =>
               replaceInputRef.current?.click()
             }
+          />
+          <LibraryButton
+            label="USES"
+            disabled={
+              !selectedAsset ||
+              !layers.some(
+                (layer) =>
+                  layer.asset ===
+                  selectedAsset.path,
+              )
+            }
+            onClick={() => {
+              if (selectedAsset) {
+                onSelectAssetLayers(
+                  selectedAsset.path,
+                );
+              }
+            }}
           />
           <LibraryButton
             label="DELETE"

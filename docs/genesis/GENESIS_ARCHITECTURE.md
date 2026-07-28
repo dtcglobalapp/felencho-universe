@@ -2,16 +2,16 @@
 
 ## Overview
 
-Genesis Engine is the internal modular actor-authoring and runtime foundation
-for data-driven, AI-powered digital humans.
+Genesis Engine is the internal modular actor-document and rendering foundation
+for data-driven Digital Actors.
 
-Felencho Studio is the public product. It owns the nontechnical,
-conversation-first creation experience and progressively discloses
-complexity. Customers should not need to understand the internal actor model
-or professional editing concepts.
+Felencho Studio is the private production environment built on that
+foundation. It is not a public product, marketplace, SaaS application, social
+network, or customer-facing actor generator.
 
-The existing editor is preserved as Felencho Studio **Advanced Mode**. It is a
-protected professional surface, not the default product entry.
+Felencho Studio V1.0 is the permanent professional authoring surface used by
+Felencho's technical artists. See
+[FELENCHO_STUDIO_V1.md](./FELENCHO_STUDIO_V1.md).
 
 The editor must remain independent of any single character. Bob, Lina,
 Felencho Virtual, and future actors are loaded through shared definitions and
@@ -136,23 +136,16 @@ state update patterns, and asset pipelines.
 
 Felencho Studio and Genesis Engine have four primary architectural domains:
 
-### Public Product Experience
+### Private Studio Experience
 
-Felencho Studio asks what the user wants to create, accepts authorized source
-media, and will eventually coordinate source-quality analysis, conversational
-knowledge discovery, review, and automated actor construction.
+`/felencho-studio` is the protected entry to the internal actor-authoring
+environment. The Project Hub manages browser-local working projects and bundled
+actor packages. The professional editor owns actor settings, layers, assets,
+rig mappings, construction progress, diagnostics, history, and portable
+packages.
 
-Phase 1 currently provides the public conversational entry, local photo
-selection, local short-video recording, truthful capability disclosure, and
-the protected transition to Advanced Mode. It does not upload or analyze
-media.
-
-The Phase 1 public route is `/felencho-studio`. The historical
-`/avatar-engine` entry redirects there. The older `/studio` namespace already
-hosts the protected Studio OS operations workspace, so moving all product
-routes into the future `app/studio/` structure requires a separate,
-non-destructive route migration. Phase 1 does not collapse or overwrite those
-existing capabilities.
+The public website is a separate concern and may remain in maintenance mode
+while internal production continues.
 
 ### Actor Data
 

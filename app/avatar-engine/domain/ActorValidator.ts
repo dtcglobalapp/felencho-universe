@@ -466,6 +466,58 @@ export function validateActorDefinition(
     },
   );
 
+  const folderById = new Map(
+    definition.folders.map(
+      (folder) => [
+        folder.id,
+        folder,
+      ],
+    ),
+  );
+  const reportedFolderCycles =
+    new Set<string>();
+
+  for (const folder of
+    definition.folders) {
+    const visited = new Set<string>();
+    let current:
+      string | undefined = folder.id;
+
+    while (current) {
+      if (visited.has(current)) {
+        const cycleKey = [
+          ...visited,
+        ]
+          .sort()
+          .join(":");
+
+        if (
+          !reportedFolderCycles.has(
+            cycleKey,
+          )
+        ) {
+          reportedFolderCycles.add(
+            cycleKey,
+          );
+          errors.push({
+            severity: "error",
+            code:
+              "FOLDER_HIERARCHY_CYCLE",
+            message: `Folder hierarchy contains a cycle involving "${current}".`,
+            path: "folders",
+          });
+        }
+        break;
+      }
+
+      visited.add(current);
+      current =
+        folderById.get(
+          current,
+        )?.parentId;
+    }
+  }
+
   definition.groups.forEach(
     (group, index) => {
       if (!group.id.trim()) {

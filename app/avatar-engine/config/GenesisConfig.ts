@@ -9,10 +9,14 @@ export const GENESIS_VERSION_LABEL =
 
 export const FELENCHO_STUDIO = {
   name: "Felencho Studio",
+  version: "1.0.0",
   tagline:
-    "The AI Studio for Creating Digital Professionals, Digital Actors and Intelligent Characters.",
-  advancedMode: "Advanced Mode",
+    "Private Digital Actor Production Environment",
+  advancedMode: "Actor Editor",
 } as const;
+
+export const FELENCHO_STUDIO_VERSION_LABEL =
+  `${FELENCHO_STUDIO.name} v${FELENCHO_STUDIO.version}`;
 
 export const GENESIS_ENGINE_VERSION_LABEL =
   `${GENESIS.name} Engine v${GENESIS.version}`;

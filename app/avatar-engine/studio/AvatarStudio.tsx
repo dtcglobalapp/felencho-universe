@@ -39,11 +39,19 @@ import {
 import {
   loadActor,
 } from "../lib/ActorLoader";
+import {
+  loadActorRegistry,
+} from "../lib/ActorRegistry";
 import ActorValidationPanel from "./components/ActorValidationPanel";
+import ActorSetupPanel from "./components/ActorSetupPanel";
 import AssetLibrary from "./components/AssetLibrary";
+import DiagnosticsPanel from "./components/DiagnosticsPanel";
+import HistoryPanel from "./components/HistoryPanel";
 import Inspector from "./components/Inspector";
 import LayersPanel from "./components/LayersPanel";
 import MouthBuilder from "./components/MouthBuilder";
+import ProjectHub from "./components/ProjectHub";
+import RigMapper from "./components/RigMapper";
 import StudioCanvas from "./components/StudioCanvas";
 import Toolbar from "./components/Toolbar";
 import {
@@ -56,6 +64,13 @@ import {
 import {
   StudioHistory,
 } from "./domain/StudioHistory";
+import {
+  ActorProjectRepository,
+  createEmptyActorDefinition,
+} from "./domain/ActorProjectRepository";
+import {
+  diagnoseStudioActor,
+} from "./domain/StudioDiagnostics";
 
 import type {
   ActorAssetDefinition,
@@ -81,6 +96,9 @@ import type {
 import type {
   StudioSelectionState,
 } from "./domain/StudioSelection";
+import type {
+  ActorProjectSummary,
+} from "./domain/ActorProjectRepository";
 
 const DEFAULT_ACTOR_ID = "Bob";
 const HISTORY_LIMIT = 100;
@@ -109,8 +127,12 @@ type ActorLoadState =
 
 type RightPanel =
   | "inspector"
+  | "setup"
+  | "rig"
   | "mouth"
-  | "validation";
+  | "validation"
+  | "diagnostics"
+  | "history";
 
 interface AvatarStudioProps {
   actorId?: string;
@@ -222,12 +244,16 @@ export default function AvatarStudio({
   const requestedActorId =
     actorId.trim() ||
     DEFAULT_ACTOR_ID;
+  const [
+    activeProjectKey,
+    setActiveProjectKey,
+  ] = useState(requestedActorId);
   const storageKey = useMemo(
     () =>
       getDraftStorageKey(
-        requestedActorId,
+        activeProjectKey,
       ),
-    [requestedActorId],
+    [activeProjectKey],
   );
   const repositoryRef = useRef(
     new ActorAssetRepository(),
@@ -235,6 +261,12 @@ export default function AvatarStudio({
   const historyRef = useRef(
     new StudioHistory(HISTORY_LIMIT),
   );
+  const projectRepositoryRef =
+    useRef(
+      new ActorProjectRepository(),
+    );
+  const actorStorageIdRef =
+    useRef(requestedActorId);
   const actorRef =
     useRef<LoadedActor | null>(null);
   const selectionRef =
@@ -310,6 +342,9 @@ export default function AvatarStudio({
     canUndo: false,
     canRedo: false,
     pastCount: 0,
+    futureCount: 0,
+    pastLabels: [] as string[],
+    futureLabels: [] as string[],
   });
   const [
     rightPanel,
@@ -317,6 +352,27 @@ export default function AvatarStudio({
   ] = useState<RightPanel>(
     "inspector",
   );
+  const [
+    projectHubOpen,
+    setProjectHubOpen,
+  ] = useState(false);
+  const [
+    localProjects,
+    setLocalProjects,
+  ] = useState<
+    ActorProjectSummary[]
+  >([]);
+  const [
+    bundledActors,
+    setBundledActors,
+  ] = useState<
+    {
+      key: string;
+      name: string;
+      version: string;
+      description: string;
+    }[]
+  >([]);
 
   const refreshHistory = useCallback(
     () => {
@@ -328,10 +384,60 @@ export default function AvatarStudio({
         canRedo: history.canRedo,
         pastCount:
           history.pastCount,
+        futureCount:
+          history.futureCount,
+        pastLabels:
+          history.pastLabels,
+        futureLabels:
+          history.futureLabels,
       });
     },
     [],
   );
+
+  const refreshProjects =
+    useCallback(() => {
+      setLocalProjects(
+        projectRepositoryRef.current.list(),
+      );
+    }, []);
+
+  useEffect(() => {
+    refreshProjects();
+  }, [refreshProjects]);
+
+  useEffect(() => {
+    loadActorRegistry()
+      .then((registry) => {
+        setBundledActors(
+          registry.actors.map(
+            (entry) => ({
+              key:
+                entry.definition
+                  .split("/")
+                  .filter(Boolean)
+                  .at(-2) ??
+                entry.id,
+              name: entry.name,
+              version: entry.version,
+              description:
+                entry.description,
+            }),
+          ),
+        );
+      })
+      .catch(() => {
+        setBundledActors([
+          {
+            key: "Bob",
+            name: "Bob",
+            version: "development",
+            description:
+              "Bundled actor project",
+          },
+        ]);
+      });
+  }, []);
 
   const updateSelection = useCallback(
     (
@@ -607,16 +713,36 @@ export default function AvatarStudio({
       setActorLoadError(null);
       setSavedAt(null);
       setStatus(
-        `Cargando ${requestedActorId}...`,
+        `Loading ${activeProjectKey}...`,
       );
       refreshHistory();
     });
 
     const prepare = async () => {
-      const base = await loadActor(
-        requestedActorId,
-        repositoryRef.current,
-      );
+      const localDefinition =
+        projectRepositoryRef.current.load(
+          activeProjectKey,
+        );
+      const base = localDefinition
+        ? await (() => {
+            const normalized =
+              normalizeActorDefinition(
+                localDefinition,
+                {
+                  sourceActorId:
+                    activeProjectKey,
+                },
+              );
+
+            return hydrateDefinition(
+              normalized.definition,
+              normalized.warnings,
+            );
+          })()
+        : await loadActor(
+            activeProjectKey,
+            repositoryRef.current,
+          );
       let definition =
         base.definition;
       let diagnostics = [
@@ -639,7 +765,7 @@ export default function AvatarStudio({
                 sourceActorId:
                   actorIdFromUnknown(
                     parsed,
-                    requestedActorId,
+                    activeProjectKey,
                   ),
               },
             );
@@ -689,6 +815,8 @@ export default function AvatarStudio({
         }
 
         setCurrentActor(loaded);
+        actorStorageIdRef.current =
+          loaded.definition.id;
         setActorLoadState("ready");
         const ordered =
           sortActorLayers(
@@ -734,8 +862,8 @@ export default function AvatarStudio({
     };
   }, [
     hydrateDefinition,
+    activeProjectKey,
     refreshHistory,
-    requestedActorId,
     setCurrentActor,
     storageKey,
     updateSelection,
@@ -1007,6 +1135,44 @@ export default function AvatarStudio({
       if (
         commandKey &&
         event.key.toLowerCase() ===
+          "a"
+      ) {
+        event.preventDefault();
+        const current =
+          actorRef.current;
+
+        if (current) {
+          const ids =
+            sortActorLayers(
+              current.definition.layers,
+              "descending",
+            ).map(
+              (layer) =>
+                layer.id,
+            );
+
+          updateSelection(
+            StudioSelection.replace(
+              ids,
+              ids,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (
+        event.key === "Escape"
+      ) {
+        updateSelection(
+          StudioSelection.clear(),
+        );
+        return;
+      }
+
+      if (
+        commandKey &&
+        event.key.toLowerCase() ===
           "z"
       ) {
         event.preventDefault();
@@ -1095,6 +1261,7 @@ export default function AvatarStudio({
     duplicateLayers,
     nudgeSelection,
     restoreHistory,
+    updateSelection,
   ]);
 
   const importPngs = useCallback(
@@ -1387,10 +1554,6 @@ export default function AvatarStudio({
         const current =
           actorRef.current;
 
-        if (!current) {
-          return;
-        }
-
         try {
           const imported =
             await readPortableActorPackage(
@@ -1399,7 +1562,7 @@ export default function AvatarStudio({
           const importedActorId =
             actorIdFromUnknown(
               imported.definition,
-              requestedActorId,
+              activeProjectKey,
             );
           const normalized =
             normalizeActorDefinition(
@@ -1476,11 +1639,15 @@ export default function AvatarStudio({
               normalized.warnings,
             );
 
-          historyRef.current.record(
-            "Import actor package",
-            current.definition,
-            selectionRef.current,
-          );
+          if (current) {
+            historyRef.current.record(
+              "Import actor package",
+              current.definition,
+              selectionRef.current,
+            );
+          } else {
+            historyRef.current.clear();
+          }
           setCurrentActor(hydrated);
           const ordered =
             sortActorLayers(
@@ -1512,7 +1679,7 @@ export default function AvatarStudio({
       [
         hydrateDefinition,
         refreshHistory,
-        requestedActorId,
+        activeProjectKey,
         setCurrentActor,
         updateSelection,
       ],
@@ -1581,10 +1748,16 @@ export default function AvatarStudio({
                 asset?.source !==
                 "bundled"
               ) {
-                return repositoryRef.current.getAssetBlob(
-                  current.definition.id,
-                  path,
-                );
+                return (
+                  await repositoryRef.current.getAssetBlob(
+                    current.definition.id,
+                    path,
+                  )
+                ) ??
+                  repositoryRef.current.getAssetBlob(
+                    actorStorageIdRef.current,
+                    path,
+                  );
               }
 
               try {
@@ -1660,11 +1833,31 @@ export default function AvatarStudio({
       }
 
       try {
-        const original =
-          await loadActor(
-            requestedActorId,
-            repositoryRef.current,
+        const savedDefinition =
+          projectRepositoryRef.current.load(
+            activeProjectKey,
           );
+        const original =
+          savedDefinition
+            ? await (() => {
+                const normalized =
+                  normalizeActorDefinition(
+                    savedDefinition,
+                    {
+                      sourceActorId:
+                        activeProjectKey,
+                    },
+                  );
+
+                return hydrateDefinition(
+                  normalized.definition,
+                  normalized.warnings,
+                );
+              })()
+            : await loadActor(
+                activeProjectKey,
+                repositoryRef.current,
+              );
 
         historyRef.current.record(
           "Reset actor",
@@ -1706,13 +1899,280 @@ export default function AvatarStudio({
     },
     [
       refreshHistory,
-      requestedActorId,
+      activeProjectKey,
+      hydrateDefinition,
       resetViewport,
       setCurrentActor,
       storageKey,
       updateSelection,
     ],
   );
+
+  const copyStoredAssets =
+    useCallback(
+      async (
+        definition: ActorDefinition,
+        sourceActorId: string,
+        targetActorId: string,
+      ) => {
+        if (
+          sourceActorId.toLowerCase() ===
+          targetActorId.toLowerCase()
+        ) {
+          return;
+        }
+
+        const entries: {
+          asset:
+            ActorAssetDefinition;
+          blob: Blob;
+        }[] = [];
+
+        for (const asset of
+          definition.assets) {
+          if (
+            asset.source ===
+            "bundled"
+          ) {
+            continue;
+          }
+
+          const blob =
+            (
+              await repositoryRef.current.getAssetBlob(
+                sourceActorId,
+                asset.path,
+              )
+            ) ??
+            (
+              await repositoryRef.current.getAssetBlob(
+                targetActorId,
+                asset.path,
+              )
+            );
+
+          if (blob) {
+            entries.push({
+              asset,
+              blob,
+            });
+          }
+        }
+
+        await repositoryRef.current.putAssets(
+          targetActorId,
+          entries,
+        );
+      },
+      [],
+    );
+
+  const saveCurrentProject =
+    useCallback(async () => {
+      const current =
+        actorRef.current;
+
+      if (!current) {
+        return;
+      }
+
+      try {
+        await copyStoredAssets(
+          current.definition,
+          actorStorageIdRef.current,
+          current.definition.id,
+        );
+        projectRepositoryRef.current.save(
+          activeProjectKey,
+          current.definition,
+        );
+        actorStorageIdRef.current =
+          current.definition.id;
+        refreshProjects();
+        setStatus(
+          `${current.definition.name} saved`,
+        );
+      } catch (error: unknown) {
+        setStatus(
+          error instanceof Error
+            ? error.message
+            : "Project could not be saved.",
+        );
+      }
+    }, [
+      activeProjectKey,
+      copyStoredAssets,
+      refreshProjects,
+    ]);
+
+  const createProject =
+    useCallback(
+      (input: {
+        id: string;
+        name: string;
+        width: number;
+        height: number;
+        fps: number;
+      }) => {
+        try {
+          const definition =
+            createEmptyActorDefinition(
+              input,
+            );
+          const summary =
+            projectRepositoryRef.current.create(
+              definition,
+            );
+
+          refreshProjects();
+          setProjectHubOpen(false);
+          setActiveProjectKey(
+            summary.key,
+          );
+        } catch (error: unknown) {
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "Actor project could not be created.",
+          );
+        }
+      },
+      [refreshProjects],
+    );
+
+  const openProject =
+    useCallback((key: string) => {
+      setProjectHubOpen(false);
+      setActiveProjectKey(key);
+    }, []);
+
+  const saveProjectAs =
+    useCallback(
+      async (
+        preferredKey: string,
+      ) => {
+        const current =
+          actorRef.current;
+
+        if (!current) {
+          return;
+        }
+
+        try {
+          await copyStoredAssets(
+            current.definition,
+            actorStorageIdRef.current,
+            current.definition.id,
+          );
+          const summary =
+            projectRepositoryRef.current.saveAs(
+              current.definition,
+              preferredKey,
+            );
+
+          actorStorageIdRef.current =
+            current.definition.id;
+          refreshProjects();
+          setProjectHubOpen(false);
+          setActiveProjectKey(
+            summary.key,
+          );
+        } catch (error: unknown) {
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "Project copy could not be saved.",
+          );
+        }
+      },
+      [
+        copyStoredAssets,
+        refreshProjects,
+      ],
+    );
+
+  const duplicateProject =
+    useCallback(
+      async (
+        preferredKey: string,
+        name: string,
+      ) => {
+        const current =
+          actorRef.current;
+
+        if (!current) {
+          return;
+        }
+
+        const safeId =
+          createEmptyActorDefinition({
+            id: preferredKey,
+            name,
+            width:
+              current.definition.width,
+            height:
+              current.definition.height,
+            fps:
+              current.definition.fps,
+          }).id;
+        const definition: ActorDefinition = {
+          ...current.definition,
+          id: safeId,
+          name:
+            name.trim() ||
+            `${current.definition.name} Copy`,
+        };
+
+        try {
+          await copyStoredAssets(
+            definition,
+            actorStorageIdRef.current,
+            definition.id,
+          );
+          const summary =
+            projectRepositoryRef.current.saveAs(
+              definition,
+              preferredKey,
+            );
+
+          refreshProjects();
+          setProjectHubOpen(false);
+          setActiveProjectKey(
+            summary.key,
+          );
+        } catch (error: unknown) {
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "Project could not be duplicated.",
+          );
+        }
+      },
+      [
+        copyStoredAssets,
+        refreshProjects,
+      ],
+    );
+
+  const deleteProject =
+    useCallback(
+      (key: string) => {
+        projectRepositoryRef.current.delete(
+          key,
+        );
+        refreshProjects();
+
+        if (key === activeProjectKey) {
+          setActiveProjectKey(
+            DEFAULT_ACTOR_ID,
+          );
+        }
+      },
+      [
+        activeProjectKey,
+        refreshProjects,
+      ],
+    );
 
   const orderedLayers = useMemo(
     () =>
@@ -1871,6 +2331,24 @@ export default function AvatarStudio({
         : null,
     [actor],
   );
+  const studioDiagnostics =
+    useMemo(
+      () =>
+        actor
+          ? diagnoseStudioActor(
+              actor.definition,
+              new Set(
+                actor.assetUrls.keys(),
+              ),
+              diagnostics.filter(
+                (item) =>
+                  item.severity ===
+                  "error",
+              ).length,
+            )
+          : null,
+      [actor, diagnostics],
+    );
 
   const selectLayer = useCallback(
     (
@@ -2096,6 +2574,50 @@ export default function AvatarStudio({
           "Inter, Arial, sans-serif",
       }}
     >
+      {projectHubOpen && (
+        <ProjectHub
+          open
+          currentProjectKey={
+            activeProjectKey
+          }
+          currentActorName={
+            actor?.definition.name ??
+            activeProjectKey
+          }
+          bundledActors={
+            bundledActors
+          }
+          localProjects={
+            localProjects
+          }
+          onClose={() =>
+            setProjectHubOpen(false)
+          }
+          onOpenProject={
+            openProject
+          }
+          onCreateProject={
+            createProject
+          }
+          onSave={() => {
+            void saveCurrentProject();
+          }}
+          onSaveAs={
+            saveProjectAs
+          }
+          onDuplicate={(
+            key,
+            name,
+          ) => {
+            void duplicateProject(
+              key,
+              name,
+            );
+          }}
+          onDelete={deleteProject}
+        />
+      )}
+
       <Toolbar
         actorLoaded={
           actorLoadState === "ready"
@@ -2108,6 +2630,13 @@ export default function AvatarStudio({
         showSafeArea={showSafeArea}
         showRulers={showRulers}
         snapToGrid={snapToGrid}
+        onOpenProjects={() => {
+          refreshProjects();
+          setProjectHubOpen(true);
+        }}
+        onSaveProject={() => {
+          void saveCurrentProject();
+        }}
         onUndo={() => {
           void restoreHistory("undo");
         }}
@@ -2151,6 +2680,16 @@ export default function AvatarStudio({
         }}
         onExportActor={exportActor}
         onExportPackage={() => {
+          if (
+            studioDiagnostics &&
+            !studioDiagnostics.packageReady &&
+            !window.confirm(
+              "Package preflight reports blocking issues. Export anyway for diagnostic or backup purposes?",
+            )
+          ) {
+            return;
+          }
+
           void exportPackage();
         }}
         onImportPngs={(files) => {
@@ -2577,7 +3116,23 @@ export default function AvatarStudio({
                 file,
               );
             }}
-            onDeleteAsset={(path) =>
+            onDeleteAsset={(path) => {
+              const useCount =
+                actor?.definition.layers.filter(
+                  (layer) =>
+                    layer.asset === path,
+                ).length ?? 0;
+
+              if (
+                !window.confirm(
+                  useCount > 0
+                    ? `Delete this asset reference? ${useCount} layer${useCount === 1 ? "" : "s"} will be marked missing.`
+                    : "Delete this unused asset reference?",
+                )
+              ) {
+                return;
+              }
+
               runCommand(
                 "Delete asset",
                 (
@@ -2589,11 +3144,33 @@ export default function AvatarStudio({
                     path,
                     selectionIds,
                   ),
-              )
-            }
+              );
+            }}
             onCreateLayerFromAsset={
               createLayerFromAsset
             }
+            onSelectAssetLayers={(
+              path,
+            ) => {
+              const ids =
+                actor?.definition.layers
+                  .filter(
+                    (layer) =>
+                      layer.asset ===
+                      path,
+                  )
+                  .map(
+                    (layer) =>
+                      layer.id,
+                  ) ?? [];
+
+              updateSelection(
+                StudioSelection.replace(
+                  ids,
+                  orderedLayerIds,
+                ),
+              );
+            }}
           />
         </div>
 
@@ -2752,7 +3329,7 @@ export default function AvatarStudio({
             minHeight: 0,
             display: "grid",
             gridTemplateRows:
-              "36px minmax(0,1fr)",
+              "58px minmax(0,1fr)",
             borderLeft:
               "1px solid rgba(70,210,255,0.14)",
             background: "#070b0e",
@@ -2764,7 +3341,7 @@ export default function AvatarStudio({
             style={{
               display: "grid",
               gridTemplateColumns:
-                "repeat(3,1fr)",
+                "repeat(4,1fr)",
               borderBottom:
                 "1px solid rgba(70,210,255,0.1)",
             }}
@@ -2775,11 +3352,18 @@ export default function AvatarStudio({
                   "inspector",
                   "INSPECTOR",
                 ],
+                ["setup", "ACTOR"],
+                ["rig", "RIG"],
                 ["mouth", "MOUTH"],
                 [
                   "validation",
-                  `VALIDATE ${diagnostics.length}`,
+                  `BUILD ${completeness?.percentage ?? 0}%`,
                 ],
+                [
+                  "diagnostics",
+                  `DIAG ${diagnostics.length + (studioDiagnostics?.diagnostics.length ?? 0)}`,
+                ],
+                ["history", "HISTORY"],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -2927,6 +3511,36 @@ export default function AvatarStudio({
                     ),
                 )
               }
+              onLayerMetadataChange={(
+                layerIds,
+                patch,
+              ) =>
+                runCommand(
+                  "Edit layer metadata",
+                  (definition) =>
+                    ActorDocumentCommands.setLayerMetadata(
+                      definition,
+                      layerIds,
+                      patch,
+                    ),
+                )
+              }
+              onLayerRuntimeChange={(
+                layerIds,
+                kind,
+                profile,
+              ) =>
+                runCommand(
+                  "Edit layer runtime metadata",
+                  (definition) =>
+                    ActorDocumentCommands.setLayerRuntimeMetadata(
+                      definition,
+                      layerIds,
+                      kind,
+                      profile,
+                    ),
+                )
+              }
               onParentChange={(
                 layerIds,
                 parentId,
@@ -2977,6 +3591,34 @@ export default function AvatarStudio({
                     ),
                 )
               }
+              onAlign={(axis) =>
+                runCommand(
+                  "Align layers",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.alignLayers(
+                      definition,
+                      selectionIds,
+                      axis,
+                    ),
+                )
+              }
+              onDistribute={(axis) =>
+                runCommand(
+                  "Distribute layers",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.distributeLayers(
+                      definition,
+                      selectionIds,
+                      axis,
+                    ),
+                )
+              }
               onUpdateGroup={(
                 groupId,
                 patch,
@@ -3007,6 +3649,74 @@ export default function AvatarStudio({
                     ActorDocumentCommands.deleteGroups(
                       definition,
                       [groupId],
+                      selectionIds,
+                    ),
+                )
+              }
+            />
+          )}
+
+          {rightPanel === "setup" && (
+            <ActorSetupPanel
+              actor={
+                actor?.definition ??
+                null
+              }
+              onUpdateActor={(patch) =>
+                runCommand(
+                  "Edit actor settings",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.updateActor(
+                      definition,
+                      patch,
+                      selectionIds,
+                    ),
+                )
+              }
+              onUpdateFolder={(
+                folderId,
+                patch,
+              ) =>
+                runCommand(
+                  "Edit folder hierarchy",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.updateFolder(
+                      definition,
+                      folderId,
+                      patch,
+                      selectionIds,
+                    ),
+                )
+              }
+            />
+          )}
+
+          {rightPanel === "rig" && (
+            <RigMapper
+              actor={
+                actor?.definition ??
+                null
+              }
+              onSetRole={(
+                role,
+                value,
+              ) =>
+                runCommand(
+                  "Map rig role",
+                  (
+                    definition,
+                    selectionIds,
+                  ) =>
+                    ActorDocumentCommands.setRigRole(
+                      definition,
+                      role,
+                      value,
                       selectionIds,
                     ),
                 )
@@ -3087,6 +3797,54 @@ export default function AvatarStudio({
                   },
                 )
               }
+            />
+          )}
+
+          {rightPanel ===
+            "diagnostics" && (
+            <DiagnosticsPanel
+              structural={
+                diagnostics
+              }
+              studio={
+                studioDiagnostics
+              }
+              onSelectLayer={(
+                layerId,
+              ) => {
+                selectLayer(
+                  layerId,
+                  {
+                    additive: false,
+                    range: false,
+                  },
+                );
+                setRightPanel(
+                  "inspector",
+                );
+              }}
+            />
+          )}
+
+          {rightPanel ===
+            "history" && (
+            <HistoryPanel
+              past={
+                historyStatus.pastLabels
+              }
+              future={
+                historyStatus.futureLabels
+              }
+              onUndo={() => {
+                void restoreHistory(
+                  "undo",
+                );
+              }}
+              onRedo={() => {
+                void restoreHistory(
+                  "redo",
+                );
+              }}
             />
           )}
         </section>

@@ -13,7 +13,7 @@ import GenesisAccessForm from "./GenesisAccessForm";
 export const metadata: Metadata = {
   title: `Authorized Access | ${FELENCHO_STUDIO.name}`,
   description:
-    "Private Beta access for authorized Felencho Studio collaborators.",
+    "Authorized access to the private Felencho Studio production environment.",
 };
 
 interface FelenchoStudioAuthPageProps {

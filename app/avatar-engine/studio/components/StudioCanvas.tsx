@@ -2238,7 +2238,7 @@ export default function StudioCanvas({
   return (
     <canvas
       ref={canvasRef}
-      aria-label="Genesis professional actor editing canvas"
+      aria-label="Felencho Studio professional actor editing canvas"
       tabIndex={0}
       style={{
         display: "block",

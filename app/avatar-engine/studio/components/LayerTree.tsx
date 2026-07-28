@@ -210,6 +210,103 @@ export default function LayerTree({
     );
   };
 
+  const renderFolder = (
+    folder: ActorFolderDefinition,
+    depth: number,
+  ): React.ReactNode => {
+    const folderLayers =
+      layers.filter(
+        (layer) =>
+          layer.folderId ===
+          folder.id,
+      );
+    const childFolders =
+      folders.filter(
+        (candidate) =>
+          candidate.parentId ===
+          folder.id,
+      );
+    const collapsed =
+      collapsedFolderIds.has(
+        folder.id,
+      );
+
+    return (
+      <div
+        key={folder.id}
+        style={{
+          marginLeft: depth * 10,
+        }}
+      >
+        <FolderRow
+          folder={folder}
+          collapsed={collapsed}
+          layerCount={
+            folderLayers.length +
+            childFolders.length
+          }
+          onToggleCollapsed={
+            onToggleFolderCollapsed
+          }
+          onToggleVisibility={
+            onToggleFolderVisibility
+          }
+          onToggleLock={
+            onToggleFolderLock
+          }
+          onRename={onRenameFolder}
+          onDelete={onDeleteFolder}
+          onDragStart={
+            startFolderDrag
+          }
+          onDrop={(
+            event,
+            targetFolderId,
+          ) => {
+            event.preventDefault();
+            const payload =
+              readDragPayload(event);
+
+            if (
+              payload?.kind === "layer"
+            ) {
+              onAssignLayersToFolder(
+                payload.ids,
+                targetFolderId,
+              );
+            }
+
+            if (
+              payload?.kind ===
+                "folder" &&
+              payload.ids[0]
+            ) {
+              onReorderFolders(
+                payload.ids[0],
+                targetFolderId,
+              );
+            }
+          }}
+        />
+
+        {!collapsed && (
+          <>
+            {childFolders.map(
+              (child) =>
+                renderFolder(
+                  child,
+                  depth + 1,
+                ),
+            )}
+            {folderLayers.map(
+              layerRow,
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   const layerRow = (
     layer: ActorLayerDefinition,
   ) => (
@@ -261,80 +358,19 @@ export default function LayerTree({
       aria-label="Actor layers"
       aria-multiselectable="true"
     >
-      {folders.map((folder) => {
-        const folderLayers =
-          layers.filter(
-            (layer) =>
-              layer.folderId ===
-              folder.id,
-          );
-        const collapsed =
-          collapsedFolderIds.has(
-            folder.id,
-          );
-
-        return (
-          <div key={folder.id}>
-            <FolderRow
-              folder={folder}
-              collapsed={collapsed}
-              layerCount={
-                folderLayers.length
-              }
-              onToggleCollapsed={
-                onToggleFolderCollapsed
-              }
-              onToggleVisibility={
-                onToggleFolderVisibility
-              }
-              onToggleLock={
-                onToggleFolderLock
-              }
-              onRename={onRenameFolder}
-              onDelete={onDeleteFolder}
-              onDragStart={
-                startFolderDrag
-              }
-              onDrop={(
-                event,
-                targetFolderId,
-              ) => {
-                event.preventDefault();
-                const payload =
-                  readDragPayload(
-                    event,
-                  );
-
-                if (
-                  payload?.kind ===
-                  "layer"
-                ) {
-                  onAssignLayersToFolder(
-                    payload.ids,
-                    targetFolderId,
-                  );
-                }
-
-                if (
-                  payload?.kind ===
-                    "folder" &&
-                  payload.ids[0]
-                ) {
-                  onReorderFolders(
-                    payload.ids[0],
-                    targetFolderId,
-                  );
-                }
-              }}
-            />
-
-            {!collapsed &&
-              folderLayers.map(
-                layerRow,
-              )}
-          </div>
-        );
-      })}
+      {folders
+        .filter(
+          (folder) =>
+            !folder.parentId ||
+            !folders.some(
+              (candidate) =>
+                candidate.id ===
+                folder.parentId,
+            ),
+        )
+        .map((folder) =>
+          renderFolder(folder, 0),
+        )}
 
       {layers.some(
         (layer) =>

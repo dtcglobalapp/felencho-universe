@@ -7,7 +7,6 @@ import {
 
 import {
   FELENCHO_STUDIO,
-  GENESIS,
 } from "../../config/GenesisConfig";
 
 interface ToolbarProps {
@@ -20,6 +19,8 @@ interface ToolbarProps {
   showSafeArea: boolean;
   showRulers: boolean;
   snapToGrid: boolean;
+  onOpenProjects: () => void;
+  onSaveProject: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onToggleHighlight: () => void;
@@ -49,6 +50,8 @@ export default function Toolbar({
   showSafeArea,
   showRulers,
   snapToGrid,
+  onOpenProjects,
+  onSaveProject,
   onUndo,
   onRedo,
   onToggleHighlight,
@@ -119,7 +122,7 @@ export default function Toolbar({
               letterSpacing: "0.08em",
             }}
           >
-            {`${FELENCHO_STUDIO.name.toUpperCase()} · ${FELENCHO_STUDIO.advancedMode.toUpperCase()}`}
+            {`${FELENCHO_STUDIO.name.toUpperCase()} v${FELENCHO_STUDIO.version}`}
           </div>
 
           <div
@@ -130,7 +133,7 @@ export default function Toolbar({
               letterSpacing: "0.18em",
             }}
           >
-            {`POWERED BY ${GENESIS.name.toUpperCase()} ENGINE v${GENESIS.version} · ${GENESIS.codename.toUpperCase()}`}
+            PRIVATE DIGITAL ACTOR PRODUCTION ENVIRONMENT
           </div>
         </div>
       </div>
@@ -143,6 +146,33 @@ export default function Toolbar({
           gap: 8,
         }}
       >
+        <button
+          type="button"
+          onClick={onOpenProjects}
+          style={toolbarButton}
+        >
+          PROJECTS
+        </button>
+
+        <button
+          type="button"
+          onClick={onSaveProject}
+          disabled={!actorLoaded}
+          style={{
+            ...toolbarButton,
+            color: "#061a10",
+            background:
+              "rgba(110,255,181,0.16)",
+            borderColor:
+              "rgba(110,255,181,0.38)",
+            ...disabledStyle(
+              !actorLoaded,
+            ),
+          }}
+        >
+          SAVE
+        </button>
+
         <button
           type="button"
           onClick={onUndo}
@@ -281,13 +311,7 @@ export default function Toolbar({
           onClick={() =>
             packageInputRef.current?.click()
           }
-          disabled={!actorLoaded}
-          style={{
-            ...toolbarButton,
-            ...disabledStyle(
-              !actorLoaded,
-            ),
-          }}
+          style={toolbarButton}
         >
           IMPORT PACKAGE
         </button>

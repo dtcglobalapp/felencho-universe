@@ -13,6 +13,7 @@ import type {
   ActorFolderDefinition,
   ActorGroupDefinition,
   ActorLayerDefinition,
+  ActorLayerMetadata,
   ActorMouthPose,
   ActorTransform,
 } from "../../domain/ActorDefinition";
@@ -183,7 +184,436 @@ function withSequentialZIndexes(
   );
 }
 
+function canAssignFolderParent(
+  definition: ActorDefinition,
+  folderId: string,
+  parentId: string | undefined,
+): boolean {
+  if (!parentId) {
+    return true;
+  }
+
+  if (folderId === parentId) {
+    return false;
+  }
+
+  const byId = new Map(
+    definition.folders.map(
+      (folder) => [
+        folder.id,
+        folder,
+      ],
+    ),
+  );
+  let current:
+    string | undefined = parentId;
+  const visited = new Set<string>();
+
+  while (current) {
+    if (
+      current === folderId ||
+      visited.has(current)
+    ) {
+      return false;
+    }
+
+    visited.add(current);
+    current =
+      byId.get(current)?.parentId;
+  }
+
+  return byId.has(parentId);
+}
+
 export const ActorDocumentCommands = {
+  updateActor(
+    definition: ActorDefinition,
+    patch: Partial<
+      Pick<
+        ActorDefinition,
+        | "id"
+        | "name"
+        | "version"
+        | "width"
+        | "height"
+        | "fps"
+        | "display"
+        | "construction"
+        | "animations"
+      >
+    >,
+    selectionIds:
+      readonly string[] = [],
+  ): ActorDocumentCommandResult {
+    const next: ActorDefinition = {
+      ...definition,
+      ...patch,
+      id:
+        patch.id?.trim() ||
+        definition.id,
+      name:
+        patch.name?.trim() ||
+        definition.name,
+      version:
+        patch.version?.trim() ||
+        definition.version,
+    };
+    const changed =
+      JSON.stringify(next) !==
+      JSON.stringify(definition);
+
+    return result(
+      changed ? next : definition,
+      selectionIds,
+      changed,
+    );
+  },
+
+  setRigRole(
+    definition: ActorDefinition,
+    role: string,
+    target:
+      | string
+      | string[]
+      | undefined,
+    selectionIds:
+      readonly string[] = [],
+  ): ActorDocumentCommandResult {
+    const normalizedRole =
+      role.trim();
+
+    if (!normalizedRole) {
+      return result(
+        definition,
+        selectionIds,
+        false,
+      );
+    }
+
+    const rig = {
+      ...definition.rig,
+    };
+
+    if (
+      target === undefined ||
+      target === "" ||
+      (
+        Array.isArray(target) &&
+        target.length === 0
+      )
+    ) {
+      delete rig[normalizedRole];
+    } else {
+      rig[normalizedRole] =
+        Array.isArray(target)
+          ? [...new Set(target)]
+          : target;
+    }
+
+    const changed =
+      JSON.stringify(rig) !==
+      JSON.stringify(definition.rig);
+
+    return result(
+      changed
+        ? {
+            ...definition,
+            rig,
+          }
+        : definition,
+      selectionIds,
+      changed,
+    );
+  },
+
+  setLayerMetadata(
+    definition: ActorDefinition,
+    layerIds: readonly string[],
+    patch: Partial<
+      ActorLayerMetadata
+    >,
+  ): ActorDocumentCommandResult {
+    const selected =
+      new Set(layerIds);
+    let changed = false;
+    const layers =
+      definition.layers.map(
+        (layer) => {
+          if (!selected.has(layer.id)) {
+            return layer;
+          }
+
+          const metadata = {
+            ...layer.metadata,
+            ...patch,
+          };
+
+          for (const [
+            key,
+            value,
+          ] of Object.entries(metadata)) {
+            if (
+              value === undefined ||
+              value === ""
+            ) {
+              delete metadata[key];
+            }
+          }
+
+          const next = {
+            ...layer,
+            metadata:
+              Object.keys(metadata)
+                .length > 0
+                ? metadata
+                : undefined,
+          };
+
+          if (
+            JSON.stringify(next) ===
+            JSON.stringify(layer)
+          ) {
+            return layer;
+          }
+
+          changed = true;
+          return next;
+        },
+      );
+
+    return result(
+      changed
+        ? {
+            ...definition,
+            layers,
+          }
+        : definition,
+      layerIds,
+      changed,
+    );
+  },
+
+  setLayerRuntimeMetadata(
+    definition: ActorDefinition,
+    layerIds: readonly string[],
+    kind: "animation" | "physics",
+    profile: string,
+  ): ActorDocumentCommandResult {
+    const selected =
+      new Set(layerIds);
+    const normalized =
+      profile.trim();
+    let changed = false;
+    const layers =
+      definition.layers.map(
+        (layer) => {
+          if (!selected.has(layer.id)) {
+            return layer;
+          }
+
+          const current =
+            layer[kind];
+          const next = {
+            ...layer,
+            [kind]: normalized
+              ? {
+                  ...current,
+                  profile: normalized,
+                }
+              : undefined,
+          };
+
+          if (
+            JSON.stringify(next) ===
+            JSON.stringify(layer)
+          ) {
+            return layer;
+          }
+
+          changed = true;
+          return next;
+        },
+      );
+
+    return result(
+      changed
+        ? {
+            ...definition,
+            layers,
+          }
+        : definition,
+      layerIds,
+      changed,
+    );
+  },
+
+  alignLayers(
+    definition: ActorDefinition,
+    layerIds: readonly string[],
+    axis:
+      | "left"
+      | "centerX"
+      | "right"
+      | "top"
+      | "centerY"
+      | "bottom",
+  ): ActorDocumentCommandResult {
+    const selectedLayers =
+      definition.layers.filter(
+        (layer) =>
+          layerIds.includes(layer.id) &&
+          !getEffectiveLayerState(
+            definition,
+            layer,
+          ).locked,
+      );
+
+    if (selectedLayers.length < 2) {
+      return result(
+        definition,
+        layerIds,
+        false,
+      );
+    }
+
+    const horizontal =
+      axis === "left" ||
+      axis === "centerX" ||
+      axis === "right";
+    const values =
+      selectedLayers.map((layer) =>
+        horizontal
+          ? layer.transform.x
+          : layer.transform.y,
+      );
+    const target =
+      axis === "left" ||
+      axis === "top"
+        ? Math.min(...values)
+        : axis === "right" ||
+            axis === "bottom"
+          ? Math.max(...values)
+          : values.reduce(
+                (sum, value) =>
+                  sum + value,
+                0,
+              ) / values.length;
+
+    return ActorDocumentCommands.setTransforms(
+      definition,
+      selectedLayers.map(
+        (layer) => layer.id,
+      ),
+      horizontal
+        ? { x: target }
+        : { y: target },
+    );
+  },
+
+  distributeLayers(
+    definition: ActorDefinition,
+    layerIds: readonly string[],
+    axis: "x" | "y",
+  ): ActorDocumentCommandResult {
+    const selectedLayers =
+      definition.layers
+        .filter(
+          (layer) =>
+            layerIds.includes(
+              layer.id,
+            ) &&
+            !getEffectiveLayerState(
+              definition,
+              layer,
+            ).locked,
+        )
+        .sort(
+          (left, right) =>
+            (
+              axis === "x"
+                ? left.transform.x
+                : left.transform.y
+            ) -
+            (
+              axis === "x"
+                ? right.transform.x
+                : right.transform.y
+            ),
+        );
+
+    if (selectedLayers.length < 3) {
+      return result(
+        definition,
+        layerIds,
+        false,
+      );
+    }
+
+    const first =
+      axis === "x"
+        ? selectedLayers[0].transform.x
+        : selectedLayers[0].transform.y;
+    const lastLayer =
+      selectedLayers.at(-1)!;
+    const last =
+      axis === "x"
+        ? lastLayer.transform.x
+        : lastLayer.transform.y;
+    const interval =
+      (last - first) /
+      (selectedLayers.length - 1);
+    let changed = false;
+    const positions = new Map(
+      selectedLayers.map(
+        (layer, index) => [
+          layer.id,
+          first + interval * index,
+        ],
+      ),
+    );
+    const layers =
+      definition.layers.map(
+        (layer) => {
+          const position =
+            positions.get(layer.id);
+
+          if (
+            position === undefined
+          ) {
+            return layer;
+          }
+
+          const next = {
+            ...layer,
+            transform: {
+              ...layer.transform,
+              [axis]: position,
+            },
+          };
+
+          if (
+            JSON.stringify(next) !==
+            JSON.stringify(layer)
+          ) {
+            changed = true;
+          }
+
+          return next;
+        },
+      );
+
+    return result(
+      changed
+        ? {
+            ...definition,
+            layers,
+          }
+        : definition,
+      layerIds,
+      changed,
+    );
+  },
+
   createLayer(
     definition: ActorDefinition,
     input: CreateLayerInput,
@@ -1030,6 +1460,21 @@ export const ActorDocumentCommands = {
     >,
     selectionIds: readonly string[],
   ): ActorDocumentCommandResult {
+    if (
+      "parentId" in patch &&
+      !canAssignFolderParent(
+        definition,
+        folderId,
+        patch.parentId,
+      )
+    ) {
+      return result(
+        definition,
+        selectionIds,
+        false,
+      );
+    }
+
     let changed = false;
     const folders =
       definition.folders.map(

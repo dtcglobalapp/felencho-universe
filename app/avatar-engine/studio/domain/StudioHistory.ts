@@ -76,6 +76,18 @@ export class StudioHistory {
     return Boolean(this.transaction);
   }
 
+  public get pastLabels(): string[] {
+    return this.past.map(
+      (entry) => entry.label,
+    );
+  }
+
+  public get futureLabels(): string[] {
+    return this.future.map(
+      (entry) => entry.label,
+    );
+  }
+
   public clear(): void {
     this.past = [];
     this.future = [];
