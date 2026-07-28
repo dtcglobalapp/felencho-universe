@@ -88,6 +88,6 @@ export const config = {
   matcher: [
     "/studio/:path*",
     "/avatar-engine/studio/:path*",
-    "/felencho-studio/advanced/:path*",
+    "/felencho-studio/:path*",
   ],
 };

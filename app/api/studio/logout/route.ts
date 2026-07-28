@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 
-const COOKIE_NAME = "felencho_studio_session";
+import {
+  FELENCHO_STUDIO_SESSION_COOKIE,
+} from "../../../avatar-engine/auth/GenesisSession";
 
 export async function POST() {
   const response = NextResponse.json({ ok: true });
 
+  response.headers.set(
+    "Cache-Control",
+    "private, no-store",
+  );
+
   response.cookies.set({
-    name: COOKIE_NAME,
+    name: FELENCHO_STUDIO_SESSION_COOKIE,
     value: "",
     httpOnly: true,
     secure: true,

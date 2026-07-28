@@ -35,6 +35,28 @@ extends those systems through focused modules:
 Browser storage is working storage, not the only archival format. A portable
 actor package remains the durable interchange and backup artifact.
 
+## Private Access Contract
+
+Felencho Studio is reachable from the public maintenance page through the
+deliberately understated **Studio Login** access point. Authentication is
+invitation-based and is evaluated on the server against the Studio access
+tables. A successful login creates an opaque, hashed server-side session and
+sets a Secure, HttpOnly, SameSite=Lax browser cookie.
+
+The authenticated production flow is:
+
+1. Public maintenance page
+2. Studio Login
+3. Authorized email and invitation-key verification
+4. Protected Felencho Studio dashboard
+5. Protected Digital Actor Editor
+
+The dashboard, editor, legacy Studio route, and direct Avatar Studio route are
+all protected independently. The route proxy performs an early access check,
+while protected server pages repeat authorization before rendering. The login
+page remains public and redirects an already-authorized session directly to its
+requested protected destination.
+
 ## V1.0 Authoring Contract
 
 An artist must be able to complete the following without editing JSON:

@@ -94,6 +94,9 @@ export function accessAreaForPath(
   pathname: string,
 ): FelenchoStudioAccessArea | null {
   if (
+    pathname === "/felencho-studio" ||
+    pathname === "/felencho-studio/dashboard" ||
+    pathname.startsWith("/felencho-studio/dashboard/") ||
     pathname === "/felencho-studio/advanced" ||
     pathname.startsWith("/felencho-studio/advanced/") ||
     pathname === "/avatar-engine/studio" ||

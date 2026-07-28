@@ -2,6 +2,7 @@ import type {
   Metadata,
 } from "next";
 import Image from "next/image";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Felencho | Under Construction",
@@ -43,6 +44,13 @@ export default function MaintenancePage() {
         <p className="mt-3 text-sm uppercase tracking-[0.22em] text-white/30">
           We&apos;ll be back soon.
         </p>
+
+        <Link
+          href="/felencho-studio/auth?next=%2Ffelencho-studio%2Fdashboard"
+          className="mt-12 rounded-full border border-white/15 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.2em] text-white/45 transition hover:border-cyan-300/50 hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"
+        >
+          Studio Login
+        </Link>
       </section>
     </main>
   );

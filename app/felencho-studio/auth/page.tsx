@@ -1,10 +1,17 @@
 import type {
   Metadata,
 } from "next";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import {
   accessAreaForPath,
+  canAccessFelenchoStudio,
 } from "../../avatar-engine/auth/GenesisAccessPolicy";
+import {
+  FELENCHO_STUDIO_SESSION_COOKIE,
+  getFelenchoStudioSession,
+} from "../../avatar-engine/auth/GenesisSession";
 import {
   FELENCHO_STUDIO,
 } from "../../avatar-engine/config/GenesisConfig";
@@ -15,6 +22,8 @@ export const metadata: Metadata = {
   description:
     "Authorized access to the private Felencho Studio production environment.",
 };
+
+export const dynamic = "force-dynamic";
 
 interface FelenchoStudioAuthPageProps {
   searchParams: Promise<{
@@ -33,7 +42,28 @@ export default async function FelenchoStudioAuthPage({
     typeof requestedNext === "string" &&
     accessAreaForPath(requestedNext)
       ? requestedNext
-      : "/felencho-studio/advanced";
+      : "/felencho-studio/dashboard";
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get(
+    FELENCHO_STUDIO_SESSION_COOKIE,
+  )?.value;
+  const session =
+    await getFelenchoStudioSession(token);
+  const accessArea =
+    accessAreaForPath(nextPath);
+
+  if (
+    session &&
+    accessArea &&
+    canAccessFelenchoStudio(
+      session.role,
+      session.permissions,
+      accessArea,
+    )
+  ) {
+    redirect(nextPath);
+  }
 
   return (
     <GenesisAccessForm

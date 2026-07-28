@@ -126,7 +126,7 @@ function safeNextPath(
     return value;
   }
 
-  return "/studio";
+  return "/felencho-studio/dashboard";
 }
 
 export async function POST(request: Request) {
@@ -164,6 +164,7 @@ export async function POST(request: Request) {
         auth: {
           persistSession: false,
           autoRefreshToken: false,
+          detectSessionInUrl: false,
         },
       },
     );
@@ -465,6 +466,11 @@ export async function POST(request: Request) {
       ok: true,
       redirectTo: nextPath,
     });
+
+    response.headers.set(
+      "Cache-Control",
+      "private, no-store",
+    );
 
     response.cookies.set({
       name:

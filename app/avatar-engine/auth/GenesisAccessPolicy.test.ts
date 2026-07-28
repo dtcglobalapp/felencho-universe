@@ -151,6 +151,18 @@ test("maps protected paths to their access areas", () => {
   );
   assert.equal(
     accessAreaForPath("/felencho-studio"),
+    "advanced",
+  );
+  assert.equal(
+    accessAreaForPath(
+      "/felencho-studio/dashboard",
+    ),
+    "advanced",
+  );
+  assert.equal(
+    accessAreaForPath(
+      "/felencho-studio/auth",
+    ),
     null,
   );
 });

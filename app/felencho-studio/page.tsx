@@ -16,6 +16,6 @@ export const metadata: Metadata = {
 
 export default function FelenchoStudioPage() {
   redirect(
-    "/felencho-studio/advanced",
+    "/felencho-studio/dashboard",
   );
 }
