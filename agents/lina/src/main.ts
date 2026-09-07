@@ -11,6 +11,7 @@ import * as lemonslice from "@livekit/agents-plugin-lemonslice";
 import { BackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
+import { ReadableStream } from "node:stream/web";
 
 // Local development only. LiveKit Cloud injects its own secrets at runtime.
 dotenv.config();
