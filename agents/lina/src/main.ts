@@ -117,11 +117,6 @@ export default defineAgent({
         voice: "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
         language: "es",
       }),
-      turnHandling: {
-        interruption: {
-          resumeFalseInterruption: true,
-        },
-      },
     });
 
     await ctx.connect();
