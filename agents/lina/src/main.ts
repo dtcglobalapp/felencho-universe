@@ -128,42 +128,64 @@ class FelenchoUniverseCharacterAgent extends voice.Agent {
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
-    const character = resolveCharacter(ctx);
+    const jobId = ctx.job.id;
 
-    const session = new voice.AgentSession({
-      stt: new inference.STT({
-        model: "deepgram/nova-3",
-        language: "multi",
-      }),
-      llm: new inference.LLM({
-        model: "google/gemma-4-31b-it",
-      }),
-      tts: new inference.TTS({
-        model: "cartesia/sonic-3",
-        voice: character.ttsVoice,
-        language: character.ttsLanguage,
-      }),
-    });
+    try {
+      console.log(`[felencho-universe] job ${jobId}: entry started`);
+      console.log(
+        `[felencho-universe] job ${jobId}: job metadata=${ctx.job.metadata || "<empty>"}`,
+      );
 
-    await ctx.connect();
+      const character = resolveCharacter(ctx);
+      console.log(
+        `[felencho-universe] job ${jobId}: character=${character.key}, image=${character.imageUrl}`,
+      );
 
-    const avatar = new lemonslice.AvatarSession({
-      agentImageUrl: character.imageUrl,
-      agentPrompt: character.avatarPrompt,
-    });
+      const session = new voice.AgentSession({
+        stt: new inference.STT({
+          model: "deepgram/nova-3",
+          language: "multi",
+        }),
+        llm: new inference.LLM({
+          model: "google/gemma-4-31b-it",
+        }),
+        tts: new inference.TTS({
+          model: "cartesia/sonic-3",
+          voice: character.ttsVoice,
+          language: character.ttsLanguage,
+        }),
+      });
 
-    await avatar.start(session, ctx.room);
+      console.log(`[felencho-universe] job ${jobId}: connecting to room`);
+      await ctx.connect();
+      console.log(`[felencho-universe] job ${jobId}: connected to room`);
 
-    await session.start({
-      agent: new FelenchoUniverseCharacterAgent(character),
-      room: ctx.room,
-      inputOptions: {
-        noiseCancellation: BackgroundVoiceCancellation(),
-      },
-      outputOptions: {
-        audioEnabled: false,
-      },
-    });
+      const avatar = new lemonslice.AvatarSession({
+        agentImageUrl: character.imageUrl,
+        agentPrompt: character.avatarPrompt,
+      });
+
+      console.log(`[felencho-universe] job ${jobId}: starting LemonSlice avatar`);
+      await avatar.start(session, ctx.room);
+      console.log(`[felencho-universe] job ${jobId}: LemonSlice avatar started`);
+
+      console.log(`[felencho-universe] job ${jobId}: starting voice session`);
+      await session.start({
+        agent: new FelenchoUniverseCharacterAgent(character),
+        room: ctx.room,
+        inputOptions: {
+          noiseCancellation: BackgroundVoiceCancellation(),
+        },
+        outputOptions: {
+          audioEnabled: false,
+        },
+      });
+      console.log(`[felencho-universe] job ${jobId}: voice session started`);
+    } catch (error) {
+      const message = error instanceof Error ? error.stack || error.message : String(error);
+      console.error(`[felencho-universe] job ${jobId}: startup failed`, message);
+      throw error;
+    }
   },
 });
 
