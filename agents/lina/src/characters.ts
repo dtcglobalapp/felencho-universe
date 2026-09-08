@@ -35,7 +35,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
     enabled: true,
     imageUrl:
       process.env.BOB_IMAGE_URL ||
-      "https://www.felencho.ai/avatars/bob/bob-2x3.jpg",
+      "https://www.felencho.ai/avatars/bob/bob-2x3.png",
     // Temporary fallback. We will choose Bob's final male voice before the studio test.
     ttsVoice: process.env.BOB_TTS_VOICE || DEFAULT_LINA_VOICE,
     ttsLanguage: process.env.BOB_TTS_LANGUAGE || "es",
