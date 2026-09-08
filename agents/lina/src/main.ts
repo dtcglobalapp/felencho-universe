@@ -146,9 +146,6 @@ export default defineAgent({
           model: "deepgram/nova-3",
           language: "multi",
         }),
-        llm: new inference.LLM({
-          model: "google/gemma-4-31b-it",
-        }),
         tts: new inference.TTS({
           model: "cartesia/sonic-3",
           voice: character.ttsVoice,
