@@ -12,14 +12,16 @@ import { BackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { ReadableStream } from "node:stream/web";
+import {
+  type CharacterConfig,
+  type CharacterKey,
+  getCharacterConfig,
+  isCharacterKey,
+} from "./characters.js";
 
-// Local development only. LiveKit Cloud injects its own secrets at runtime.
 dotenv.config();
 
-const AGENT_NAME = process.env.AGENT_NAME || "lina-felencho";
-const LINA_IMAGE_URL =
-  process.env.LINA_IMAGE_URL ||
-  "https://www.felencho.ai/avatars/lina/lina-2x3.jpg";
+const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
 const FELENCHO_BRAIN_URL =
   process.env.FELENCHO_BRAIN_URL ||
   "https://www.felencho.ai/api/felencho-forever/conversation";
@@ -38,14 +40,44 @@ function getLatestUserText(chatCtx: llm.ChatContext): string {
   return "";
 }
 
-async function askLinaBrain(message: string): Promise<string> {
+function resolveCharacter(ctx: JobContext): CharacterConfig {
+  let requested: CharacterKey = "lina";
+
+  if (ctx.job.metadata) {
+    try {
+      const metadata = JSON.parse(ctx.job.metadata);
+      if (isCharacterKey(metadata?.character)) {
+        requested = metadata.character;
+      }
+    } catch {
+      // Ignore malformed metadata and fall back to Lina.
+    }
+  }
+
+  const config = getCharacterConfig(requested);
+
+  if (!config.enabled) {
+    throw new Error(`${config.displayName} is reserved but not enabled yet.`);
+  }
+
+  if (!config.imageUrl) {
+    throw new Error(`Missing avatar image URL for ${config.displayName}.`);
+  }
+
+  return config;
+}
+
+async function askCharacterBrain(
+  characterKey: CharacterKey,
+  message: string,
+): Promise<string> {
   const response = await fetch(FELENCHO_BRAIN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      character_key: "lina",
+      character_key: characterKey,
       message,
       include_audio: false,
     }),
@@ -60,22 +92,18 @@ async function askLinaBrain(message: string): Promise<string> {
   const text = payload?.data?.text;
 
   if (!text || typeof text !== "string") {
-    throw new Error("Felencho Brain returned no text for Lina.");
+    throw new Error(`Felencho Brain returned no text for ${characterKey}.`);
   }
 
   return text.trim();
 }
 
-class LinaAgent extends voice.Agent {
-  constructor() {
-    super({
-      instructions: `
-Eres Lina dentro de Felencho Forever.
-Tu identidad, conocimiento y memoria vienen de Felencho Brain.
-Hablas de forma cálida, inteligente, breve y natural para conversación en vivo.
-Nunca inventes datos ni menciones detalles internos de APIs o proveedores.
-`.trim(),
-    });
+class FelenchoUniverseCharacterAgent extends voice.Agent {
+  private readonly character: CharacterConfig;
+
+  constructor(character: CharacterConfig) {
+    super({ instructions: character.instructions });
+    this.character = character;
   }
 
   async llmNode(
@@ -87,7 +115,7 @@ Nunca inventes datos ni menciones detalles internos de APIs o proveedores.
 
     if (!userText) return null;
 
-    const answer = await askLinaBrain(userText);
+    const answer = await askCharacterBrain(this.character.key, userText);
 
     return new ReadableStream<llm.ChatChunk | string>({
       start(controller) {
@@ -100,38 +128,34 @@ Nunca inventes datos ni menciones detalles internos de APIs o proveedores.
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
+    const character = resolveCharacter(ctx);
+
     const session = new voice.AgentSession({
-      // Multilingual recognition so Lina can hear Spanish and English in the studio.
       stt: new inference.STT({
         model: "deepgram/nova-3",
         language: "multi",
       }),
-      // Kept as a fallback pipeline model. Lina's llmNode routes actual answers
-      // through Felencho Brain instead of this model.
       llm: new inference.LLM({
         model: "google/gemma-4-31b-it",
       }),
-      // First test voice. We can swap the generic voice later without changing Lina's brain.
       tts: new inference.TTS({
         model: "cartesia/sonic-3",
-        voice: "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
-        language: "es",
+        voice: character.ttsVoice,
+        language: character.ttsLanguage,
       }),
     });
 
     await ctx.connect();
 
     const avatar = new lemonslice.AvatarSession({
-      agentImageUrl: LINA_IMAGE_URL,
-      agentPrompt:
-        "Lina is a poised futuristic female android host. Natural human hand gestures, subtle head movement, attentive listening posture, calm studio presence.",
+      agentImageUrl: character.imageUrl,
+      agentPrompt: character.avatarPrompt,
     });
 
-    // LemonSlice becomes the audio/video output layer for the session.
     await avatar.start(session, ctx.room);
 
     await session.start({
-      agent: new LinaAgent(),
+      agent: new FelenchoUniverseCharacterAgent(character),
       room: ctx.room,
       inputOptions: {
         noiseCancellation: BackgroundVoiceCancellation(),
