@@ -5,6 +5,7 @@ export type CharacterConfig = {
   displayName: string;
   enabled: boolean;
   imageUrl: string;
+  lemonsliceAgentId?: string;
   ttsVoice: string;
   ttsLanguage: string;
   avatarPrompt: string;
@@ -21,6 +22,8 @@ export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
     imageUrl:
       process.env.LINA_IMAGE_URL ||
       "https://www.felencho.ai/avatars/lina/lina-2x3.jpg",
+    lemonsliceAgentId:
+      process.env.LINA_LEMONSLICE_AGENT_ID || "agent_5d1a61f1cd17a770",
     ttsVoice: process.env.LINA_TTS_VOICE || DEFAULT_LINA_VOICE,
     ttsLanguage: process.env.LINA_TTS_LANGUAGE || "es",
     avatarPrompt:
@@ -36,6 +39,8 @@ export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
     imageUrl:
       process.env.BOB_IMAGE_URL ||
       "https://www.felencho.ai/avatars/bob/bob-2x3.png",
+    lemonsliceAgentId:
+      process.env.BOB_LEMONSLICE_AGENT_ID || "agent_a744faad1990479f",
     // Temporary fallback. We will choose Bob's final male voice before the studio test.
     ttsVoice: process.env.BOB_TTS_VOICE || DEFAULT_LINA_VOICE,
     ttsLanguage: process.env.BOB_TTS_LANGUAGE || "es",
@@ -50,6 +55,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
     displayName: "Felencho Virtual",
     enabled: false,
     imageUrl: process.env.FELENCHO_VIRTUAL_IMAGE_URL || "",
+    lemonsliceAgentId: process.env.FELENCHO_VIRTUAL_LEMONSLICE_AGENT_ID,
     ttsVoice: process.env.FELENCHO_VIRTUAL_TTS_VOICE || DEFAULT_LINA_VOICE,
     ttsLanguage: process.env.FELENCHO_VIRTUAL_TTS_LANGUAGE || "es",
     avatarPrompt:
