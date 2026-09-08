@@ -40,19 +40,22 @@ function getLatestUserText(chatCtx: llm.ChatContext): string {
   return "";
 }
 
-function resolveCharacter(ctx: JobContext): CharacterConfig {
-  let requested: CharacterKey = "lina";
+function characterFromMetadata(rawMetadata?: string): CharacterKey | null {
+  if (!rawMetadata) return null;
 
-  if (ctx.job.metadata) {
-    try {
-      const metadata = JSON.parse(ctx.job.metadata);
-      if (isCharacterKey(metadata?.character)) {
-        requested = metadata.character;
-      }
-    } catch {
-      // Ignore malformed metadata and fall back to Lina.
-    }
+  try {
+    const metadata = JSON.parse(rawMetadata);
+    return isCharacterKey(metadata?.character) ? metadata.character : null;
+  } catch {
+    return null;
   }
+}
+
+function resolveCharacter(jobMetadata?: string, participantMetadata?: string): CharacterConfig {
+  const requested =
+    characterFromMetadata(jobMetadata) ||
+    characterFromMetadata(participantMetadata) ||
+    "lina";
 
   const config = getCharacterConfig(requested);
 
@@ -136,7 +139,16 @@ export default defineAgent({
         `[felencho-universe] job ${jobId}: job metadata=${ctx.job.metadata || "<empty>"}`,
       );
 
-      const character = resolveCharacter(ctx);
+      console.log(`[felencho-universe] job ${jobId}: connecting to room`);
+      await ctx.connect();
+      console.log(`[felencho-universe] job ${jobId}: connected to room`);
+
+      const participant = await ctx.waitForParticipant();
+      console.log(
+        `[felencho-universe] job ${jobId}: participant=${participant.identity}, metadata=${participant.metadata || "<empty>"}`,
+      );
+
+      const character = resolveCharacter(ctx.job.metadata, participant.metadata);
       console.log(
         `[felencho-universe] job ${jobId}: character=${character.key}, image=${character.imageUrl}`,
       );
@@ -153,10 +165,6 @@ export default defineAgent({
         }),
       });
 
-      console.log(`[felencho-universe] job ${jobId}: connecting to room`);
-      await ctx.connect();
-      console.log(`[felencho-universe] job ${jobId}: connected to room`);
-
       const avatar = new lemonslice.AvatarSession({
         agentImageUrl: character.imageUrl,
         agentPrompt: character.avatarPrompt,
@@ -170,6 +178,7 @@ export default defineAgent({
       await session.start({
         agent: new FelenchoUniverseCharacterAgent(character),
         room: ctx.room,
+        participant,
         inputOptions: {
           noiseCancellation: BackgroundVoiceCancellation(),
         },
