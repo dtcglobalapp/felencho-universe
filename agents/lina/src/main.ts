@@ -63,8 +63,8 @@ function resolveCharacter(jobMetadata?: string, participantMetadata?: string): C
     throw new Error(`${config.displayName} is reserved but not enabled yet.`);
   }
 
-  if (!config.imageUrl) {
-    throw new Error(`Missing avatar image URL for ${config.displayName}.`);
+  if (!config.lemonsliceAgentId && !config.imageUrl) {
+    throw new Error(`Missing LemonSlice source for ${config.displayName}.`);
   }
 
   return config;
@@ -150,7 +150,7 @@ export default defineAgent({
 
       const character = resolveCharacter(ctx.job.metadata, participant.metadata);
       console.log(
-        `[felencho-universe] job ${jobId}: character=${character.key}, image=${character.imageUrl}`,
+        `[felencho-universe] job ${jobId}: character=${character.key}, lemonsliceAgentId=${character.lemonsliceAgentId || "<image-url>"}`,
       );
 
       const session = new voice.AgentSession({
@@ -165,13 +165,26 @@ export default defineAgent({
         }),
       });
 
-      const avatar = new lemonslice.AvatarSession({
-        agentImageUrl: character.imageUrl,
-        agentPrompt: character.avatarPrompt,
-      });
+      const avatar = character.lemonsliceAgentId
+        ? new lemonslice.AvatarSession({
+            agentId: character.lemonsliceAgentId,
+            agentPrompt: character.avatarPrompt,
+          })
+        : new lemonslice.AvatarSession({
+            agentImageUrl: character.imageUrl,
+            agentPrompt: character.avatarPrompt,
+          });
 
       console.log(`[felencho-universe] job ${jobId}: starting LemonSlice avatar`);
-      await avatar.start(session, ctx.room);
+      await Promise.race([
+        avatar.start(session, ctx.room),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`LemonSlice avatar start timed out for ${character.displayName}.`)),
+            45000,
+          ),
+        ),
+      ]);
       console.log(`[felencho-universe] job ${jobId}: LemonSlice avatar started`);
 
       console.log(`[felencho-universe] job ${jobId}: starting voice session`);
