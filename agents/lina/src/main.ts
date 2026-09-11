@@ -5,17 +5,22 @@ import {
   defineAgent,
   inference,
   initializeLogger,
+  llm,
   voice,
 } from "@livekit/agents";
 import * as lemonslice from "@livekit/agents-plugin-lemonslice";
 import { fileURLToPath } from "node:url";
+import { ReadableStream } from "node:stream/web";
 import { getCharacterConfig, isCharacterKey } from "./characters.js";
 
 initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
 const AVATAR_JOIN_TIMEOUT_MS = 20_000;
-const BASELINE_SESSION_TIMEOUT_MS = 300_000;
+const SESSION_TIMEOUT_MS = 900_000;
+const FELENCHO_BRAIN_URL =
+  process.env.FELENCHO_BRAIN_URL ||
+  "https://www.felencho.ai/api/felencho-forever/conversation";
 
 function getCharacter(jobMetadata?: string) {
   let key: "lina" | "bob" | "felencho_virtual" = "lina";
@@ -42,6 +47,67 @@ function getCharacter(jobMetadata?: string) {
   return character;
 }
 
+function getLatestUserText(chatCtx: llm.ChatContext): string {
+  for (let i = chatCtx.items.length - 1; i >= 0; i -= 1) {
+    const item = chatCtx.items[i] as any;
+    if (item?.type === "message" && item?.role === "user") {
+      return String(item.textContent || "").trim();
+    }
+  }
+  return "";
+}
+
+async function askFelenchoBrain(characterKey: string, message: string): Promise<string> {
+  const response = await fetch(FELENCHO_BRAIN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      character_key: characterKey,
+      message,
+      include_audio: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Felencho Brain ${response.status}: ${detail}`);
+  }
+
+  const payload = await response.json();
+  const text = payload?.data?.text;
+  if (!text || typeof text !== "string") {
+    throw new Error("Felencho Brain returned no text.");
+  }
+
+  return text.trim();
+}
+
+class FelenchoBrainAgent extends voice.Agent {
+  constructor(private readonly characterKey: string, instructions: string) {
+    super({ instructions });
+  }
+
+  async llmNode(
+    chatCtx: llm.ChatContext,
+    _toolCtx: llm.ToolContext,
+    _modelSettings: voice.ModelSettings,
+  ): Promise<ReadableStream<llm.ChatChunk | string> | null> {
+    const userText = getLatestUserText(chatCtx);
+    if (!userText) return null;
+
+    console.log(`[felencho-universe] brain input (${this.characterKey}): ${userText}`);
+    const answer = await askFelenchoBrain(this.characterKey, userText);
+    console.log(`[felencho-universe] brain response ready (${this.characterKey})`);
+
+    return new ReadableStream<llm.ChatChunk | string>({
+      start(controller) {
+        controller.enqueue(answer);
+        controller.close();
+      },
+    });
+  }
+}
+
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     let avatar: lemonslice.AvatarSession | undefined;
@@ -49,18 +115,18 @@ export default defineAgent({
     let failSafe: ReturnType<typeof setTimeout> | undefined;
     let closing: Promise<void> | undefined;
 
-    const closeBaseline = (reason: string) => {
+    const closeSession = (reason: string) => {
       if (closing) return closing;
       closing = (async () => {
         if (failSafe) clearTimeout(failSafe);
         await avatar?.aclose().catch((error) =>
-          console.error("[felencho-universe] baseline: avatar cleanup failed", error),
+          console.error("[felencho-universe] avatar cleanup failed", error),
         );
         await session?.close().catch((error) =>
-          console.error("[felencho-universe] baseline: session cleanup failed", error),
+          console.error("[felencho-universe] session cleanup failed", error),
         );
         await ctx.deleteRoom().catch((error) =>
-          console.error("[felencho-universe] baseline: room cleanup failed", error),
+          console.error("[felencho-universe] room cleanup failed", error),
         );
         ctx.shutdown(reason);
       })();
@@ -70,30 +136,30 @@ export default defineAgent({
     try {
       const character = getCharacter(ctx.job.metadata);
       console.log(
-        `[felencho-universe] baseline: job=${ctx.job.id} room=${ctx.room.name} character=${character.key}`,
+        `[felencho-universe] interactive: job=${ctx.job.id} room=${ctx.room.name} character=${character.key}`,
       );
 
       await ctx.connect();
       console.log(
-        `[felencho-universe] baseline: worker connected identity=${ctx.agent?.identity}`,
+        `[felencho-universe] worker connected identity=${ctx.agent?.identity}`,
       );
 
       failSafe = setTimeout(() => {
-        console.error("[felencho-universe] baseline: hard session timeout");
-        void closeBaseline("baseline hard timeout");
-      }, BASELINE_SESSION_TIMEOUT_MS);
+        console.error("[felencho-universe] interactive hard timeout");
+        void closeSession("interactive hard timeout");
+      }, SESSION_TIMEOUT_MS);
 
-      const agent = new voice.Agent({
-        instructions:
-          character.key === "bob"
-            ? "Eres Bob. Habla en español de forma breve, serena y natural."
-            : "Eres Lina. Habla en español de forma breve, cálida y natural.",
-      });
+      const agent = new FelenchoBrainAgent(character.key, character.instructions);
 
       session = new voice.AgentSession({
+        stt: new inference.STT({
+          model: "deepgram/nova-3",
+          language: "multi",
+        }),
         tts: new inference.TTS({
           model: "cartesia/sonic-3",
           voice: character.ttsVoice,
+          language: character.ttsLanguage,
         }),
       });
 
@@ -101,7 +167,7 @@ export default defineAgent({
         agentId: character.lemonsliceAgentId,
         apiKey: process.env.LEMONSLICE_API_KEY,
         agentPrompt: character.avatarPrompt,
-        idleTimeout: 300,
+        idleTimeout: 900,
         connOptions: {
           maxRetry: 0,
           retryIntervalMs: 1_000,
@@ -109,17 +175,15 @@ export default defineAgent({
         },
       });
 
-      console.log("[felencho-universe] baseline: starting LemonSlice avatar");
+      console.log("[felencho-universe] starting LemonSlice avatar");
       await avatar.start(session, ctx.room);
-      console.log(
-        `[felencho-universe] baseline: LemonSlice session created id=${avatar.sessionId}`,
-      );
+      console.log(`[felencho-universe] LemonSlice session created id=${avatar.sessionId}`);
 
       await session.start({
         agent,
         room: ctx.room,
         inputOptions: {
-          audioEnabled: false,
+          audioEnabled: true,
           closeOnDisconnect: true,
           deleteRoomOnClose: true,
         },
@@ -127,29 +191,23 @@ export default defineAgent({
           syncTranscription: false,
         },
       });
-      console.log("[felencho-universe] baseline: session started");
+      console.log("[felencho-universe] interactive voice session started");
 
       await avatar.waitForJoin({ timeout: AVATAR_JOIN_TIMEOUT_MS });
-      console.log("[felencho-universe] baseline: avatar video track published");
+      console.log("[felencho-universe] avatar video track published");
 
-      const greeting = session.say(
-        character.key === "bob"
-          ? "Hola, soy Bob. Estoy listo."
-          : "Hola, soy Lina. Estoy lista.",
-      );
+      const greeting = session.say("Hola, soy Lina. Ya estoy conectada a Felencho Brain y puedo escucharte.");
       await greeting.waitForPlayout();
-      console.log("[felencho-universe] baseline: greeting played; keeping job alive");
+      console.log("[felencho-universe] interactive greeting played; keeping job alive");
 
-      // Important: the agent entry function must remain alive. Returning here can
-      // end the job and remove the avatar even though the video published correctly.
-      await new Promise<void>((resolve) => setTimeout(resolve, BASELINE_SESSION_TIMEOUT_MS));
+      await new Promise<void>((resolve) => setTimeout(resolve, SESSION_TIMEOUT_MS));
 
       if (!closing) {
-        await closeBaseline("baseline verification timeout");
+        await closeSession("interactive session timeout");
       }
     } catch (error) {
-      console.error("[felencho-universe] baseline startup error", error);
-      await closeBaseline("baseline failed");
+      console.error("[felencho-universe] interactive startup error", error);
+      await closeSession("interactive failed");
       throw error;
     }
   },
