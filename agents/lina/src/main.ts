@@ -15,7 +15,7 @@ initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
 const AVATAR_JOIN_TIMEOUT_MS = 20_000;
-const BASELINE_SESSION_TIMEOUT_MS = 45_000;
+const BASELINE_SESSION_TIMEOUT_MS = 90_000;
 
 function getCharacter(jobMetadata?: string) {
   let key: "lina" | "bob" | "felencho_virtual" = "lina";
@@ -106,7 +106,7 @@ export default defineAgent({
         agentId: character.lemonsliceAgentId,
         apiKey: process.env.LEMONSLICE_API_KEY,
         agentPrompt: character.avatarPrompt,
-        idleTimeout: 45,
+        idleTimeout: 90,
         connOptions: {
           maxRetry: 0,
           retryIntervalMs: 1_000,
@@ -143,8 +143,11 @@ export default defineAgent({
           : "Hola, soy Lina. Estoy lista.",
       );
       await greeting.waitForPlayout();
-      console.log("[felencho-universe] baseline: greeting played");
-      await closeBaseline("baseline completed");
+      console.log("[felencho-universe] baseline: greeting played; keeping session open for verification");
+
+      // Do not close immediately after the greeting. Keep the avatar visible so
+      // the browser can verify stable video. The fail-safe still closes the room
+      // automatically after 90 seconds to protect LemonSlice credits.
     } catch (error) {
       console.error("[felencho-universe] baseline startup error", error);
       await closeBaseline("baseline failed");
