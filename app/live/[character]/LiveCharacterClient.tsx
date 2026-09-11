@@ -46,6 +46,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
   const [status, setStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle");
   const [message, setMessage] = useState("");
   const [debug, setDebug] = useState("");
+  const [videoVisible, setVideoVisible] = useState(false);
 
   const displayName = character === "lina" ? "Lina" : "Bob";
 
@@ -74,6 +75,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       element.style.background = "black";
       videoRef.current.innerHTML = "";
       videoRef.current.appendChild(element);
+      setVideoVisible(true);
       setMessage(`${displayName} ya está visible. Puedes hablarle.`);
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
@@ -110,9 +112,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
         const jobStatus = jobState?.status || "esperando worker";
         const jobError = jobState?.error || "";
 
-        setDebug(
-          `Dispatch ${dispatchId} · ${jobStatus}${jobError ? ` · ${jobError}` : ""}`,
-        );
+        setDebug(`Dispatch ${dispatchId} · ${jobStatus}${jobError ? ` · ${jobError}` : ""}`);
 
         if (jobError || String(jobStatus).includes("FAILED")) {
           setStatus("error");
@@ -120,7 +120,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
         } else if (attempts >= 15) {
-          setMessage(`${displayName} fue despachado, pero todavía no llegó video. Mira el diagnóstico debajo.`);
+          setMessage(`${displayName} fue despachado, pero todavía no llegó video.`);
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
         }
@@ -134,6 +134,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     if (status === "connecting" || status === "connected") return;
 
     setStatus("connecting");
+    setVideoVisible(false);
     setMessage(`Conectando con ${displayName}...`);
     setDebug("Creando sala privada...");
 
@@ -158,6 +159,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       });
       room.on(RoomEvent.Disconnected, () => {
         setStatus("idle");
+        setVideoVisible(false);
         setMessage("Sesión cerrada.");
       });
 
@@ -173,9 +175,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
 
       const dispatchData = (await dispatchResponse.json().catch(() => ({}))) as DispatchResponse;
       if (!dispatchResponse.ok) {
-        throw new Error(
-          dispatchData?.details || dispatchData?.error || "No se pudo iniciar el personaje en LiveKit.",
-        );
+        throw new Error(dispatchData?.details || dispatchData?.error || "No se pudo iniciar el personaje en LiveKit.");
       }
 
       const dispatchId = dispatchData?.dispatch?.id || "";
@@ -189,6 +189,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       roomRef.current?.disconnect();
       roomRef.current = null;
       setStatus("error");
+      setVideoVisible(false);
       const text = error instanceof Error ? error.message : "No se pudo iniciar la sesión.";
       setMessage(text);
       setDebug(text);
@@ -203,6 +204,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     if (videoRef.current) videoRef.current.innerHTML = "";
     if (audioRef.current) audioRef.current.innerHTML = "";
     setStatus("idle");
+    setVideoVisible(false);
     setMessage("Sesión cerrada.");
     setDebug("");
   }
@@ -219,6 +221,16 @@ export default function LiveCharacterClient({ character }: { character: Characte
 
         <section className="relative w-full max-w-[720px] overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950 shadow-2xl">
           <div ref={videoRef} className="aspect-[2/3] w-full bg-black" />
+
+          {!videoVisible && status === "connected" && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
+              <div className="max-w-md rounded-2xl border border-cyan-400/20 bg-black/80 px-6 py-5 text-center backdrop-blur-sm">
+                <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-cyan-300/30 border-t-cyan-300" />
+                <div className="text-base font-semibold text-cyan-200">{message}</div>
+                {debug && <div className="mt-3 break-words text-xs text-zinc-400">{debug}</div>}
+              </div>
+            </div>
+          )}
 
           {status !== "connected" && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
