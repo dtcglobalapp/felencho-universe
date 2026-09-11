@@ -165,6 +165,20 @@ export default defineAgent({
         }),
       });
 
+      console.log(`[felencho-universe] job ${jobId}: starting voice session`);
+      await session.start({
+        agent: new FelenchoUniverseCharacterAgent(character),
+        room: ctx.room,
+        participant,
+        inputOptions: {
+          noiseCancellation: BackgroundVoiceCancellation(),
+        },
+        outputOptions: {
+          syncTranscription: false,
+        },
+      });
+      console.log(`[felencho-universe] job ${jobId}: voice session started`);
+
       const avatar = character.lemonsliceAgentId
         ? new lemonslice.AvatarSession({
             agentId: character.lemonsliceAgentId,
@@ -186,20 +200,6 @@ export default defineAgent({
         ),
       ]);
       console.log(`[felencho-universe] job ${jobId}: LemonSlice avatar started`);
-
-      console.log(`[felencho-universe] job ${jobId}: starting voice session`);
-      await session.start({
-        agent: new FelenchoUniverseCharacterAgent(character),
-        room: ctx.room,
-        participant,
-        inputOptions: {
-          noiseCancellation: BackgroundVoiceCancellation(),
-        },
-        outputOptions: {
-          audioEnabled: false,
-        },
-      });
-      console.log(`[felencho-universe] job ${jobId}: voice session started`);
     } catch (error) {
       const message = error instanceof Error ? error.stack || error.message : String(error);
       console.error(`[felencho-universe] job ${jobId}: startup failed`, message);
