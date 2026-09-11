@@ -76,9 +76,7 @@ async function askCharacterBrain(
 ): Promise<string> {
   const response = await fetch(FELENCHO_BRAIN_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       character_key: characterKey,
       message,
@@ -115,7 +113,6 @@ class FelenchoUniverseCharacterAgent extends voice.Agent {
     _modelSettings: voice.ModelSettings,
   ): Promise<ReadableStream<llm.ChatChunk | string> | null> {
     const userText = getLatestUserText(chatCtx);
-
     if (!userText) return null;
 
     const answer = await askCharacterBrain(this.character.key, userText);
@@ -165,6 +162,38 @@ export default defineAgent({
         }),
       });
 
+      // Use the already-created LemonSlice hosted agent whenever available.
+      // This avoids regenerating the avatar from an image on every studio session.
+      const avatar = character.lemonsliceAgentId
+        ? new lemonslice.AvatarSession({
+            agentId: character.lemonsliceAgentId,
+            agentPrompt: character.avatarPrompt,
+            idleTimeout: 300,
+          })
+        : new lemonslice.AvatarSession({
+            agentImageUrl: character.imageUrl,
+            agentPrompt: character.avatarPrompt,
+            idleTimeout: 300,
+          });
+
+      // Official LiveKit/LemonSlice flow: start the avatar first, then start
+      // the voice AgentSession. This ensures avatar audio/video routing is ready.
+      console.log(`[felencho-universe] job ${jobId}: starting LemonSlice avatar`);
+      await Promise.race([
+        avatar.start(session, ctx.room),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`LemonSlice avatar start timed out for ${character.displayName}.`)),
+            45000,
+          ),
+        ),
+      ]);
+      console.log(`[felencho-universe] job ${jobId}: LemonSlice avatar started`);
+
+      console.log(`[felencho-universe] job ${jobId}: waiting for LemonSlice video`);
+      await avatar.waitForJoin({ timeout: 30000 });
+      console.log(`[felencho-universe] job ${jobId}: LemonSlice video joined`);
+
       console.log(`[felencho-universe] job ${jobId}: starting voice session`);
       await session.start({
         agent: new FelenchoUniverseCharacterAgent(character),
@@ -178,28 +207,6 @@ export default defineAgent({
         },
       });
       console.log(`[felencho-universe] job ${jobId}: voice session started`);
-
-      const avatar = character.lemonsliceAgentId
-        ? new lemonslice.AvatarSession({
-            agentId: character.lemonsliceAgentId,
-            agentPrompt: character.avatarPrompt,
-          })
-        : new lemonslice.AvatarSession({
-            agentImageUrl: character.imageUrl,
-            agentPrompt: character.avatarPrompt,
-          });
-
-      console.log(`[felencho-universe] job ${jobId}: starting LemonSlice avatar`);
-      await Promise.race([
-        avatar.start(session, ctx.room),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`LemonSlice avatar start timed out for ${character.displayName}.`)),
-            45000,
-          ),
-        ),
-      ]);
-      console.log(`[felencho-universe] job ${jobId}: LemonSlice avatar started`);
     } catch (error) {
       const message = error instanceof Error ? error.stack || error.message : String(error);
       console.error(`[felencho-universe] job ${jobId}: startup failed`, message);
