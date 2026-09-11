@@ -17,39 +17,6 @@ const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
 const AVATAR_JOIN_TIMEOUT_MS = 20_000;
 const BASELINE_SESSION_TIMEOUT_MS = 45_000;
 
-async function probeLemonSliceCredential() {
-  const apiKey = process.env.LEMONSLICE_API_KEY;
-  if (!apiKey) {
-    console.error("[lemonslice-direct-probe] status=0 error=missing_api_key");
-    return;
-  }
-
-  try {
-    const response = await fetch("https://lemonslice.com/api/liveai/sessions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: "{}",
-      signal: AbortSignal.timeout(10_000),
-    });
-    const payload = await response.json().catch(() => null);
-    const detail =
-      payload && typeof payload === "object" && "detail" in payload
-        ? String(payload.detail).replace(/[A-Za-z0-9_-]{16,}/g, "[redacted]")
-        : response.ok
-          ? "none"
-          : "request_rejected";
-    console.log(`[lemonslice-direct-probe] status=${response.status} error=${detail}`);
-  } catch (error) {
-    const name = error instanceof Error ? error.name : "request_failed";
-    console.error(`[lemonslice-direct-probe] status=0 error=${name}`);
-  }
-}
-
-await probeLemonSliceCredential();
-
 function getCharacter(jobMetadata?: string) {
   let key: "lina" | "bob" | "felencho_virtual" = "lina";
 
