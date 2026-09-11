@@ -8,7 +8,6 @@ import {
   voice,
 } from "@livekit/agents";
 import * as lemonslice from "@livekit/agents-plugin-lemonslice";
-import { BackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { ReadableStream } from "node:stream/web";
@@ -40,40 +39,28 @@ function getLatestUserText(chatCtx: llm.ChatContext): string {
   return "";
 }
 
-function characterFromMetadata(rawMetadata?: string): CharacterKey | null {
-  if (!rawMetadata) return null;
-
+function characterFromMetadata(rawMetadata?: string): CharacterKey {
+  if (!rawMetadata) return "lina";
   try {
     const metadata = JSON.parse(rawMetadata);
-    return isCharacterKey(metadata?.character) ? metadata.character : null;
+    return isCharacterKey(metadata?.character) ? metadata.character : "lina";
   } catch {
-    return null;
+    return "lina";
   }
 }
 
-function resolveCharacter(jobMetadata?: string, participantMetadata?: string): CharacterConfig {
-  const requested =
-    characterFromMetadata(jobMetadata) ||
-    characterFromMetadata(participantMetadata) ||
-    "lina";
-
-  const config = getCharacterConfig(requested);
-
+function resolveCharacter(jobMetadata?: string): CharacterConfig {
+  const config = getCharacterConfig(characterFromMetadata(jobMetadata));
   if (!config.enabled) {
     throw new Error(`${config.displayName} is reserved but not enabled yet.`);
   }
-
-  if (!config.lemonsliceAgentId && !config.imageUrl) {
-    throw new Error(`Missing LemonSlice source for ${config.displayName}.`);
+  if (!config.imageUrl) {
+    throw new Error(`Missing avatar image URL for ${config.displayName}.`);
   }
-
   return config;
 }
 
-async function askCharacterBrain(
-  characterKey: CharacterKey,
-  message: string,
-): Promise<string> {
+async function askCharacterBrain(characterKey: CharacterKey, message: string): Promise<string> {
   const response = await fetch(FELENCHO_BRAIN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -91,20 +78,15 @@ async function askCharacterBrain(
 
   const payload = await response.json();
   const text = payload?.data?.text;
-
   if (!text || typeof text !== "string") {
     throw new Error(`Felencho Brain returned no text for ${characterKey}.`);
   }
-
   return text.trim();
 }
 
 class FelenchoUniverseCharacterAgent extends voice.Agent {
-  private readonly character: CharacterConfig;
-
-  constructor(character: CharacterConfig) {
+  constructor(private readonly character: CharacterConfig) {
     super({ instructions: character.instructions });
-    this.character = character;
   }
 
   async llmNode(
@@ -114,9 +96,7 @@ class FelenchoUniverseCharacterAgent extends voice.Agent {
   ): Promise<ReadableStream<llm.ChatChunk | string> | null> {
     const userText = getLatestUserText(chatCtx);
     if (!userText) return null;
-
     const answer = await askCharacterBrain(this.character.key, userText);
-
     return new ReadableStream<llm.ChatChunk | string>({
       start(controller) {
         controller.enqueue(answer);
@@ -129,32 +109,14 @@ class FelenchoUniverseCharacterAgent extends voice.Agent {
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     const jobId = ctx.job.id;
-
     try {
-      console.log(`[felencho-universe] job ${jobId}: entry started`);
+      const character = resolveCharacter(ctx.job.metadata);
       console.log(
-        `[felencho-universe] job ${jobId}: job metadata=${ctx.job.metadata || "<empty>"}`,
-      );
-
-      console.log(`[felencho-universe] job ${jobId}: connecting to room`);
-      await ctx.connect();
-      console.log(`[felencho-universe] job ${jobId}: connected to room`);
-
-      const participant = await ctx.waitForParticipant();
-      console.log(
-        `[felencho-universe] job ${jobId}: participant=${participant.identity}, metadata=${participant.metadata || "<empty>"}`,
-      );
-
-      const character = resolveCharacter(ctx.job.metadata, participant.metadata);
-      console.log(
-        `[felencho-universe] job ${jobId}: character=${character.key}, lemonsliceAgentId=${character.lemonsliceAgentId || "<image-url>"}`,
+        `[felencho-universe] job ${jobId}: character=${character.key}, image=${character.imageUrl}`,
       );
 
       const session = new voice.AgentSession({
-        stt: new inference.STT({
-          model: "deepgram/nova-3",
-          language: "multi",
-        }),
+        stt: new inference.STT({ model: "deepgram/nova-3", language: "multi" }),
         tts: new inference.TTS({
           model: "cartesia/sonic-3",
           voice: character.ttsVoice,
@@ -162,51 +124,30 @@ export default defineAgent({
         }),
       });
 
-      // Use the already-created LemonSlice hosted agent whenever available.
-      // This avoids regenerating the avatar from an image on every studio session.
-      const avatar = character.lemonsliceAgentId
-        ? new lemonslice.AvatarSession({
-            agentId: character.lemonsliceAgentId,
-            agentPrompt: character.avatarPrompt,
-            idleTimeout: 300,
-          })
-        : new lemonslice.AvatarSession({
-            agentImageUrl: character.imageUrl,
-            agentPrompt: character.avatarPrompt,
-            idleTimeout: 300,
-          });
-
-      // Official LiveKit/LemonSlice flow: start the avatar first, then start
-      // the voice AgentSession. This ensures avatar audio/video routing is ready.
-      console.log(`[felencho-universe] job ${jobId}: starting LemonSlice avatar`);
-      await Promise.race([
-        avatar.start(session, ctx.room),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`LemonSlice avatar start timed out for ${character.displayName}.`)),
-            45000,
-          ),
-        ),
-      ]);
-      console.log(`[felencho-universe] job ${jobId}: LemonSlice avatar started`);
-
-      console.log(`[felencho-universe] job ${jobId}: waiting for LemonSlice video`);
-      await avatar.waitForJoin({ timeout: 30000 });
-      console.log(`[felencho-universe] job ${jobId}: LemonSlice video joined`);
-
-      console.log(`[felencho-universe] job ${jobId}: starting voice session`);
+      // Follow LiveKit's official LemonSlice example order exactly:
+      // 1) start AgentSession, 2) start avatar, 3) connect worker to room.
       await session.start({
         agent: new FelenchoUniverseCharacterAgent(character),
         room: ctx.room,
-        participant,
-        inputOptions: {
-          noiseCancellation: BackgroundVoiceCancellation(),
-        },
-        outputOptions: {
-          syncTranscription: false,
-        },
+        outputOptions: { syncTranscription: false },
       });
       console.log(`[felencho-universe] job ${jobId}: voice session started`);
+
+      // Use the public image URL first because this is the path used by the
+      // official working example. Hosted LemonSlice agent IDs remain in the
+      // character registry for later optimization after the base flow is stable.
+      const avatar = new lemonslice.AvatarSession({
+        agentImageUrl: character.imageUrl,
+        agentPrompt: character.avatarPrompt,
+        idleTimeout: 300,
+      });
+
+      console.log(`[felencho-universe] job ${jobId}: starting LemonSlice avatar`);
+      await avatar.start(session, ctx.room);
+      console.log(`[felencho-universe] job ${jobId}: LemonSlice avatar started`);
+
+      await ctx.connect();
+      console.log(`[felencho-universe] job ${jobId}: worker connected`);
     } catch (error) {
       const message = error instanceof Error ? error.stack || error.message : String(error);
       console.error(`[felencho-universe] job ${jobId}: startup failed`, message);
