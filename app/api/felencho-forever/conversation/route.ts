@@ -68,6 +68,7 @@ export async function POST(request: Request) {
 
     const rawCharacterKey = body.character_key || "bob";
     const userMessage = body.message || body.user_message || "";
+    const includeAudio = body.include_audio !== false;
 
     if (!userMessage.trim()) {
       return NextResponse.json(
@@ -86,15 +87,6 @@ export async function POST(request: Request) {
     const characterKey: BrainCharacterKey =
       rawCharacterKey === "shared" ? "bob" : rawCharacterKey;
 
-    const voiceId = VOICES[characterKey];
-
-    if (!voiceId) {
-      return NextResponse.json(
-        { error: `Missing voice for character_key: ${characterKey}` },
-        { status: 400 }
-      );
-    }
-
     const characterName = CHARACTER_NAMES[characterKey] || "Bob";
 
     const brain = await askFelenchoBrain({
@@ -104,6 +96,30 @@ export async function POST(request: Request) {
 
     const answerText =
       brain.text || `${characterName} no pudo responder en este momento.`;
+
+    if (!includeAudio) {
+      return NextResponse.json({
+        data: {
+          character_key: characterKey,
+          character_name: characterName,
+          user_message: userMessage,
+          text: answerText,
+          brain: {
+            knowledge: brain.knowledge,
+            memories: brain.memories,
+          },
+        },
+      });
+    }
+
+    const voiceId = VOICES[characterKey];
+
+    if (!voiceId) {
+      return NextResponse.json(
+        { error: `Missing voice for character_key: ${characterKey}` },
+        { status: 400 }
+      );
+    }
 
     const audioBase64 = await generateSpeech(answerText, voiceId);
 
