@@ -15,6 +15,7 @@ type Character = "lina" | "bob";
 type SessionResponse = {
   serverUrl?: string;
   participantToken?: string;
+  roomName?: string;
   character?: Character;
   error?: string;
 };
@@ -50,6 +51,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       element.style.background = "black";
       videoRef.current.innerHTML = "";
       videoRef.current.appendChild(element);
+      setMessage(`${displayName} ya está visible. Puedes hablarle.`);
     }
 
     if (track.kind === Track.Kind.Audio && audioRef.current) {
@@ -75,7 +77,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       });
 
       const data = (await response.json()) as SessionResponse;
-      if (!response.ok || !data.serverUrl || !data.participantToken) {
+      if (!response.ok || !data.serverUrl || !data.participantToken || !data.roomName) {
         throw new Error(data.error || "No se pudo crear la sesión.");
       }
 
@@ -91,8 +93,19 @@ export default function LiveCharacterClient({ character }: { character: Characte
       await room.connect(data.serverUrl, data.participantToken);
       await room.localParticipant.setMicrophoneEnabled(true);
 
+      const dispatchResponse = await fetch("/api/live/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ character, room: data.roomName }),
+      });
+
+      const dispatchData = await dispatchResponse.json().catch(() => ({}));
+      if (!dispatchResponse.ok) {
+        throw new Error(dispatchData?.error || "No se pudo iniciar el personaje en LiveKit.");
+      }
+
       setStatus("connected");
-      setMessage(`${displayName} está conectado. Puedes hablarle.`);
+      setMessage(`${displayName} está entrando al estudio...`);
     } catch (error) {
       console.error(`[live/${character}]`, error);
       roomRef.current?.disconnect();
