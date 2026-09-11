@@ -182,9 +182,18 @@ export default function LiveCharacterClient({ character }: { character: Characte
       });
       room.on(RoomEvent.Disconnected, () => {
         if (failedRef.current) return;
-        setStatus("idle");
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = null;
+        if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
+        startupTimeoutRef.current = null;
+        setStatus("error");
         setVideoVisible(false);
-        setMessage("Sesión cerrada.");
+        setMessage(`${displayName} terminó antes de publicar video. Revisa el worker o proveedor.`);
+        setDebug((current) =>
+          current
+            ? `${current} · room cerrada antes del video`
+            : "Room cerrada antes de recibir video remoto.",
+        );
       });
 
       await room.connect(data.serverUrl, data.participantToken);
