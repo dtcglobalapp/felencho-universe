@@ -50,6 +50,8 @@ export default function LiveCharacterClient({ character }: { character: Characte
   const [message, setMessage] = useState("");
   const [debug, setDebug] = useState("");
   const [videoVisible, setVideoVisible] = useState(false);
+  const [micReady, setMicReady] = useState(false);
+  const [micBusy, setMicBusy] = useState(false);
 
   const displayName = character === "lina" ? "Lina" : "Bob";
 
@@ -62,19 +64,24 @@ export default function LiveCharacterClient({ character }: { character: Characte
     };
   }, []);
 
-  async function enableMicrophoneAfterVideo() {
+  async function enableMicrophone() {
     const room = roomRef.current;
-    if (!room || microphoneEnabledRef.current) return;
+    if (!room || microphoneEnabledRef.current || micBusy) return;
 
+    setMicBusy(true);
     try {
       await room.localParticipant.setMicrophoneEnabled(true);
       microphoneEnabledRef.current = true;
-      setMessage(`${displayName} está visible y escuchando. Puedes hablarle.`);
-      setDebug((current) => `${current}${current ? " · " : ""}micrófono activo`);
+      setMicReady(true);
+      setMessage(`${displayName} está escuchando. Puedes hablarle.`);
+      setDebug((current) => `${current}${current ? " · " : ""}micrófono publicado`);
     } catch (error) {
       const text = error instanceof Error ? error.message : "No se pudo activar el micrófono.";
-      setMessage(`${displayName} está visible, pero el navegador necesita permiso de micrófono.`);
+      setMicReady(false);
+      setMessage(`Pulsa “Activar micrófono” y permite el acceso para que ${displayName} pueda escucharte.`);
       setDebug((current) => `${current}${current ? " · " : ""}${text}`);
+    } finally {
+      setMicBusy(false);
     }
   }
 
@@ -96,12 +103,12 @@ export default function LiveCharacterClient({ character }: { character: Characte
       videoRef.current.innerHTML = "";
       videoRef.current.appendChild(element);
       setVideoVisible(true);
-      setMessage(`${displayName} ya está visible. Activando micrófono...`);
+      setMicReady(false);
+      setMessage(`${displayName} ya está visible. Activa el micrófono para hablarle.`);
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
       if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
       startupTimeoutRef.current = null;
-      void enableMicrophoneAfterVideo();
     }
 
     if (track.kind === Track.Kind.Audio && audioRef.current) {
@@ -117,6 +124,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
   function failSession(text: string, details: string) {
     failedRef.current = true;
     microphoneEnabledRef.current = false;
+    setMicReady(false);
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = null;
     if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
@@ -177,6 +185,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     setStatus("connecting");
     failedRef.current = false;
     microphoneEnabledRef.current = false;
+    setMicReady(false);
     setVideoVisible(false);
     setMessage(`Conectando con ${displayName}...`);
     setDebug("Creando sala privada...");
@@ -203,6 +212,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       room.on(RoomEvent.Disconnected, () => {
         if (failedRef.current) return;
         microphoneEnabledRef.current = false;
+        setMicReady(false);
         if (pollRef.current) clearInterval(pollRef.current);
         pollRef.current = null;
         if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
@@ -249,6 +259,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       roomRef.current = null;
       setStatus("error");
       setVideoVisible(false);
+      setMicReady(false);
       const text = error instanceof Error ? error.message : "No se pudo iniciar la sesión.";
       setMessage(text);
       setDebug(text);
@@ -262,6 +273,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     startupTimeoutRef.current = null;
     failedRef.current = false;
     microphoneEnabledRef.current = false;
+    setMicReady(false);
     await roomRef.current?.disconnect();
     roomRef.current = null;
     if (videoRef.current) videoRef.current.innerHTML = "";
@@ -315,6 +327,20 @@ export default function LiveCharacterClient({ character }: { character: Characte
             {message || `Pulsa para iniciar una sesión privada con ${displayName}.`}
           </span>
         </div>
+
+        {status === "connected" && videoVisible && !micReady && (
+          <button
+            onClick={enableMicrophone}
+            disabled={micBusy}
+            className="mb-3 rounded-full bg-emerald-300 px-7 py-3 text-sm font-bold text-black transition hover:scale-[1.02] disabled:opacity-60"
+          >
+            {micBusy ? "Activando micrófono..." : "Activar micrófono"}
+          </button>
+        )}
+
+        {micReady && (
+          <div className="mb-3 text-sm font-semibold text-emerald-300">Micrófono activo · Lina debe escucharte</div>
+        )}
 
         {debug && (
           <div className="mb-2 max-w-[720px] rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-center text-xs text-zinc-400">
