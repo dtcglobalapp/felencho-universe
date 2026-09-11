@@ -15,7 +15,7 @@ initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
 const AVATAR_JOIN_TIMEOUT_MS = 20_000;
-const BASELINE_SESSION_TIMEOUT_MS = 90_000;
+const BASELINE_SESSION_TIMEOUT_MS = 300_000;
 
 function getCharacter(jobMetadata?: string) {
   let key: "lina" | "bob" | "felencho_virtual" = "lina";
@@ -73,8 +73,6 @@ export default defineAgent({
         `[felencho-universe] baseline: job=${ctx.job.id} room=${ctx.room.name} character=${character.key}`,
       );
 
-      // LemonSlice needs the LiveKit worker participant identity to mint its
-      // publish-on-behalf token. Connect before creating the avatar session.
       await ctx.connect();
       console.log(
         `[felencho-universe] baseline: worker connected identity=${ctx.agent?.identity}`,
@@ -92,8 +90,6 @@ export default defineAgent({
             : "Eres Lina. Habla en español de forma breve, cálida y natural.",
       });
 
-      // Deliberately minimal baseline: no STT, no LLM, no Felencho Brain.
-      // We only need TTS to prove LiveKit -> LemonSlice -> avatar video/audio.
       session = new voice.AgentSession({
         tts: new inference.TTS({
           model: "cartesia/sonic-3",
@@ -101,12 +97,11 @@ export default defineAgent({
         }),
       });
 
-      // Current LiveKit LemonSlice docs support using an existing hosted agentId.
       avatar = new lemonslice.AvatarSession({
         agentId: character.lemonsliceAgentId,
         apiKey: process.env.LEMONSLICE_API_KEY,
         agentPrompt: character.avatarPrompt,
-        idleTimeout: 90,
+        idleTimeout: 300,
         connOptions: {
           maxRetry: 0,
           retryIntervalMs: 1_000,
@@ -143,11 +138,15 @@ export default defineAgent({
           : "Hola, soy Lina. Estoy lista.",
       );
       await greeting.waitForPlayout();
-      console.log("[felencho-universe] baseline: greeting played; keeping session open for verification");
+      console.log("[felencho-universe] baseline: greeting played; keeping job alive");
 
-      // Do not close immediately after the greeting. Keep the avatar visible so
-      // the browser can verify stable video. The fail-safe still closes the room
-      // automatically after 90 seconds to protect LemonSlice credits.
+      // Important: the agent entry function must remain alive. Returning here can
+      // end the job and remove the avatar even though the video published correctly.
+      await new Promise<void>((resolve) => setTimeout(resolve, BASELINE_SESSION_TIMEOUT_MS));
+
+      if (!closing) {
+        await closeBaseline("baseline verification timeout");
+      }
     } catch (error) {
       console.error("[felencho-universe] baseline startup error", error);
       await closeBaseline("baseline failed");
