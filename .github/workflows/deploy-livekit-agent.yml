@@ -3,7 +3,7 @@ name: Deploy Felencho Universe LiveKit Agent
 on:
   push:
     branches:
-      - lina-lemonslice-livekit
+      - main
     paths:
       - 'agents/lina/**'
       - '.github/workflows/deploy-livekit-agent.yml'
