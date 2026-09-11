@@ -1,5 +1,6 @@
 import {
   type JobContext,
+  type JobProcess,
   ServerOptions,
   cli,
   defineAgent,
@@ -9,6 +10,7 @@ import {
   voice,
 } from "@livekit/agents";
 import * as lemonslice from "@livekit/agents-plugin-lemonslice";
+import * as silero from "@livekit/agents-plugin-silero";
 import { fileURLToPath } from "node:url";
 import { ReadableStream } from "node:stream/web";
 import { getCharacterConfig, isCharacterKey } from "./characters.js";
@@ -35,15 +37,10 @@ function getCharacter(jobMetadata?: string) {
   }
 
   const character = getCharacterConfig(key);
-
-  if (!character.enabled) {
-    throw new Error(`${character.displayName} is not enabled.`);
-  }
-
+  if (!character.enabled) throw new Error(`${character.displayName} is not enabled.`);
   if (!character.lemonsliceAgentId) {
     throw new Error(`Missing LemonSlice agent ID for ${character.displayName}.`);
   }
-
   return character;
 }
 
@@ -61,11 +58,7 @@ async function askFelenchoBrain(characterKey: string, message: string): Promise<
   const response = await fetch(FELENCHO_BRAIN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      character_key: characterKey,
-      message,
-      include_audio: false,
-    }),
+    body: JSON.stringify({ character_key: characterKey, message, include_audio: false }),
   });
 
   if (!response.ok) {
@@ -75,10 +68,7 @@ async function askFelenchoBrain(characterKey: string, message: string): Promise<
 
   const payload = await response.json();
   const text = payload?.data?.text;
-  if (!text || typeof text !== "string") {
-    throw new Error("Felencho Brain returned no text.");
-  }
-
+  if (!text || typeof text !== "string") throw new Error("Felencho Brain returned no text.");
   return text.trim();
 }
 
@@ -94,7 +84,6 @@ class FelenchoBrainAgent extends voice.Agent {
   ): Promise<ReadableStream<llm.ChatChunk | string> | null> {
     const userText = getLatestUserText(chatCtx);
     if (!userText) return null;
-
     console.log(`[felencho-universe] brain input (${this.characterKey}): ${userText}`);
     const answer = await askFelenchoBrain(this.characterKey, userText);
     console.log(`[felencho-universe] brain response ready (${this.characterKey})`);
@@ -109,6 +98,10 @@ class FelenchoBrainAgent extends voice.Agent {
 }
 
 export default defineAgent({
+  prewarm: async (proc: JobProcess) => {
+    proc.userData.vad = await silero.VAD.load();
+  },
+
   entry: async (ctx: JobContext) => {
     let avatar: lemonslice.AvatarSession | undefined;
     let session: voice.AgentSession | undefined;
@@ -135,14 +128,10 @@ export default defineAgent({
 
     try {
       const character = getCharacter(ctx.job.metadata);
-      console.log(
-        `[felencho-universe] interactive: job=${ctx.job.id} room=${ctx.room.name} character=${character.key}`,
-      );
+      console.log(`[felencho-universe] interactive: job=${ctx.job.id} room=${ctx.room.name} character=${character.key}`);
 
       await ctx.connect();
-      console.log(
-        `[felencho-universe] worker connected identity=${ctx.agent?.identity}`,
-      );
+      console.log(`[felencho-universe] worker connected identity=${ctx.agent?.identity}`);
 
       failSafe = setTimeout(() => {
         console.error("[felencho-universe] interactive hard timeout");
@@ -152,10 +141,8 @@ export default defineAgent({
       const agent = new FelenchoBrainAgent(character.key, character.instructions);
 
       session = new voice.AgentSession({
-        stt: new inference.STT({
-          model: "deepgram/nova-3",
-          language: "multi",
-        }),
+        vad: ctx.proc.userData.vad as silero.VAD,
+        stt: new inference.STT({ model: "deepgram/nova-3", language: "multi" }),
         tts: new inference.TTS({
           model: "cartesia/sonic-3",
           voice: character.ttsVoice,
@@ -168,11 +155,7 @@ export default defineAgent({
         apiKey: process.env.LEMONSLICE_API_KEY,
         agentPrompt: character.avatarPrompt,
         idleTimeout: 900,
-        connOptions: {
-          maxRetry: 0,
-          retryIntervalMs: 1_000,
-          timeoutMs: 10_000,
-        },
+        connOptions: { maxRetry: 0, retryIntervalMs: 1_000, timeoutMs: 10_000 },
       });
 
       console.log("[felencho-universe] starting LemonSlice avatar");
@@ -187,11 +170,9 @@ export default defineAgent({
           closeOnDisconnect: true,
           deleteRoomOnClose: true,
         },
-        outputOptions: {
-          syncTranscription: false,
-        },
+        outputOptions: { syncTranscription: false },
       });
-      console.log("[felencho-universe] interactive voice session started");
+      console.log("[felencho-universe] interactive voice session started with VAD");
 
       await avatar.waitForJoin({ timeout: AVATAR_JOIN_TIMEOUT_MS });
       console.log("[felencho-universe] avatar video track published");
@@ -201,10 +182,7 @@ export default defineAgent({
       console.log("[felencho-universe] interactive greeting played; keeping job alive");
 
       await new Promise<void>((resolve) => setTimeout(resolve, SESSION_TIMEOUT_MS));
-
-      if (!closing) {
-        await closeSession("interactive session timeout");
-      }
+      if (!closing) await closeSession("interactive session timeout");
     } catch (error) {
       console.error("[felencho-universe] interactive startup error", error);
       await closeSession("interactive failed");
