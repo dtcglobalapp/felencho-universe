@@ -20,17 +20,38 @@ type SessionResponse = {
   error?: string;
 };
 
+type DispatchResponse = {
+  ok?: boolean;
+  error?: string;
+  details?: string;
+  dispatch?: {
+    id?: string;
+    state?: {
+      jobs?: Array<{
+        id?: string;
+        state?: {
+          status?: string;
+          error?: string;
+        };
+      }>;
+    };
+  };
+};
+
 export default function LiveCharacterClient({ character }: { character: Character }) {
   const roomRef = useRef<Room | null>(null);
   const videoRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLDivElement | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [status, setStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [debug, setDebug] = useState("");
 
   const displayName = character === "lina" ? "Lina" : "Bob";
 
   useEffect(() => {
     return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
       roomRef.current?.disconnect();
       roomRef.current = null;
     };
@@ -39,8 +60,10 @@ export default function LiveCharacterClient({ character }: { character: Characte
   function attachTrack(
     track: RemoteTrack,
     _publication: RemoteTrackPublication,
-    _participant: RemoteParticipant,
+    participant: RemoteParticipant,
   ) {
+    setDebug(`Track ${track.kind} recibido de ${participant.identity}`);
+
     if (track.kind === Track.Kind.Video && videoRef.current) {
       const element = track.attach() as HTMLVideoElement;
       element.autoplay = true;
@@ -52,15 +75,59 @@ export default function LiveCharacterClient({ character }: { character: Characte
       videoRef.current.innerHTML = "";
       videoRef.current.appendChild(element);
       setMessage(`${displayName} ya está visible. Puedes hablarle.`);
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
     }
 
     if (track.kind === Track.Kind.Audio && audioRef.current) {
       const element = track.attach() as HTMLAudioElement;
       element.autoplay = true;
       element.setAttribute("playsinline", "true");
+      audioRef.current.innerHTML = "";
       audioRef.current.appendChild(element);
       element.play().catch(() => undefined);
     }
+  }
+
+  function startDispatchPolling(roomName: string, dispatchId: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts += 1;
+      try {
+        const response = await fetch("/api/live/dispatch-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ room: roomName, dispatchId }),
+        });
+        const data = await response.json().catch(() => ({}));
+        const dispatches = data?.agent_dispatches || data?.agentDispatches || [];
+        const dispatch = dispatches[0];
+        const jobs = dispatch?.state?.jobs || [];
+        const job = jobs[0];
+        const jobState = job?.state || {};
+        const jobStatus = jobState?.status || "esperando worker";
+        const jobError = jobState?.error || "";
+
+        setDebug(
+          `Dispatch ${dispatchId} · ${jobStatus}${jobError ? ` · ${jobError}` : ""}`,
+        );
+
+        if (jobError || String(jobStatus).includes("FAILED")) {
+          setStatus("error");
+          setMessage(`El agente de ${displayName} falló: ${jobError || jobStatus}`);
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+        } else if (attempts >= 15) {
+          setMessage(`${displayName} fue despachado, pero todavía no llegó video. Mira el diagnóstico debajo.`);
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      } catch (error) {
+        setDebug(error instanceof Error ? error.message : "No pude leer el estado del dispatch.");
+      }
+    }, 2000);
   }
 
   async function startSession() {
@@ -68,6 +135,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
 
     setStatus("connecting");
     setMessage(`Conectando con ${displayName}...`);
+    setDebug("Creando sala privada...");
 
     try {
       const response = await fetch("/api/live/session", {
@@ -85,6 +153,9 @@ export default function LiveCharacterClient({ character }: { character: Characte
       roomRef.current = room;
 
       room.on(RoomEvent.TrackSubscribed, attachTrack);
+      room.on(RoomEvent.ParticipantConnected, (participant) => {
+        setDebug(`Participante conectado: ${participant.identity}`);
+      });
       room.on(RoomEvent.Disconnected, () => {
         setStatus("idle");
         setMessage("Sesión cerrada.");
@@ -92,6 +163,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
 
       await room.connect(data.serverUrl, data.participantToken);
       await room.localParticipant.setMicrophoneEnabled(true);
+      setDebug(`Sala conectada: ${data.roomName}. Despachando ${displayName}...`);
 
       const dispatchResponse = await fetch("/api/live/dispatch", {
         method: "POST",
@@ -99,29 +171,40 @@ export default function LiveCharacterClient({ character }: { character: Characte
         body: JSON.stringify({ character, room: data.roomName }),
       });
 
-      const dispatchData = await dispatchResponse.json().catch(() => ({}));
+      const dispatchData = (await dispatchResponse.json().catch(() => ({}))) as DispatchResponse;
       if (!dispatchResponse.ok) {
-        throw new Error(dispatchData?.error || "No se pudo iniciar el personaje en LiveKit.");
+        throw new Error(
+          dispatchData?.details || dispatchData?.error || "No se pudo iniciar el personaje en LiveKit.",
+        );
       }
 
+      const dispatchId = dispatchData?.dispatch?.id || "";
       setStatus("connected");
       setMessage(`${displayName} está entrando al estudio...`);
+      setDebug(dispatchId ? `Dispatch creado: ${dispatchId}` : "Dispatch creado. Esperando al worker...");
+
+      if (dispatchId) startDispatchPolling(data.roomName, dispatchId);
     } catch (error) {
       console.error(`[live/${character}]`, error);
       roomRef.current?.disconnect();
       roomRef.current = null;
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "No se pudo iniciar la sesión.");
+      const text = error instanceof Error ? error.message : "No se pudo iniciar la sesión.";
+      setMessage(text);
+      setDebug(text);
     }
   }
 
   async function endSession() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
     await roomRef.current?.disconnect();
     roomRef.current = null;
     if (videoRef.current) videoRef.current.innerHTML = "";
     if (audioRef.current) audioRef.current.innerHTML = "";
     setStatus("idle");
     setMessage("Sesión cerrada.");
+    setDebug("");
   }
 
   return (
@@ -157,6 +240,12 @@ export default function LiveCharacterClient({ character }: { character: Characte
             {message || `Pulsa para iniciar una sesión privada con ${displayName}.`}
           </span>
         </div>
+
+        {debug && (
+          <div className="mb-2 max-w-[720px] rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-center text-xs text-zinc-400">
+            {debug}
+          </div>
+        )}
 
         {status === "connected" && (
           <button
