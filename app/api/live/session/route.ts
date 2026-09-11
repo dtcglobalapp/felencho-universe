@@ -7,7 +7,6 @@ const LIVEKIT_URL =
   process.env.LIVEKIT_URL || "wss://felencho-universe-qievmphx.livekit.cloud";
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
-const AGENT_NAME = "felencho-universe";
 
 function b64url(value: string | Buffer) {
   return Buffer.from(value)
@@ -42,6 +41,10 @@ export async function POST(request: Request) {
     const metadata = JSON.stringify({ character });
     const now = Math.floor(Date.now() / 1000);
 
+    // This token only connects the studio participant. The agent itself is
+    // dispatched once by /api/live/dispatch after the browser joins the room.
+    // Keeping a single dispatch path prevents duplicate workers/LemonSlice
+    // sessions from consuming credits for the same screen.
     const token = signJwt(
       {
         iss: LIVEKIT_API_KEY,
@@ -55,14 +58,6 @@ export async function POST(request: Request) {
           canPublish: true,
           canPublishData: true,
           canSubscribe: true,
-        },
-        roomConfig: {
-          agents: [
-            {
-              agentName: AGENT_NAME,
-              metadata,
-            },
-          ],
         },
       },
       LIVEKIT_API_SECRET,
