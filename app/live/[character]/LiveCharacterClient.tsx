@@ -43,6 +43,8 @@ export default function LiveCharacterClient({ character }: { character: Characte
   const videoRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLDivElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const failedRef = useRef(false);
   const [status, setStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle");
   const [message, setMessage] = useState("");
   const [debug, setDebug] = useState("");
@@ -53,6 +55,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
       roomRef.current?.disconnect();
       roomRef.current = null;
     };
@@ -76,9 +79,11 @@ export default function LiveCharacterClient({ character }: { character: Characte
       videoRef.current.innerHTML = "";
       videoRef.current.appendChild(element);
       setVideoVisible(true);
-      setMessage(`${displayName} ya está visible. Puedes hablarle.`);
+      setMessage(`${displayName} ya está visible. Reproduciendo saludo de prueba.`);
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
+      if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
+      startupTimeoutRef.current = null;
     }
 
     if (track.kind === Track.Kind.Audio && audioRef.current) {
@@ -89,6 +94,22 @@ export default function LiveCharacterClient({ character }: { character: Characte
       audioRef.current.appendChild(element);
       element.play().catch(() => undefined);
     }
+  }
+
+  function failSession(text: string, details: string) {
+    failedRef.current = true;
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+    if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
+    startupTimeoutRef.current = null;
+    roomRef.current?.disconnect();
+    roomRef.current = null;
+    if (videoRef.current) videoRef.current.innerHTML = "";
+    if (audioRef.current) audioRef.current.innerHTML = "";
+    setStatus("error");
+    setVideoVisible(false);
+    setMessage(text);
+    setDebug(details);
   }
 
   function startDispatchPolling(roomName: string, dispatchId: string) {
@@ -115,14 +136,15 @@ export default function LiveCharacterClient({ character }: { character: Characte
         setDebug(`Dispatch ${dispatchId} · ${jobStatus}${jobError ? ` · ${jobError}` : ""}`);
 
         if (jobError || String(jobStatus).includes("FAILED")) {
-          setStatus("error");
-          setMessage(`El agente de ${displayName} falló: ${jobError || jobStatus}`);
-          if (pollRef.current) clearInterval(pollRef.current);
-          pollRef.current = null;
+          failSession(
+            `El agente de ${displayName} falló: ${jobError || jobStatus}`,
+            `Dispatch ${dispatchId} · ${jobStatus}${jobError ? ` · ${jobError}` : ""}`,
+          );
         } else if (attempts >= 15) {
-          setMessage(`${displayName} fue despachado, pero todavía no llegó video.`);
-          if (pollRef.current) clearInterval(pollRef.current);
-          pollRef.current = null;
+          failSession(
+            `${displayName} fue despachado, pero no publicó video a tiempo. La sesión se cerró.`,
+            `Dispatch ${dispatchId} · timeout esperando video`,
+          );
         }
       } catch (error) {
         setDebug(error instanceof Error ? error.message : "No pude leer el estado del dispatch.");
@@ -134,6 +156,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     if (status === "connecting" || status === "connected") return;
 
     setStatus("connecting");
+    failedRef.current = false;
     setVideoVisible(false);
     setMessage(`Conectando con ${displayName}...`);
     setDebug("Creando sala privada...");
@@ -158,13 +181,13 @@ export default function LiveCharacterClient({ character }: { character: Characte
         setDebug(`Participante conectado: ${participant.identity}`);
       });
       room.on(RoomEvent.Disconnected, () => {
+        if (failedRef.current) return;
         setStatus("idle");
         setVideoVisible(false);
         setMessage("Sesión cerrada.");
       });
 
       await room.connect(data.serverUrl, data.participantToken);
-      await room.localParticipant.setMicrophoneEnabled(true);
       setDebug(`Sala conectada: ${data.roomName}. Despachando ${displayName}...`);
 
       const dispatchResponse = await fetch("/api/live/dispatch", {
@@ -184,6 +207,12 @@ export default function LiveCharacterClient({ character }: { character: Characte
       setDebug(dispatchId ? `Dispatch creado: ${dispatchId}` : "Dispatch creado. Esperando al worker...");
 
       if (dispatchId) startDispatchPolling(data.roomName, dispatchId);
+      startupTimeoutRef.current = setTimeout(() => {
+        failSession(
+          `${displayName} no publicó video a tiempo. La sesión se cerró automáticamente.`,
+          dispatchId ? `Dispatch ${dispatchId} · timeout de inicio` : "Timeout de inicio",
+        );
+      }, 35_000);
     } catch (error) {
       console.error(`[live/${character}]`, error);
       roomRef.current?.disconnect();
@@ -199,6 +228,9 @@ export default function LiveCharacterClient({ character }: { character: Characte
   async function endSession() {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = null;
+    if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
+    startupTimeoutRef.current = null;
+    failedRef.current = false;
     await roomRef.current?.disconnect();
     roomRef.current = null;
     if (videoRef.current) videoRef.current.innerHTML = "";
