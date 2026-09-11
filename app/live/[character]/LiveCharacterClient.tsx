@@ -45,6 +45,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const failedRef = useRef(false);
+  const microphoneEnabledRef = useRef(false);
   const [status, setStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle");
   const [message, setMessage] = useState("");
   const [debug, setDebug] = useState("");
@@ -60,6 +61,22 @@ export default function LiveCharacterClient({ character }: { character: Characte
       roomRef.current = null;
     };
   }, []);
+
+  async function enableMicrophoneAfterVideo() {
+    const room = roomRef.current;
+    if (!room || microphoneEnabledRef.current) return;
+
+    try {
+      await room.localParticipant.setMicrophoneEnabled(true);
+      microphoneEnabledRef.current = true;
+      setMessage(`${displayName} está visible y escuchando. Puedes hablarle.`);
+      setDebug((current) => `${current}${current ? " · " : ""}micrófono activo`);
+    } catch (error) {
+      const text = error instanceof Error ? error.message : "No se pudo activar el micrófono.";
+      setMessage(`${displayName} está visible, pero el navegador necesita permiso de micrófono.`);
+      setDebug((current) => `${current}${current ? " · " : ""}${text}`);
+    }
+  }
 
   function attachTrack(
     track: RemoteTrack,
@@ -79,11 +96,12 @@ export default function LiveCharacterClient({ character }: { character: Characte
       videoRef.current.innerHTML = "";
       videoRef.current.appendChild(element);
       setVideoVisible(true);
-      setMessage(`${displayName} ya está visible. Reproduciendo saludo de prueba.`);
+      setMessage(`${displayName} ya está visible. Activando micrófono...`);
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
       if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
       startupTimeoutRef.current = null;
+      void enableMicrophoneAfterVideo();
     }
 
     if (track.kind === Track.Kind.Audio && audioRef.current) {
@@ -98,6 +116,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
 
   function failSession(text: string, details: string) {
     failedRef.current = true;
+    microphoneEnabledRef.current = false;
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = null;
     if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
@@ -157,6 +176,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
 
     setStatus("connecting");
     failedRef.current = false;
+    microphoneEnabledRef.current = false;
     setVideoVisible(false);
     setMessage(`Conectando con ${displayName}...`);
     setDebug("Creando sala privada...");
@@ -182,6 +202,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
       });
       room.on(RoomEvent.Disconnected, () => {
         if (failedRef.current) return;
+        microphoneEnabledRef.current = false;
         if (pollRef.current) clearInterval(pollRef.current);
         pollRef.current = null;
         if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
@@ -240,6 +261,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     if (startupTimeoutRef.current) clearTimeout(startupTimeoutRef.current);
     startupTimeoutRef.current = null;
     failedRef.current = false;
+    microphoneEnabledRef.current = false;
     await roomRef.current?.disconnect();
     roomRef.current = null;
     if (videoRef.current) videoRef.current.innerHTML = "";
