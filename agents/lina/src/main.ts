@@ -80,9 +80,20 @@ async function askFelenchoBrain(characterKey: string, message: string): Promise<
   return text.trim();
 }
 
+class FelenchoBrainNodeMarker extends llm.LLM {
+  label(): string {
+    return "felencho-brain";
+  }
+
+  chat(): llm.LLMStream {
+    throw new Error("Felencho Brain requests must run through FelenchoBrainAgent.llmNode().");
+  }
+}
+
 class FelenchoBrainAgent extends voice.Agent {
   constructor(private readonly characterKey: string, instructions: string) {
-    super({ instructions });
+    // AgentSession 1.8.1 requires an LLM instance before it schedules a custom llmNode.
+    super({ instructions, llm: new FelenchoBrainNodeMarker() });
   }
 
   async llmNode(
