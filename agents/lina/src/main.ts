@@ -24,17 +24,24 @@ const FELENCHO_BRAIN_URL =
   process.env.FELENCHO_BRAIN_URL ||
   "https://www.felencho.ai/api/felencho-forever/conversation";
 
-function getCharacter(jobMetadata?: string) {
-  let key: "lina" | "bob" | "felencho_virtual" = "lina";
+type JobMetadata = {
+  character?: "lina" | "bob" | "felencho_virtual";
+  participantIdentity?: string;
+};
 
-  if (jobMetadata) {
-    try {
-      const parsed = JSON.parse(jobMetadata);
-      if (isCharacterKey(parsed?.character)) key = parsed.character;
-    } catch {
-      // fall back to Lina
-    }
+function parseJobMetadata(jobMetadata?: string): JobMetadata {
+  if (!jobMetadata) return {};
+  try {
+    const parsed = JSON.parse(jobMetadata);
+    return typeof parsed === "object" && parsed ? parsed : {};
+  } catch {
+    return {};
   }
+}
+
+function getCharacter(metadata: JobMetadata) {
+  let key: "lina" | "bob" | "felencho_virtual" = "lina";
+  if (metadata.character && isCharacterKey(metadata.character)) key = metadata.character;
 
   const character = getCharacterConfig(key);
   if (!character.enabled) throw new Error(`${character.displayName} is not enabled.`);
@@ -127,8 +134,16 @@ export default defineAgent({
     };
 
     try {
-      const character = getCharacter(ctx.job.metadata);
-      console.log(`[felencho-universe] interactive: job=${ctx.job.id} room=${ctx.room.name} character=${character.key}`);
+      const metadata = parseJobMetadata(ctx.job.metadata);
+      const character = getCharacter(metadata);
+      const participantIdentity = metadata.participantIdentity?.trim();
+      if (!participantIdentity) {
+        throw new Error("Missing studio participant identity for audio input.");
+      }
+
+      console.log(
+        `[felencho-universe] interactive: job=${ctx.job.id} room=${ctx.room.name} character=${character.key} participant=${participantIdentity}`,
+      );
 
       await ctx.connect();
       console.log(`[felencho-universe] worker connected identity=${ctx.agent?.identity}`);
@@ -167,12 +182,15 @@ export default defineAgent({
         room: ctx.room,
         inputOptions: {
           audioEnabled: true,
+          participantIdentity,
           closeOnDisconnect: true,
           deleteRoomOnClose: true,
         },
         outputOptions: { syncTranscription: false },
       });
-      console.log("[felencho-universe] interactive voice session started with VAD");
+      console.log(
+        `[felencho-universe] interactive voice session listening to participant=${participantIdentity}`,
+      );
 
       await avatar.waitForJoin({ timeout: AVATAR_JOIN_TIMEOUT_MS });
       console.log("[felencho-universe] avatar video track published");
