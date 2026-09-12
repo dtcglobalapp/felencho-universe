@@ -44,9 +44,15 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const room = typeof body?.room === "string" ? body.room : "";
     const character = body?.character === "bob" ? "bob" : "lina";
+    const participantIdentity =
+      typeof body?.participantIdentity === "string" ? body.participantIdentity : "";
 
     if (!room) {
       return NextResponse.json({ error: "Missing room." }, { status: 400 });
+    }
+
+    if (!participantIdentity) {
+      return NextResponse.json({ error: "Missing participant identity." }, { status: 400 });
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -74,7 +80,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           agent_name: AGENT_NAME,
           room,
-          metadata: JSON.stringify({ character }),
+          metadata: JSON.stringify({ character, participantIdentity }),
         }),
       },
     );
@@ -89,7 +95,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { ok: true, character, room, dispatch: text ? JSON.parse(text) : null },
+      { ok: true, character, room, participantIdentity, dispatch: text ? JSON.parse(text) : null },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
