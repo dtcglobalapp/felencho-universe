@@ -70,7 +70,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
 
     setMicBusy(true);
     try {
-      await room.localParticipant.setMicrophoneEnabled(true);
+      await room.localParticipant.setMicrophoneEnabled(true, undefined, { dtx: false });
       microphoneEnabledRef.current = true;
       setMicReady(true);
       setMessage(`${displayName} está escuchando. Puedes hablarle.`);
