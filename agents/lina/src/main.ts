@@ -165,6 +165,9 @@ export default defineAgent({
           language: character.ttsLanguage,
         }),
         transcriptionTimeout: TRANSCRIPTION_TIMEOUT_MS,
+        turnHandling: {
+          turnDetection: "vad",
+        },
       });
 
       session.on(voice.AgentSessionEventTypes.UserStateChanged, (event) => {
