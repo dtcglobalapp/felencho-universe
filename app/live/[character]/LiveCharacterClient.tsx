@@ -228,12 +228,17 @@ export default function LiveCharacterClient({ character }: { character: Characte
       });
 
       await room.connect(data.serverUrl, data.participantToken);
+      const participantIdentity = room.localParticipant.identity;
       setDebug(`Sala conectada: ${data.roomName}. Despachando ${displayName}...`);
 
       const dispatchResponse = await fetch("/api/live/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ character, room: data.roomName }),
+        body: JSON.stringify({
+          character,
+          room: data.roomName,
+          participantIdentity,
+        }),
       });
 
       const dispatchData = (await dispatchResponse.json().catch(() => ({}))) as DispatchResponse;
