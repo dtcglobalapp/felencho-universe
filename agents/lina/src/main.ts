@@ -20,6 +20,7 @@ initializeLogger({ pretty: true });
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
 const AVATAR_JOIN_TIMEOUT_MS = 20_000;
 const SESSION_TIMEOUT_MS = 900_000;
+const TRANSCRIPTION_TIMEOUT_MS = 5_000;
 const FELENCHO_BRAIN_URL =
   process.env.FELENCHO_BRAIN_URL ||
   "https://www.felencho.ai/api/felencho-forever/conversation";
@@ -163,6 +164,37 @@ export default defineAgent({
           voice: character.ttsVoice,
           language: character.ttsLanguage,
         }),
+        transcriptionTimeout: TRANSCRIPTION_TIMEOUT_MS,
+      });
+
+      session.on(voice.AgentSessionEventTypes.UserStateChanged, (event) => {
+        console.log(
+          `[felencho-universe] vad state ${event.oldState} -> ${event.newState}`,
+        );
+      });
+      session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (event) => {
+        console.log(
+          `[felencho-universe] stt transcript final=${event.isFinal} language=${event.language ?? "unknown"} text=${event.transcript}`,
+        );
+      });
+      session.on(voice.AgentSessionEventTypes.UserTranscriptionTimeout, (event) => {
+        console.error(
+          `[felencho-universe] stt transcript timeout speechMs=${event.speechDuration}`,
+        );
+        void closeSession("stt transcript timeout");
+      });
+      session.on(voice.AgentSessionEventTypes.AgentStateChanged, (event) => {
+        console.log(
+          `[felencho-universe] agent state ${event.oldState} -> ${event.newState}`,
+        );
+      });
+      session.on(voice.AgentSessionEventTypes.SpeechCreated, (event) => {
+        console.log(`[felencho-universe] speech created source=${event.source}`);
+      });
+      session.on(voice.AgentSessionEventTypes.Error, (event) => {
+        const detail =
+          event.error instanceof Error ? event.error.message : String(event.error);
+        console.error(`[felencho-universe] voice pipeline error: ${detail}`);
       });
 
       avatar = new lemonslice.AvatarSession({
