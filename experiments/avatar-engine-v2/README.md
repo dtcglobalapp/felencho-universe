@@ -84,6 +84,24 @@ Before recommending a workstation, measure at minimum:
 
 The workstation recommendation must be based on those measurements, not on theoretical model requirements or marketing specifications. If one GPU is close to saturation with two avatars, size the workstation for additional VRAM or a multi-GPU design before purchase.
 
+## RunPod storage safety rules
+
+A Pod-local `Volume disk` is tied to the Pod lifecycle. `Stop` preserves it, but `Terminate` can delete it. Treat termination as destructive for experimental assets unless the data is stored elsewhere.
+
+After the first accidental termination, do not rely on Pod-local storage for anything that would be expensive or time-consuming to rebuild.
+
+For all future experiments:
+
+- keep the experiment source and setup instructions committed to GitHub;
+- use a RunPod Network Volume (or equivalent portable persistent storage) for model weights, prepared Lina/Bob assets, caches, benchmark outputs, and any non-reproducible files;
+- keep the container disk disposable;
+- never place required assets only on the container disk;
+- prefer `Stop` when pausing compute;
+- use `Terminate` only when the Pod is intentionally disposable and all required data is already backed up or lives on portable storage;
+- after creating a new Pod, verify the persistent mount before downloading models or preparing avatars.
+
+The environment bootstrap should be reproducible so that losing a Pod costs minutes, not a reconstruction of the experiment.
+
 ## Cloud-lab versus production plan
 
 RunPod is the measurement/development laboratory, not automatically the final 24/7 production host.
@@ -93,9 +111,9 @@ During experimentation:
 - use rented GPUs to validate quality and capacity cheaply;
 - stop GPU compute whenever it is not actively needed;
 - do not leave a paid GPU running overnight unless intentionally testing endurance;
-- retain model/assets in persistent storage.
+- retain model/assets in portable persistent storage.
 
-After avatar quality is proven, migrate experiment assets to a RunPod Network Volume or equivalent portable storage before building automated GPU failover. The goal is to make the avatar engine indifferent to any specific physical GPU host.
+After avatar quality is proven, keep experiment assets on a RunPod Network Volume or equivalent portable storage before building automated GPU failover. The goal is to make the avatar engine indifferent to any specific physical GPU host.
 
 Long-term production target:
 
@@ -109,23 +127,24 @@ No workstation purchase should be recommended until the validated benchmarks abo
 
 - RunPod GPU Pod for the first test, not Serverless.
 - Start with an NVIDIA GPU that has at least 12 GB VRAM; for Lina + Bob simultaneously, prefer substantially more headroom, with RTX 4090-class hardware as the first serious dual-avatar test target.
-- Persistent storage for model weights and prepared avatar assets.
+- Use portable persistent storage for model weights and prepared avatar assets.
 - GPU should be stopped after each test to stop compute billing.
 
 ## Test sequence
 
 1. Provision an isolated GPU only after confirming the exact image and model requirements.
-2. Install the LiveKit-MuseTalk integration and MuseTalk 1.5 weights.
-3. Prepare Lina from her existing reference image.
-4. Replace the sample project's OpenAI brain/voice path with the existing Felencho Brain + current TTS/STT path while preserving its realtime avatar/video-track machinery.
-5. Publish Lina as a live LiveKit video track and measure latency/FPS/VRAM.
-6. If Lina passes, test the short idle-video source to add natural body/hand movement.
-7. If Lina still passes, prepare Bob.
-8. If both pass individually, test Lina + Bob simultaneously on one GPU.
-9. Reactivate and test Felencho Virtual only after Lina + Bob are stable.
-10. Run the two-hour endurance/capacity benchmark and record hardware telemetry.
-11. Size the workstation from measured capacity and required headroom.
-12. Only after those tests consider replacing the LemonSlice visual leg in the stable LiveKit pipeline.
+2. Mount portable persistent storage before installing/downloading expensive assets.
+3. Install the LiveKit-MuseTalk integration and MuseTalk 1.5 weights.
+4. Prepare Lina from her existing reference image.
+5. Replace the sample project's OpenAI brain/voice path with the existing Felencho Brain + current TTS/STT path while preserving its realtime avatar/video-track machinery.
+6. Publish Lina as a live LiveKit video track and measure latency/FPS/VRAM.
+7. If Lina passes, test the short idle-video source to add natural body/hand movement.
+8. If Lina still passes, prepare Bob.
+9. If both pass individually, test Lina + Bob simultaneously on one GPU.
+10. Reactivate and test Felencho Virtual only after Lina + Bob are stable.
+11. Run the two-hour endurance/capacity benchmark and record hardware telemetry.
+12. Size the workstation from measured capacity and required headroom.
+13. Only after those tests consider replacing the LemonSlice visual leg in the stable LiveKit pipeline.
 
 ## Production baseline
 
