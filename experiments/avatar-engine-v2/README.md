@@ -68,6 +68,43 @@ If Lina passes from a single still image, prepare a short Lina source video from
 
 Prepare Bob from his existing reference image on the same GPU, measure Lina and Bob separately, then test two simultaneous live avatar processes only after Lina passes the first two phases.
 
+## Phase 4 target — Felencho Virtual and workstation sizing
+
+Do not buy production GPU hardware until the rented-GPU experiment proves the actual capacity requirement.
+
+Before recommending a workstation, measure at minimum:
+
+- Lina live by herself;
+- Bob live by himself;
+- Lina + Bob simultaneously;
+- Felencho Virtual when reactivated;
+- two-hour continuous Lina + Bob conversation with interruptions, silence, turn changes, reconnects, and normal studio behavior;
+- render FPS, peak VRAM, average/peak GPU utilization, system RAM, CPU utilization, avatar latency, and thermal stability;
+- remaining GPU headroom under the heaviest validated studio scenario.
+
+The workstation recommendation must be based on those measurements, not on theoretical model requirements or marketing specifications. If one GPU is close to saturation with two avatars, size the workstation for additional VRAM or a multi-GPU design before purchase.
+
+## Cloud-lab versus production plan
+
+RunPod is the measurement/development laboratory, not automatically the final 24/7 production host.
+
+During experimentation:
+
+- use rented GPUs to validate quality and capacity cheaply;
+- stop GPU compute whenever it is not actively needed;
+- do not leave a paid GPU running overnight unless intentionally testing endurance;
+- retain model/assets in persistent storage.
+
+After avatar quality is proven, migrate experiment assets to a RunPod Network Volume or equivalent portable storage before building automated GPU failover. The goal is to make the avatar engine indifferent to any specific physical GPU host.
+
+Long-term production target:
+
+1. studio workstation owned by Felencho for primary 24/7 avatar rendering;
+2. cloud GPU as backup/failover and for heavy tests;
+3. same Felencho Avatar Engine software and avatar assets runnable on either environment.
+
+No workstation purchase should be recommended until the validated benchmarks above are complete.
+
 ## Candidate infrastructure
 
 - RunPod GPU Pod for the first test, not Serverless.
@@ -85,7 +122,10 @@ Prepare Bob from his existing reference image on the same GPU, measure Lina and 
 6. If Lina passes, test the short idle-video source to add natural body/hand movement.
 7. If Lina still passes, prepare Bob.
 8. If both pass individually, test Lina + Bob simultaneously on one GPU.
-9. Only after those tests consider replacing the LemonSlice visual leg in the stable LiveKit pipeline.
+9. Reactivate and test Felencho Virtual only after Lina + Bob are stable.
+10. Run the two-hour endurance/capacity benchmark and record hardware telemetry.
+11. Size the workstation from measured capacity and required headroom.
+12. Only after those tests consider replacing the LemonSlice visual leg in the stable LiveKit pipeline.
 
 ## Production baseline
 
