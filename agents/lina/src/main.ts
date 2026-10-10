@@ -241,7 +241,7 @@ export default defineAgent({
       await avatar.waitForJoin({ timeout: AVATAR_JOIN_TIMEOUT_MS });
       console.log("[felencho-universe] avatar video track published");
 
-      const greeting = session.say("Hola, soy Lina. Ya estoy conectada a Felencho Brain y puedo escucharte.");
+      const greeting = session.say(`Hola, soy ${character.displayName}. Estoy listo para escucharte.`);
       await greeting.waitForPlayout();
       console.log("[felencho-universe] interactive greeting played; keeping job alive");
 
