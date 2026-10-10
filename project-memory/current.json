@@ -5,7 +5,7 @@
     "owner_name": "Felencho",
     "legal_name": "Martin F. Duran",
     "updated_at": "2026-10-09",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "purpose": "Memoria técnica persistente para continuar el proyecto entre chats sin perder arquitectura, decisiones, archivos, estado ni próximos pasos.",
     "absolute_rule": "Nunca rehacer, reemplazar, desmontar o rediseñar algo que ya funciona sin comprobar primero el estado real del proyecto."
   },
@@ -1433,6 +1433,35 @@
       "Corregir identificación Bob/Lina y diagnosticar audio/STT sin romper integración existente",
       "Probar extremo a extremo primero Bob y luego Lina",
       "Registrar pruebas verificadas y actualizar esta memoria"
+    ]
+  },
+  "studio_vision_and_editorial_2026_october": {
+    "vision": "Comunidad mundial conectada desde Nueva York; invitados presenciales y remotos se sienten acogidos y escuchados; crítica cívica fundamentada sin denigrar a la ciudad ni compromisos políticos o comerciales",
+    "guest_experience": [
+      "Bob y Lina reciben contexto de la conversación completa, no solo activación por nombre",
+      "Bienvenida cálida, conversación natural, respeto, escucha y preguntas contextualizadas",
+      "Observaciones visuales positivas y pertinentes sobre aspectos visibles, evitando halagos falsos, juicios sensibles o invasivos",
+      "OBSBOT conectada a La Bestia aporta visión del estudio; invitados remotos requieren video autorizado desde WhatsApp/YoloBox u otra fuente",
+      "Consentimiento para análisis de imagen y protección de datos; no identificar rostros sin autorización"
+    ],
+    "proposed_episode_topics": [
+      "Vivienda y jubilación: historia de Margarita y otras experiencias",
+      "Movilidad de automóviles, bicicletas y políticas de NYC con datos y diversas perspectivas",
+      "Cobertura de salud para propietarios y trabajadores de daycare",
+      "Vacaciones, beneficios laborales, impuestos y capacidad de ahorrar para la vejez"
+    ],
+    "integration_priority": [
+      "Conservar sistema Presence, Studio Listener, StudioSync, wake words y Gateway",
+      "Auditar y separar integración legada LiveAvatar de LemonSlice/LiveKit",
+      "La Bestia y RØDECaster gestionan audio; PC Windows solo muestran video",
+      "Ruteo mix-minus para fuentes remotas y avatares",
+      "Probar primero Bob, después Lina; medir recepción audio, transcripción, respuesta, voz, video y retorno a RØDE"
+    ],
+    "audit_findings_2026_10_09": [
+      "app/studio-listener/page.tsx utiliza SpeechRecognition del navegador, wake words, StudioSync y /api/felencho-gateway, no entrega todavía una mezcla persistente a LiveKit",
+      "components/presence/PresenceAvatar.tsx reutiliza PresenceVideo y PresenceLive y estados Realtime",
+      "components/presence/PresenceLive.tsx aún depende de @heygen/liveavatar-web-sdk y crea una sesión LiveAvatar al entrar en modo live; no migrado a LemonSlice",
+      "app/api/live/session/route.ts crea salas por personaje y app/api/live/dispatch/route.ts despacha worker LemonSlice; todavía requieren puente de audio desde La Bestia"
     ]
   }
 }
