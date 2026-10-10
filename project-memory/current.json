@@ -4,8 +4,8 @@
     "ecosystem": "Felencho.ai / Felencho Forever / Felencho Mundial The Podcast",
     "owner_name": "Felencho",
     "legal_name": "Martin F. Duran",
-    "updated_at": "2026-07-11",
-    "version": "1.3.0",
+    "updated_at": "2026-10-09",
+    "version": "1.4.0",
     "purpose": "Memoria técnica persistente para continuar el proyecto entre chats sin perder arquitectura, decisiones, archivos, estado ni próximos pasos.",
     "absolute_rule": "Nunca rehacer, reemplazar, desmontar o rediseñar algo que ya funciona sin comprobar primero el estado real del proyecto."
   },
@@ -1373,5 +1373,66 @@
       "studio": "El sistema puede operar durante horas con costos previsibles y sin cargos por minuto de render visual."
     },
     "long_term_vision": "Felencho Avatar Engine será una plataforma propia de personajes inteligentes para estudios, educación, música, entretenimiento, museos digitales, transmisiones y experiencias interactivas."
+  },
+  "podcast_2026_october": {
+    "status": "production_preparation",
+    "editorial_policy": {
+      "mission": "Historias reales y voces libres, sin compromisos políticos o comerciales para silenciar testimonios",
+      "standards": [
+        "Distinguir testimonios, opiniones y hechos verificados",
+        "Dar oportunidad a perspectivas y respuestas pertinentes",
+        "Obtener consentimiento para difusión y proteger datos privados",
+        "No inventar declaraciones ni cifras de invitados"
+      ]
+    },
+    "first_confirmed_guest": {
+      "name": "Margarita",
+      "description": "Profesora jubilada de Nueva York con más de 30 años de trabajo; aceptó contar su historia públicamente para ayudar a otras personas",
+      "planned_move": "Diciembre 2026, Roquetas de Mar, Almería, España",
+      "reported_rent": "600 y pico euros mensuales en España; cifra exacta pendiente de entrevista",
+      "new_york_housing": "La dificultad para pagar la renta en Nueva York motiva la mudanza; importes exactos, ingresos y pensión pendientes de entrevista",
+      "followup": "Entrevistas desde NY y conexión remota desde España, con seguimiento posterior",
+      "consent": "Aceptación verbal de participar comunicada por Felencho; confirmar consentimiento para grabación y difusión antes del programa"
+    },
+    "remote_guests": [
+      "Participantes en estudio",
+      "WhatsApp",
+      "Invitados conectados mediante YoloBox",
+      "Conexiones internacionales"
+    ],
+    "format": "Felencho modera; Bob y Lina analizan y preguntan; los testimonios humanos son protagonistas"
+  },
+  "integration_2026_october": {
+    "status": "needs_end_to_end_verification",
+    "current_stack": [
+      "LemonSlice avatars",
+      "LiveKit",
+      "Felencho Brain",
+      "RØDECaster Pro II",
+      "La Bestia",
+      "Windows browsers as visual displays"
+    ],
+    "lemonslice_agents": {
+      "bob": "agent_a744faad1990479f",
+      "lina": "agent_5d1a61f1cd17a770"
+    },
+    "architecture_rules": [
+      "RØDECaster Pro II está conectada a La Bestia según confirmación del usuario",
+      "Las PCs Windows son navegadores de presentación, sin micrófonos conversacionales",
+      "La Bestia recibe mezcla controlada de voces de estudio e invitados remotos, con retorno mix-minus para evitar eco",
+      "Bob y Lina deben disponer del contexto completo de conversación; la palabra de activación selecciona quién responde, no quién escucha",
+      "Reutilizar Presence loops existentes y wake words; no rehacer componentes funcionales",
+      "Verificar la ruta real de audio de WhatsApp y YoloBox antes de declarar que llega al Brain",
+      "No duplicar sesiones conversacionales ni enviar audio principal desde las PCs visuales"
+    ],
+    "observed_issue": "En /live/bob en iPhone el usuario activó el botón de micrófono pero Bob no escuchó; saludo y texto de micrófono hardcodeados como Lina en la integración; no se ha demostrado el tránsito de audio a STT ni al Brain",
+    "next_actions": [
+      "Auditar endpoints /api/live/session y /api/live/dispatch y el worker LiveKit",
+      "Inspeccionar /presence/bob, /presence/lina y studio-listener existentes",
+      "Definir entrada de mezcla controlada RØDE a La Bestia y entrega a LiveKit sin depender de clics en PCs visuales",
+      "Corregir identificación Bob/Lina y diagnosticar audio/STT sin romper integración existente",
+      "Probar extremo a extremo primero Bob y luego Lina",
+      "Registrar pruebas verificadas y actualizar esta memoria"
+    ]
   }
 }
