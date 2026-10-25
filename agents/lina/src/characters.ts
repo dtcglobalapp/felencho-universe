@@ -14,7 +14,7 @@ export type CharacterConfig = {
 
 const DEFAULT_LINA_VOICE = "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc";
 // Bob must have an independently configured male voice in LiveKit Cloud.
-const DEFAULT_BOB_VOICE = "";
+const DEFAULT_BOB_VOICE = "a5136bf9-224c-4d76-b823-52bd5efcffcc";
 
 export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
   lina: {
