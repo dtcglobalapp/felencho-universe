@@ -34,7 +34,8 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
           setMessage(`Esperando a ${character === "bob" ? "Bob" : "Lina"} desde La Bestia...`);
           return;
         }
-        if (roomRef.current?.name === data.room && roomRef.current.state === "connected") return;
+        const currentRoom = roomRef.current;
+        if (currentRoom && currentRoom.name === data.room && currentRoom.state === "connected") return;
         if (roomRef.current) await roomRef.current.disconnect();
         const room = new Room({ adaptiveStream: true });
         roomRef.current = room;
