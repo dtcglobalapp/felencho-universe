@@ -6,14 +6,9 @@ import { Room, RoomEvent, Track } from "livekit-client";
 export default function FixedStudioDisplay({ character }: { character: "bob" | "lina" }) {
   const [pin, setPin] = useState("");
   const [active, setActive] = useState(false);
-  const [message, setMessage] = useState("Autoriza esta pantalla una sola vez.");
+  const [message, setMessage] = useState("Introduce la clave de pantalla del estudio.");
   const videoRef = useRef<HTMLDivElement>(null);
   const roomRef = useRef<Room | null>(null);
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem(`felencho-screen-pin-${character}`);
-    if (saved && saved.length >= 8) { setPin(saved); setActive(true); }
-  }, [character]);
 
   useEffect(() => {
     if (!active) return;
@@ -30,11 +25,9 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
         const data = await response.json();
         if (!response.ok) {
           setMessage(data.error || "Error de conexión.");
-          if (response.status === 403) { window.localStorage.removeItem(`felencho-screen-pin-${character}`); setPin(""); setActive(false); }
-          if (response.status === 503) setActive(false);
+          if (response.status === 403 || response.status === 503) setActive(false);
           return;
         }
-        window.localStorage.setItem(`felencho-screen-pin-${character}`, pin);
         if (data.waiting) {
           if (roomRef.current) { await roomRef.current.disconnect(); roomRef.current = null; }
           videoRef.current?.replaceChildren();
