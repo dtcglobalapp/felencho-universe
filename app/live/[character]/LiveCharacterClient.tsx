@@ -14,6 +14,7 @@ type Character = "lina" | "bob";
 
 type SessionResponse = {
   serverUrl?: string;
+  displayToken?: string;
   participantToken?: string;
   roomName?: string;
   character?: Character;
@@ -52,6 +53,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
   const [videoVisible, setVideoVisible] = useState(false);
   const [micReady, setMicReady] = useState(false);
   const [micBusy, setMicBusy] = useState(false);
+  const [displayLink, setDisplayLink] = useState("");
 
   const displayName = character === "lina" ? "Lina" : "Bob";
 
@@ -187,6 +189,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     microphoneEnabledRef.current = false;
     setMicReady(false);
     setVideoVisible(false);
+    setDisplayLink("");
     setMessage(`Conectando con ${displayName}...`);
     setDebug("Creando sala privada...");
 
@@ -200,6 +203,11 @@ export default function LiveCharacterClient({ character }: { character: Characte
       const data = (await response.json()) as SessionResponse;
       if (!response.ok || !data.serverUrl || !data.participantToken || !data.roomName) {
         throw new Error(data.error || "No se pudo crear la sesión.");
+      }
+
+      if (data.displayToken) {
+        const params = new URLSearchParams({ server: data.serverUrl, token: data.displayToken, character });
+        setDisplayLink(`${window.location.origin}/live/display#${params.toString()}`);
       }
 
       const room = new Room({ adaptiveStream: true, dynacast: true });
@@ -284,6 +292,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
     if (videoRef.current) videoRef.current.innerHTML = "";
     if (audioRef.current) audioRef.current.innerHTML = "";
     setStatus("idle");
+    setDisplayLink("");
     setVideoVisible(false);
     setMessage("Sesión cerrada.");
     setDebug("");
@@ -344,7 +353,15 @@ export default function LiveCharacterClient({ character }: { character: Characte
         )}
 
         {micReady && (
-          <div className="mb-3 text-sm font-semibold text-emerald-300">Micrófono activo · Lina debe escucharte</div>
+          <div className="mb-3 text-sm font-semibold text-emerald-300">Micrófono activo · {displayName} debe escucharte</div>
+        )}
+
+        {displayLink && status === "connected" && (
+          <div className="mb-3 w-full max-w-[720px] rounded-xl border border-cyan-400/20 bg-zinc-950 p-4 text-sm">
+            <p className="mb-2 font-semibold text-cyan-200">Enlace temporal para la pantalla Windows (solo video)</p>
+            <p className="mb-2 break-all text-xs text-zinc-400">El enlace es privado: no lo compartas fuera del estudio.</p>
+            <button onClick={() => navigator.clipboard.writeText(displayLink)} className="rounded-lg bg-cyan-300 px-4 py-2 font-semibold text-black">Copiar enlace de pantalla</button>
+          </div>
         )}
 
         {debug && (

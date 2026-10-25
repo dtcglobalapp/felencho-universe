@@ -18,6 +18,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Dedicated avatar displays use their own studio PIN authentication.
+  if (pathname === "/studio/bob" || pathname === "/studio/lina") {
+    return NextResponse.next();
+  }
+
   if (pathname === "/studio/access") {
     return NextResponse.next();
   }
