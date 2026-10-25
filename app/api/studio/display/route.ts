@@ -36,7 +36,9 @@ export async function POST(request: Request) {
   if (!response.ok) return NextResponse.json({ error: "No se pudo consultar las salas de LiveKit." }, { status: 502 });
   const data = await response.json();
   const rooms = (Array.isArray(data.rooms) ? data.rooms : []) as Array<{ name?: string; creationTime?: number; numParticipants?: number }>;
-  const active = rooms.filter((r) => r.name?.startsWith(`felencho-${character}-`) && (r.numParticipants ?? 0) > 0)
+  // A newly created LiveKit room may temporarily report zero participants even while the avatar joins.
+  // Only LiveKit rooms that still exist are returned here; do not hide them based on this lagging count.
+  const active = rooms.filter((r) => r.name?.startsWith(`felencho-${character}-`))
     .sort((a, b) => (b.creationTime ?? 0) - (a.creationTime ?? 0));
   if (!active[0]?.name) return NextResponse.json({ waiting: true }, { headers: { "Cache-Control": "no-store" } });
   const token = jwt({

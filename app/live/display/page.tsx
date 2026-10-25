@@ -18,6 +18,7 @@ export default function StudioDisplay() {
     }
     const room = new Room({ adaptiveStream: true });
     let disposed = false;
+    let videoReceived = false;
     room.on(RoomEvent.TrackSubscribed, (track) => {
       if (track.kind !== Track.Kind.Video || !videoRef.current) return;
       const element = track.attach() as HTMLVideoElement;
@@ -28,13 +29,14 @@ export default function StudioDisplay() {
       element.style.height = "100%";
       element.style.objectFit = "contain";
       videoRef.current.replaceChildren(element);
+      videoReceived = true;
       setStatus("");
     });
     room.on(RoomEvent.Disconnected, () => {
       if (!disposed) setStatus("La sesión terminó. Inicia otra desde La Bestia.");
     });
     void room.connect(server, token).then(() => {
-      if (!disposed) setStatus("Esperando video del personaje...");
+      if (!disposed && !videoReceived) setStatus("Esperando video del personaje...");
     }).catch(() => {
       if (!disposed) setStatus("No se pudo conectar. Genera otro enlace desde La Bestia.");
     });
