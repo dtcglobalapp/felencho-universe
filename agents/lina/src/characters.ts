@@ -13,8 +13,8 @@ export type CharacterConfig = {
 };
 
 const DEFAULT_LINA_VOICE = "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc";
-// Cartesia Spanish-speaking Storyteller Man. Keep Bob independent of Lina.
-const DEFAULT_BOB_VOICE = "846fa30b-6e1a-49b9-b7df-6be47092a09a";
+// Bob must have an independently configured male voice in LiveKit Cloud.
+const DEFAULT_BOB_VOICE = "";
 
 export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
   lina: {
