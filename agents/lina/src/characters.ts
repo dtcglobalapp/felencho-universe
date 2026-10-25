@@ -13,6 +13,8 @@ export type CharacterConfig = {
 };
 
 const DEFAULT_LINA_VOICE = "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc";
+// Bob must have an independently configured male voice in LiveKit Cloud.
+const DEFAULT_BOB_VOICE = "a5136bf9-224c-4d76-b823-52bd5efcffcc";
 
 export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
   lina: {
@@ -41,8 +43,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterConfig> = {
       "https://www.felencho.ai/avatars/bob/bob-2x3.png",
     lemonsliceAgentId:
       process.env.BOB_LEMONSLICE_AGENT_ID || "agent_a744faad1990479f",
-    // Temporary fallback. We will choose Bob's final male voice before the studio test.
-    ttsVoice: process.env.BOB_TTS_VOICE || DEFAULT_LINA_VOICE,
+    ttsVoice: process.env.BOB_TTS_VOICE || DEFAULT_BOB_VOICE,
     ttsLanguage: process.env.BOB_TTS_LANGUAGE || "es",
     avatarPrompt:
       "Bob is a wise, powerful futuristic elder host with long white hair and beard. Natural hand gestures, subtle head movement, attentive listening posture, calm and authoritative studio presence.",
