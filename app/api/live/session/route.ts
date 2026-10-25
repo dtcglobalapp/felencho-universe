@@ -63,8 +63,27 @@ export async function POST(request: Request) {
       LIVEKIT_API_SECRET,
     );
 
+    const displayToken = signJwt(
+      {
+        iss: LIVEKIT_API_KEY,
+        sub: `display-${character}-${randomUUID()}`,
+        nbf: now - 5,
+        exp: now + 60 * 60,
+        metadata: JSON.stringify({ character, role: "display" }),
+        video: {
+          roomJoin: true,
+          room: roomName,
+          canPublish: false,
+          canPublishData: false,
+          canSubscribe: true,
+        },
+      },
+      LIVEKIT_API_SECRET,
+    );
+
     return NextResponse.json(
       {
+        displayToken,
         serverUrl: LIVEKIT_URL,
         roomName,
         participantToken: token,
