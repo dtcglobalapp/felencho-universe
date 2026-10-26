@@ -37,12 +37,11 @@ export async function POST(request: Request) {
       consent_ai_memory:body.consent_ai_memory===true,consent_community_contact:body.consent_community_contact===true,
       consent_music_use:body.consent_music_use===true,
     };
-    const {error} = await supabaseAdmin.from("podcast_guest_registrations").insert(payload);
-    if (error) {
-      if (error.code==="23505") return NextResponse.json({error:"Esta invitación ya fue registrada."},{status:409});
+    const {error} = await supabaseAdmin.rpc("register_podcast_guest_atomic",{p_invitation_id:invite.id,p_payload:payload});
+    if(error){
+      if(error.code==="23505") return NextResponse.json({error:"Esta invitación ya fue registrada."},{status:409});
       throw error;
     }
-    await supabaseAdmin.from("podcast_guest_invitations").update({used_at:new Date().toISOString()}).eq("id",invite.id).is("used_at",null);
     return NextResponse.json({ok:true,message:"Registro recibido. Pendiente de revisión por Felencho."});
   } catch (error) {
     console.error("[guest-registration] failed",error);
