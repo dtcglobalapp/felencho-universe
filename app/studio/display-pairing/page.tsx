@@ -32,7 +32,7 @@ export default function DisplayPairingPage() {
           </select>
         </label>
         <label className="block">Código temporal
-          <input value={code} onChange={(e) => setCode(e.target.value.replace(/\\D/g, "").slice(0, 6))} inputMode="numeric" maxLength={6} required pattern="[0-9]{6}" className="mt-2 block w-full rounded bg-zinc-800 p-3 text-2xl tracking-widest" placeholder="000000" />
+          <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" maxLength={6} required pattern="[0-9]{6}" className="mt-2 block w-full rounded bg-zinc-800 p-3 text-2xl tracking-widest" placeholder="000000" />
         </label>
         <button disabled={busy || code.length !== 6} className="rounded bg-white px-6 py-3 font-semibold text-black disabled:opacity-50">{busy ? "Autorizando..." : "Autorizar pantalla"}</button>
       </form>
