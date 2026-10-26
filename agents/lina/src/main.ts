@@ -18,7 +18,7 @@ import { getCharacterConfig, isCharacterKey } from "./characters.js";
 initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
-const AVATAR_JOIN_TIMEOUT_MS = 20_000;
+const AVATAR_JOIN_TIMEOUT_MS = 60_000;
 const SESSION_TIMEOUT_MS = 900_000;
 const TRANSCRIPTION_TIMEOUT_MS = 5_000;
 const FELENCHO_BRAIN_URL =
@@ -216,10 +216,10 @@ export default defineAgent({
         apiKey: process.env.LEMONSLICE_API_KEY,
         agentPrompt: character.avatarPrompt,
         idleTimeout: 900,
-        connOptions: { maxRetry: 0, retryIntervalMs: 1_000, timeoutMs: 10_000 },
+        connOptions: { maxRetry: 2, retryIntervalMs: 2_000, timeoutMs: 20_000 },
       });
 
-      console.log("[felencho-universe] starting LemonSlice avatar");
+      console.log(`[felencho-universe] starting LemonSlice avatar character=${character.key} agentId=${character.lemonsliceAgentId} apiKeyConfigured=${Boolean(process.env.LEMONSLICE_API_KEY)}`);
       await avatar.start(session, ctx.room);
       console.log(`[felencho-universe] LemonSlice session created id=${avatar.sessionId}`);
 
