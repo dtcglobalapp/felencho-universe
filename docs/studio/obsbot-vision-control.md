@@ -34,3 +34,13 @@
 - Felencho Brain uses internal knowledge/memory retrieval.
 - Conditional web search on current affairs is implemented in the development branch, not production.
 - Cite source and date in spoken answer; distinguish verified reporting from opinion and conditional future scenarios.
+
+
+## Podcast guest release workflow (approved design)
+- Invitation or participation release includes one concise clause authorizing public podcast recording, image, voice, performance and promotional excerpts, and disclosure of Bob/Lina as AI participants.
+- Separate optional scope for AI memory: interview summaries, approved guest profile and continuity across later interviews. Do not use biometric recognition by default; guest may request correction or deletion of internal memory.
+- Separate express scope for music and artistic works: identify song/recording, rightsholders, permitted platforms, uses and duration; appearance release alone does not transfer copyright or clear third-party composition/master rights.
+- Synthetic voice/face cloning and newly generated performances require separate explicit authorization.
+- Adult guests may sign once before the show; Bob/Lina do not need to ask permission repeatedly while the session grant is active.
+- Keep a record of consent version, timestamp, guest identifier and allowed scopes, without storing unnecessary sensitive data.
+- The release text requires legal review before production use; do not assume public participation waives all privacy or copyright rights.
