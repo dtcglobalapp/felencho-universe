@@ -54,7 +54,7 @@ No inventes datos.
 
 function needsLiveResearch(question: string) {
   const q = question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /\b(hoy|ayer|manana|actualidad|actual|reciente|ultim[oa]s?|noticias?|news|today|yesterday|latest|breaking|this week|esta semana|en vivo|ahora|precio|elecciones?|presidente|alcalde|mercado|pronostico|prediccion|prevision|forecast|futuro|tendencia|investiga|verifica|busca en internet|busca online|search online)\b/.test(q);
+  return /\b(hoy|ayer|manana|actualidad|actual|reciente|ultim[oa]s?|noticias?|news|today|yesterday|latest|breaking|this week|esta semana|en vivo|ahora|precio|elecciones?|presidente|alcalde|mercado|pronostico|prediccion|prevision|forecast|futuro|tendencia|investiga|verifica|busca en internet|busca online|search online|clima|temperatura|lluvia|llueve|tormenta|humedad|viento|weather|rain|temperature|meteo|hora local|que hora|what time|time zone|huso horario|zona horaria|reloj|fecha actual)\b/.test(q);
 }
 
 function normalizeText(text: string) {
