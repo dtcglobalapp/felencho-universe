@@ -47,6 +47,8 @@ export async function POST(request: Request) {
     const room = typeof body?.room === "string" ? body.room : "";
     const character = body?.character === "bob" ? "bob" : "lina";
     const duo = body?.mode === "duo";
+    const selectedAgentName = duo ? process.env.LIVEKIT_DUO_AGENT_NAME : AGENT_NAME;
+    if (duo && (!selectedAgentName || selectedAgentName === AGENT_NAME)) return NextResponse.json({ error: "Dedicated duo agent is not configured; refusing production-agent dispatch." }, { status: 503 });
     if (duo && !isStudioAuthorized(request)) return NextResponse.json({ error: "Studio access required for shared room." }, { status: 403 });
     const requestedGuestId = typeof body?.studioGuestId === "string" ? body.studioGuestId : "";
     const guestSecret = process.env.STUDIO_GUEST_CONTEXT_SECRET;
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          agent_name: AGENT_NAME,
+          agent_name: selectedAgentName,
           room,
           metadata: JSON.stringify({ character, participantIdentity, duo, ...(requestedGuestId ? { studioGuestId: requestedGuestId } : {}) }),
         }),
