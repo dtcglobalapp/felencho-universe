@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { askFelenchoBrain, BrainCharacterKey } from "@/lib/felenchoBrainEngine";
+import { getApprovedGuestBriefing } from "@/lib/podcastGuestBriefing";
 
 export const runtime = "nodejs";
 
@@ -89,9 +90,15 @@ export async function POST(request: Request) {
 
     const characterName = CHARACTER_NAMES[characterKey] || "Bob";
 
+    const guestId = typeof body.studio_guest_id === "string" ? body.studio_guest_id : "";
+    const secret = process.env.STUDIO_GUEST_CONTEXT_SECRET;
+    const authorized = Boolean(secret && request.headers.get("x-studio-guest-secret") === secret && (characterKey === "bob" || characterKey === "lina"));
+    if (guestId && !authorized) return NextResponse.json({ error: "Studio guest authorization required." }, { status: 403 });
+    const guestBriefing = guestId ? await getApprovedGuestBriefing(guestId) : null;
     const brain = await askFelenchoBrain({
       characterKey,
       question: userMessage,
+      studioGuestBriefing: guestBriefing || undefined,
     });
 
     const answerText =
