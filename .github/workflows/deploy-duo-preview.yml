@@ -22,10 +22,10 @@ jobs:
         env:
           DUO_AGENT_ID: ${{ secrets.LIVEKIT_DUO_AGENT_ID }}
         run: |
-          mkdir -p /tmp/felencho-duo-preview
-          cp -R agents/lina/. /tmp/felencho-duo-preview/
-          printf '[project]\nsubdomain = "felencho-universe-qievmphx"\n\n[agent]\nid = "%s"\n' "$DUO_AGENT_ID" > /tmp/felencho-duo-preview/livekit.toml
-          test "$(sed -n 's/^id = "\(.*\)"/\1/p' /tmp/felencho-duo-preview/livekit.toml)" = "$DUO_AGENT_ID"
+          mkdir -p agents/duo-preview
+          cp -R agents/lina/. agents/duo-preview/
+          printf '[project]\nsubdomain = "felencho-universe-qievmphx"\n\n[agent]\nid = "%s"\n' "$DUO_AGENT_ID" > agents/duo-preview/livekit.toml
+          test "$(sed -n 's/^id = "\(.*\)"/\1/p' agents/duo-preview/livekit.toml)" = "$DUO_AGENT_ID"
       - name: Deploy dedicated LiveKit Cloud worker
         uses: livekit/deploy-action@v2.12.2
         env:
@@ -35,4 +35,4 @@ jobs:
           SECRET_LIST: ${{ secrets.DUO_SECRET_LIST }}
         with:
           OPERATION: deploy
-          WORKING_DIRECTORY: /tmp/felencho-duo-preview
+          WORKING_DIRECTORY: agents/duo-preview
