@@ -1,5 +1,7 @@
 import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
+import { isStudioAuthorized } from "@/lib/studioGuestAuth";
+import { getApprovedGuestBriefing } from "@/lib/podcastGuestBriefing";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +49,8 @@ export async function POST(request: Request) {
     const duo = body?.mode === "duo";
     const requestedGuestId = typeof body?.studioGuestId === "string" ? body.studioGuestId : "";
     const guestSecret = process.env.STUDIO_GUEST_CONTEXT_SECRET;
-    if (requestedGuestId && (!duo || !guestSecret || request.headers.get("x-studio-guest-secret") !== guestSecret)) return NextResponse.json({ error: "Guest context requires studio authorization." }, { status: 403 });
+    if (requestedGuestId && (!duo || !guestSecret || !isStudioAuthorized(request))) return NextResponse.json({ error: "Guest context requires studio authorization." }, { status: 403 });
+    if (requestedGuestId && !await getApprovedGuestBriefing(requestedGuestId)) return NextResponse.json({ error: "Guest not approved for AI memory." }, { status: 403 });
     const participantIdentity =
       typeof body?.participantIdentity === "string" ? body.participantIdentity : "";
 
