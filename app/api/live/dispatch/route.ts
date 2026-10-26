@@ -47,6 +47,7 @@ export async function POST(request: Request) {
     const room = typeof body?.room === "string" ? body.room : "";
     const character = body?.character === "bob" ? "bob" : "lina";
     const duo = body?.mode === "duo";
+    if (duo && !isStudioAuthorized(request)) return NextResponse.json({ error: "Studio access required for shared room." }, { status: 403 });
     const requestedGuestId = typeof body?.studioGuestId === "string" ? body.studioGuestId : "";
     const guestSecret = process.env.STUDIO_GUEST_CONTEXT_SECRET;
     if (requestedGuestId && (!duo || !guestSecret || !isStudioAuthorized(request))) return NextResponse.json({ error: "Guest context requires studio authorization." }, { status: 403 });
