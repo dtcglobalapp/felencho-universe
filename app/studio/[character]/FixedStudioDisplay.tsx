@@ -4,51 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 
 export default function FixedStudioDisplay({ character }: { character: "bob" | "lina" }) {
-  const [deviceToken, setDeviceToken] = useState("");
-  const [pairingCode, setPairingCode] = useState("");
-  const [active, setActive] = useState(false);
-  const [message, setMessage] = useState("Preparando pantalla del estudio...");
+  const [message, setMessage] = useState("Esperando al estudio...");
   const videoRef = useRef<HTMLDivElement>(null);
   const roomRef = useRef<Room | null>(null);
 
   useEffect(() => {
-    const storageKey = "felencho-display-device-" + character;
-    let token = localStorage.getItem(storageKey);
-    if (!token || token.length < 32) {
-      token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (v) => v.toString(16).padStart(2, "0")).join("");
-      localStorage.setItem(storageKey, token);
-    }
-    setDeviceToken(token);
-    let pending = false;
-    let authorized = false;
-    let lastBegin = 0;
-    const begin = async () => {
-      if (pending || authorized) return;
-      pending = true;
-      lastBegin = Date.now();
-      try {
-        const res = await fetch("/api/studio/display-pairing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "begin", character, deviceToken: token }) });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "No se pudo vincular la pantalla");
-        if (data.authorized) { authorized = true; setActive(true); setMessage("Esperando al estudio..."); }
-        else { setPairingCode(data.code); setMessage("Autoriza esta pantalla desde La Bestia."); }
-      } catch (error) { setMessage(error instanceof Error ? error.message : "Error de conexión"); }
-      finally { pending = false; }
-    };
-    void begin();
-    const timer = setInterval(async () => {
-      if (authorized || pending) return;
-      try {
-        const res = await fetch("/api/studio/display-pairing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "status", character, deviceToken: token }) });
-        if (res.ok && (await res.json()).authorized) { authorized = true; setActive(true); setPairingCode(""); }
-        else if (res.ok && Date.now() - lastBegin > 9 * 60_000) { await begin(); }
-      } catch { /* reintentar */ }
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [character]);
 
-  useEffect(() => {
-    if (!active || !deviceToken) return;
     let stopped = false;
     let busy = false;
     const check = async () => {
@@ -57,12 +18,12 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
       try {
         const response = await fetch("/api/studio/display", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ character, deviceToken }), cache: "no-store",
+          body: JSON.stringify({ character }), cache: "no-store",
         });
         const data = await response.json();
         if (!response.ok) {
           setMessage(data.error || "Error de conexión.");
-          if (response.status === 403) { setActive(false); setPairingCode(""); setMessage("Autorización revocada. Recarga la pantalla."); }
+
           return;
         }
         if (data.waiting) {
@@ -116,7 +77,7 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
     void check();
     const timer = setInterval(() => void check(), 5000);
     return () => { stopped = true; clearInterval(timer); void roomRef.current?.disconnect(); roomRef.current = null; };
-  }, [active, character, deviceToken]);
+  }, [character]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-black text-white">
@@ -124,11 +85,7 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
         <div ref={videoRef} className="h-full w-full" />
         {message && <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black p-6 text-center">
           <p className="text-xl">{message}</p>
-          {!active && pairingCode && <div className="space-y-3">
-            <p className="text-sm text-zinc-400">Código temporal para {character === "bob" ? "Bob" : "Lina"}</p>
-            <p className="text-5xl font-bold tracking-[0.25em]">{pairingCode}</p>
-            <p className="text-sm text-zinc-400">En La Bestia abre /studio/display-pairing para autorizar.</p>
-          </div>}
+
         </div>}
       </div>
     </main>
