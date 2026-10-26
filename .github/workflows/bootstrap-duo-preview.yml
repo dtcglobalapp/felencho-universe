@@ -1,0 +1,64 @@
+name: Bootstrap isolated Felencho Mundial duo agent (manual only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    # Never bootstrap from production branch.
+    if: github.ref == 'refs/heads/feature/bob-lina-shared-room'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: livekit-duo-bootstrap
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify isolated source and required secrets
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          SECRET_LIST: ${{ secrets.SECRET_LIST }}
+          EXISTING_DUO_ID: ${{ secrets.LIVEKIT_DUO_AGENT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$LIVEKIT_URL" && test -n "$LIVEKIT_API_KEY" && test -n "$LIVEKIT_API_SECRET"
+          test -n "$SECRET_LIST" || { echo "SECRET_LIST missing"; exit 1; }
+          test -z "$EXISTING_DUO_ID" || { echo "Duo ID already exists; use deploy workflow instead"; exit 1; }
+          test -f agents/lina/Dockerfile
+          test -f agents/lina/src/main.ts
+      - name: Prepare separate worker (never use production TOML)
+        run: |
+          set -euo pipefail
+          mkdir -p agents/duo-preview
+          cp -R agents/lina/. agents/duo-preview/
+          rm -f agents/duo-preview/livekit.toml
+          printf '\nENV AGENT_NAME=felencho-mundial-duo-preview\n' >> agents/duo-preview/Dockerfile
+          test ! -f agents/duo-preview/livekit.toml
+      - name: Install LiveKit CLI
+        run: |
+          set -euo pipefail
+          curl -sSL https://get.livekit.io/cli | bash
+          lk agent create --help > /dev/null
+      - name: Create new LiveKit Cloud agent
+        working-directory: agents/duo-preview
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          SECRET_LIST: ${{ secrets.SECRET_LIST }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "$SECRET_LIST" > /tmp/duo-preview-secrets.env
+          trap 'rm -f /tmp/duo-preview-secrets.env' EXIT
+          lk agent create --region us-east --secrets-file /tmp/duo-preview-secrets.env --yes
+          test -f livekit.toml
+          new_id="$(sed -n 's/^id = "\\(.*\\)"/\\1/p' livekit.toml)"
+          test -n "$new_id" && test "$new_id" != "CA_EayuspXCCzmg"
+          echo "New isolated agent created; copy its ID from LiveKit Cloud into LIVEKIT_DUO_AGENT_ID."
