@@ -152,13 +152,17 @@ export default function LiveCharacterClient({ character }: { character: Characte
           body: JSON.stringify({ room: roomName, dispatchId }),
         });
         const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setDebug(`No se pudo consultar LiveKit (${response.status}): ${data.details || data.error || "sin detalles"}`);
+          return;
+        }
         const dispatches = data?.agent_dispatches || data?.agentDispatches || [];
-        const dispatch = dispatches[0];
+        const dispatch = dispatches.find((item: { id?: string }) => item.id === dispatchId) || dispatches[0];
         const jobs = dispatch?.state?.jobs || [];
         const job = jobs[0];
         const jobState = job?.state || {};
-        const jobStatus = jobState?.status || "esperando worker";
-        const jobError = jobState?.error || "";
+        const jobStatus = jobState?.status || dispatch?.state?.status || "esperando worker";
+        const jobError = jobState?.error || dispatch?.state?.error || "";
 
         setDebug(`Dispatch ${dispatchId} · ${jobStatus}${jobError ? ` · ${jobError}` : ""}`);
 
