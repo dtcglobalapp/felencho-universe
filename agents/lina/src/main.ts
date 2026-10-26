@@ -28,6 +28,7 @@ const FELENCHO_BRAIN_URL =
 type JobMetadata = {
   character?: "lina" | "bob" | "felencho_virtual";
   participantIdentity?: string;
+  duo?: boolean;
 };
 
 function parseJobMetadata(jobMetadata?: string): JobMetadata {
@@ -91,7 +92,7 @@ class FelenchoBrainNodeMarker extends llm.LLM {
 }
 
 class FelenchoBrainAgent extends voice.Agent {
-  constructor(private readonly characterKey: string, instructions: string) {
+  constructor(private readonly characterKey: string, instructions: string, private readonly duo = false) {
     // AgentSession 1.8.1 requires an LLM instance before it schedules a custom llmNode.
     super({ instructions, llm: new FelenchoBrainNodeMarker() });
   }
@@ -103,6 +104,14 @@ class FelenchoBrainAgent extends voice.Agent {
   ): Promise<ReadableStream<llm.ChatChunk | string> | null> {
     const userText = getLatestUserText(chatCtx);
     if (!userText) return null;
+    if (this.duo) {
+      const normalized = userText.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const addressedBob = /\bbob\b/.test(normalized);
+      const addressedLina = /\blina\b/.test(normalized);
+      // Avoid both avatars answering at once; when both are called, Bob goes first.
+      const chosen = addressedBob ? "bob" : addressedLina ? "lina" : null;
+      if (chosen !== this.characterKey) return null;
+    }
     console.log(`[felencho-universe] brain input (${this.characterKey}): ${userText}`);
     const answer = await askFelenchoBrain(this.characterKey, userText);
     console.log(`[felencho-universe] brain response ready (${this.characterKey})`);
@@ -126,6 +135,7 @@ export default defineAgent({
     let session: voice.AgentSession | undefined;
     let failSafe: ReturnType<typeof setTimeout> | undefined;
     let closing: Promise<void> | undefined;
+    let metadataForCleanup: JobMetadata | undefined;
 
     const closeSession = (reason: string) => {
       if (closing) return closing;
@@ -137,7 +147,7 @@ export default defineAgent({
         await session?.close().catch((error) =>
           console.error("[felencho-universe] session cleanup failed", error),
         );
-        await ctx.deleteRoom().catch((error) =>
+        if (metadataForCleanup?.duo !== true) await ctx.deleteRoom().catch((error) =>
           console.error("[felencho-universe] room cleanup failed", error),
         );
         ctx.shutdown(reason);
@@ -147,6 +157,7 @@ export default defineAgent({
 
     try {
       const metadata = parseJobMetadata(ctx.job.metadata);
+      metadataForCleanup = metadata;
       const character = getCharacter(metadata);
       const participantIdentity = metadata.participantIdentity?.trim();
       if (!participantIdentity) {
@@ -165,7 +176,7 @@ export default defineAgent({
         void closeSession("interactive hard timeout");
       }, SESSION_TIMEOUT_MS);
 
-      const agent = new FelenchoBrainAgent(character.key, character.instructions);
+      const agent = new FelenchoBrainAgent(character.key, character.instructions, metadata.duo === true);
 
       session = new voice.AgentSession({
         vad: ctx.proc.userData.vad as silero.VAD,
@@ -230,7 +241,7 @@ export default defineAgent({
           audioEnabled: true,
           participantIdentity,
           closeOnDisconnect: true,
-          deleteRoomOnClose: true,
+          deleteRoomOnClose: metadata.duo !== true,
         },
         outputOptions: { syncTranscription: false },
       });
@@ -241,8 +252,10 @@ export default defineAgent({
       await avatar.waitForJoin({ timeout: AVATAR_JOIN_TIMEOUT_MS });
       console.log("[felencho-universe] avatar video track published");
 
-      const greeting = session.say(`Hola, soy ${character.displayName}. Estoy listo para escucharte.`);
-      await greeting.waitForPlayout();
+      if (metadata.duo !== true) {
+        const greeting = session.say(`Hola, soy ${character.displayName}. Estoy listo para escucharte.`);
+        await greeting.waitForPlayout();
+      }
       console.log("[felencho-universe] interactive greeting played; keeping job alive");
 
       await new Promise<void>((resolve) => setTimeout(resolve, SESSION_TIMEOUT_MS));
