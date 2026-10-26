@@ -1,7 +1,7 @@
 # OBSBOT Vision + Camera Control — Studio OS (development specification)
 
 ## Architecture
-- OBSBOT camera feeds the private studio computer via USB/HDMI capture.
+- CONFIRMED: OBSBOT Tiny 2 connects directly to Felencho's Mac ('la bestia'), serving as the private studio computer.
 - Local Vision Engine samples video frames with explicit consent, then sends concise scene descriptions to Felencho Gateway.
 - Bob and Lina receive descriptions through a shared room context stream. Do not send raw camera video to an LLM by default.
 - PTZ/zoom commands MUST be handled by a local camera adapter, never by the LLM directly.
@@ -9,19 +9,19 @@
 - No control endpoint is enabled until the camera model, transport, software, and permissions are verified.
 
 ## Command lifecycle
-1. Avatar requests a movement with reason, target and duration.
-2. Gateway validates permission, room, operator consent, limits and rate limit.
-3. Studio operator authorizes movement or selects a preset; local adapter executes.
-4. Adapter reports observed result; Vision Engine updates both avatars.
-5. A physical/GUI STOP overrides all requests.
+1. Before recording, Felencho manages guest-specific informed consent and activates the studio's vision/control permissions for that session.
+2. During an authorized session, Bob and Lina may request bounded camera movements without repeatedly interrupting Felencho for permission.
+3. Gateway validates the active session grant, permitted zones, limits, rate limit, and guest restrictions; the local Mac adapter executes supported commands.
+4. Adapter reports the result; Vision Engine updates both avatars.
+5. Felencho has a persistent one-click STOP / disable switch that overrides all requests.
 
 ## Safety and privacy
-- Guests opt in before live vision. Never infer personal identity from a face.
-- Do not store face images, biometric templates or video by default.
+- Felencho obtains informed guest consent before live vision; merely entering the studio is not blanket consent to permanent data retention. Never infer identity from a face.
+- Store interview memories (guest name, approved public biographical details, topics, previous interview summary and date) only with explicit retention consent and correction/deletion controls. Do not store face images, biometric templates or video by default; facial recognition is not required for returning-guest memory.
 - Keep vision context and commands local unless necessary; never expose camera credentials.
 - Use bounded angles and zoom, cooldown, and an operator-controlled disable switch.
 - No autonomous scanning of private areas or movement while recording confidential material.
-- In the first test, OBSBOT is read-only: camera movement requires Felencho approval.
+- In the first test, OBSBOT is read-only. Once the exact control protocol and safety limits are validated, Felencho authorizes camera autonomy once per session, not once per movement.
 
 ## Prerequisites
 - CONFIRMED from purchase screenshot dated June 22, 2026: OBSBOT Tiny 2 (4K PTZ webcam), not Tiny 2 Lite or Tiny 2 4K as a separate product family.
