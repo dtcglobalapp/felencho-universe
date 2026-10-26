@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -16,9 +16,10 @@ async function isStudioAdmin(request: NextRequest) {
   const token = request.cookies.get("felencho_studio_session")?.value;
   if (!token) return false;
   const { data, error } = await db().from("studio_access_sessions")
-    .select("role,expires_at,is_active").eq("session_token_hash", hash(token)).eq("is_active", true).maybeSingle();
-  return !error && !!data && new Date(data.expires_at).getTime() > Date.now() &&
-    ["owner", "admin", "producer", "director"].includes(String(data.role).toLowerCase());
+    .select("email,expires_at,is_active").eq("session_token_hash", hash(token)).eq("is_active", true).maybeSingle();
+  if (error || !data || new Date(data.expires_at).getTime() <= Date.now()) return false;
+  const { data: member } = await db().from("studio_members").select("role,is_active").eq("email", data.email).eq("is_active", true).maybeSingle();
+  return !!member && ["owner", "admin", "producer", "director"].includes(String(member.role).toLowerCase());
 }
 export async function POST(request: NextRequest) {
   try {
