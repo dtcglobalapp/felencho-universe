@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
     if (action === "approve") {
       if (!(await isStudioAdmin(request))) return NextResponse.json({ error: "Acceso de productor requerido" }, { status: 403 });
-      if (!validCharacter(body.character) || !/^\\d{6}$/.test(String(body.code || ""))) {
+      if (!validCharacter(body.character) || !/^\d{6}$/.test(String(body.code || ""))) {
         return NextResponse.json({ error: "Código inválido" }, { status: 400 });
       }
       const { data: pairing } = await supabase.from("studio_display_pairings").select("*")
