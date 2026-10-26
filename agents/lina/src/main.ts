@@ -116,6 +116,8 @@ class FelenchoBrainAgent extends voice.Agent {
     const peerContext = this.duo ? (this.getPeerContext?.() || "") : "";
     const brainInput = peerContext ? `Contexto de la mesa redonda (lo dijo el otro participante): ${peerContext}\n\nPregunta actual de Felencho: ${userText}` : userText;
     const answer = await askFelenchoBrain(this.characterKey, brainInput);
+    // Share the reply only after it has been generated; the peer receives text as context,
+    // never as microphone input, to avoid endless avatar-to-avatar audio loops.
     if (this.duo) await this.publishReply?.(answer).catch(error => console.error("[duo] sharing reply failed", error));
     console.log(`[felencho-universe] brain response ready (${this.characterKey})`);
 
