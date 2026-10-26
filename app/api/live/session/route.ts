@@ -36,8 +36,9 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const character = body?.character === "bob" ? "bob" : "lina";
-    const roomName = `felencho-${character}-${randomUUID()}`;
-    const identity = `studio-${character}-${randomUUID()}`;
+    const duo = body?.mode === "duo";
+    const roomName = duo ? `felencho-duo-${randomUUID()}` : `felencho-${character}-${randomUUID()}`;
+    const identity = `studio-${duo ? "duo" : character}-${randomUUID()}`;
     const metadata = JSON.stringify({ character });
     const now = Math.floor(Date.now() / 1000);
 
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
         roomName,
         participantToken: token,
         character,
+        duo,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
