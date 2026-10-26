@@ -1,0 +1,27 @@
+name: Validate shared studio agent
+on:
+  push:
+    branches:
+      - feature/bob-lina-shared-room
+    paths:
+      - 'agents/lina/**'
+      - 'app/live/duo/**'
+      - '.github/workflows/validate-duo.yml'
+  workflow_dispatch:
+jobs:
+  agent-typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agents/lina
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install agent dependencies
+        run: npm install --no-package-lock --ignore-scripts
+      - name: TypeScript validation
+        run: npm run typecheck
+      - name: Bundle agent
+        run: npm run build
