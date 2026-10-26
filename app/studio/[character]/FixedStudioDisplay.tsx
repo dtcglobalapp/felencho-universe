@@ -21,9 +21,11 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
     setDeviceToken(token);
     let pending = false;
     let authorized = false;
+    let lastBegin = 0;
     const begin = async () => {
       if (pending || authorized) return;
       pending = true;
+      lastBegin = Date.now();
       try {
         const res = await fetch("/api/studio/display-pairing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "begin", character, deviceToken: token }) });
         const data = await res.json();
@@ -39,7 +41,7 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
       try {
         const res = await fetch("/api/studio/display-pairing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "status", character, deviceToken: token }) });
         if (res.ok && (await res.json()).authorized) { authorized = true; setActive(true); setPairingCode(""); }
-        else if (res.ok) { await begin(); }
+        else if (res.ok && Date.now() - lastBegin > 9 * 60_000) { await begin(); }
       } catch { /* reintentar */ }
     }, 5000);
     return () => clearInterval(timer);
