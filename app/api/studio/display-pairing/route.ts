@@ -31,16 +31,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
       }
       const tokenHash = hash(body.deviceToken);
-      const { data: existing } = await supabase.from("studio_display_devices").select("id")
+      const { data: existing, error: lookupError } = await supabase.from("studio_display_devices").select("id")
         .eq("device_token_hash", tokenHash).eq("character", body.character).eq("is_active", true).maybeSingle();
+      if (lookupError) throw new Error(`DEVICE_LOOKUP: ${lookupError.code || lookupError.message}`);
       if (existing) return NextResponse.json({ authorized: true });
-      await supabase.from("studio_display_pairings").delete().eq("device_token_hash", tokenHash);
+      const { error: cleanupError } = await supabase.from("studio_display_pairings").delete().eq("device_token_hash", tokenHash);
+      if (cleanupError) throw new Error(`PAIRING_CLEANUP: ${cleanupError.code || cleanupError.message}`);
       const code = String(randomInt(100000, 1000000));
       const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
       const { error } = await supabase.from("studio_display_pairings").insert({
         character: body.character, device_token_hash: tokenHash, pairing_code_hash: hash(code), expires_at: expiresAt,
       });
-      if (error) throw error;
+      if (error) throw new Error(`PAIRING_INSERT: ${error.code || error.message}`);
       return NextResponse.json({ authorized: false, code, expiresAt });
     }
     if (action === "status") {
@@ -70,7 +72,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
-  } catch {
-    return NextResponse.json({ error: "Error de vinculación" }, { status: 500 });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "UNKNOWN";
+    const stage = detail.startsWith("DEVICE_LOOKUP:") ? "DEVICE_LOOKUP" : detail.startsWith("PAIRING_CLEANUP:") ? "PAIRING_CLEANUP" : detail.startsWith("PAIRING_INSERT:") ? "PAIRING_INSERT" : detail.includes("Supabase no configurado") ? "CONFIG_MISSING" : "UNEXPECTED";
+    console.error("studio display pairing failed", { stage, detail });
+    return NextResponse.json({ error: `No se pudo vincular la pantalla (${stage}).`, stage }, { status: 500 });
   }
 }
