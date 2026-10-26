@@ -1,0 +1,16 @@
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  build: {
+    target: "node20",
+    ssr: true,
+    outDir: "dist",
+    rollupOptions: {
+      input: "src/main.ts",
+      output: {
+        entryFileNames: "main.js",
+        format: "es",
+      },
+    },
+  },
+});
