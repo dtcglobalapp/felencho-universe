@@ -24,7 +24,9 @@
 - In the first test, OBSBOT is read-only: camera movement requires Felencho approval.
 
 ## Prerequisites
-- Confirm exact OBSBOT model (e.g. Tail 2, Tiny 2, Meet 2, etc.).
+- CONFIRMED from purchase screenshot dated June 22, 2026: OBSBOT Tiny 2 (4K PTZ webcam), not Tiny 2 Lite or Tiny 2 4K as a separate product family.
+- OBSBOT Tiny 2 has motorized pan/tilt, AI tracking, voice/gesture control and digital zoom.
+- Verify Tiny 2-specific software control interface (OBSBOT Center / supported SDK, protocol or local automation) before coding any motor commands.
 - Confirm available USB/HDMI/NDI feed and supported PTZ control protocol.
 - Implement a local bridge on the studio Mac and test in a simulated camera mode before connecting hardware.
 
