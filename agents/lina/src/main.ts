@@ -200,7 +200,7 @@ export default defineAgent({
         const bytes = new TextEncoder().encode(JSON.stringify({character: character.key, text: answer.slice(0, 1800)}));
         await (ctx.room.localParticipant as any).publishData(bytes, { reliable: true, topic: "duo-peer" });
       };
-      const agent = new FelenchoBrainAgent(character.key, character.instructions, metadata.duo === true, publishReply, () => peerContext);
+      const agent = new FelenchoBrainAgent(character.key, character.instructions, metadata.duo === true, publishReply, () => peerContext, metadata.studioGuestId);
 
       session = new voice.AgentSession({
         vad: ctx.proc.userData.vad as silero.VAD,
