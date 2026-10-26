@@ -1,4 +1,6 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
+import { createHmac, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -11,21 +13,26 @@ function jwt(payload: Record<string, unknown>, key: string, secret: string) {
   const unsigned = `${b64(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${b64(JSON.stringify({ iss: key, ...payload }))}`;
   return `${unsigned}.${b64(createHmac("sha256", secret).update(unsigned).digest())}`;
 }
-function same(a: string, b: string) {
-  const x = createHmac("sha256", "studio-pin-compare").update(a).digest();
-  const y = createHmac("sha256", "studio-pin-compare").update(b).digest();
-  return timingSafeEqual(x, y);
-}
+
 export async function POST(request: Request) {
-  const pin = process.env.STUDIO_DISPLAY_PIN;
+
   const key = process.env.LIVEKIT_API_KEY;
   const secret = process.env.LIVEKIT_API_SECRET;
-  if (!pin || pin.length < 8 || !key || !secret) return NextResponse.json({ error: "Falta configurar STUDIO_DISPLAY_PIN (mínimo 8 caracteres) y LiveKit." }, { status: 503 });
+  if (!key || !secret) return NextResponse.json({ error: "LiveKit no configurado." }, { status: 503 });
   const body = await request.json().catch(() => ({}));
-  if (typeof body.pin !== "string" || !same(body.pin, pin)) return NextResponse.json({ error: "Clave de estudio incorrecta." }, { status: 403 });
+  if (typeof body.deviceToken !== "string" || body.deviceToken.length < 32) return NextResponse.json({ error: "Dispositivo no vinculado." }, { status: 403 });
   const character = body.character;
   if (character !== "bob" && character !== "lina") return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return NextResponse.json({ error: "Supabase no configurado." }, { status: 503 });
+  const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const tokenHash = createHash("sha256").update(body.deviceToken).digest("hex");
+  const { data: device, error: deviceError } = await db.from("studio_display_devices").select("id")
+    .eq("device_token_hash", tokenHash).eq("character", character).eq("is_active", true).maybeSingle();
+  if (deviceError) return NextResponse.json({ error: "No se pudo verificar la pantalla." }, { status: 503 });
+  if (!device) return NextResponse.json({ error: "Pantalla no autorizada." }, { status: 403 });
   const now = Math.floor(Date.now() / 1000);
   const admin = jwt({ sub: "studio-display-lookup", nbf: now - 5, exp: now + 60, video: { roomList: true } }, key, secret);
   const base = url.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
