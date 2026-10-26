@@ -92,7 +92,7 @@ class FelenchoBrainNodeMarker extends llm.LLM {
 }
 
 class FelenchoBrainAgent extends voice.Agent {
-  constructor(private readonly characterKey: string, instructions: string, private readonly duo = false) {
+  constructor(private readonly characterKey: string, instructions: string, private readonly duo = false, private readonly publishReply?: (text: string) => Promise<void>, private readonly getPeerContext?: () => string) {
     // AgentSession 1.8.1 requires an LLM instance before it schedules a custom llmNode.
     super({ instructions, llm: new FelenchoBrainNodeMarker() });
   }
@@ -113,7 +113,10 @@ class FelenchoBrainAgent extends voice.Agent {
       if (chosen !== this.characterKey) return null;
     }
     console.log(`[felencho-universe] brain input (${this.characterKey}): ${userText}`);
-    const answer = await askFelenchoBrain(this.characterKey, userText);
+    const peerContext = this.duo ? (this.getPeerContext?.() || "") : "";
+    const brainInput = peerContext ? `Contexto de la mesa redonda (lo dijo el otro participante): ${peerContext}\n\nPregunta actual de Felencho: ${userText}` : userText;
+    const answer = await askFelenchoBrain(this.characterKey, brainInput);
+    if (this.duo) await this.publishReply?.(answer).catch(error => console.error("[duo] sharing reply failed", error));
     console.log(`[felencho-universe] brain response ready (${this.characterKey})`);
 
     return new ReadableStream<llm.ChatChunk | string>({
@@ -176,7 +179,25 @@ export default defineAgent({
         void closeSession("interactive hard timeout");
       }, SESSION_TIMEOUT_MS);
 
-      const agent = new FelenchoBrainAgent(character.key, character.instructions, metadata.duo === true);
+      let peerContext = "";
+      if (metadata.duo === true) {
+        (ctx.room as any).on("dataReceived", (payload: Uint8Array, participant: any, _kind: unknown, topic?: string) => {
+          if (topic !== "duo-peer") return;
+          try {
+            const data = JSON.parse(new TextDecoder().decode(payload));
+            if (data?.character !== character.key && typeof data?.text === "string") {
+              peerContext = String(data.character) + ": " + data.text.slice(0, 1800);
+              console.log("[duo] peer context received from " + data.character);
+            }
+          } catch (error) { console.error("[duo] invalid peer context", error); }
+        });
+      }
+      const publishReply = async (answer: string) => {
+        if (metadata.duo !== true) return;
+        const bytes = new TextEncoder().encode(JSON.stringify({character: character.key, text: answer.slice(0, 1800)}));
+        await (ctx.room.localParticipant as any).publishData(bytes, { reliable: true, topic: "duo-peer" });
+      };
+      const agent = new FelenchoBrainAgent(character.key, character.instructions, metadata.duo === true, publishReply, () => peerContext);
 
       session = new voice.AgentSession({
         vad: ctx.proc.userData.vad as silero.VAD,
