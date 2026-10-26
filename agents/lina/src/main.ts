@@ -29,6 +29,7 @@ type JobMetadata = {
   character?: "lina" | "bob" | "felencho_virtual";
   participantIdentity?: string;
   duo?: boolean;
+  studioGuestId?: string;
 };
 
 function parseJobMetadata(jobMetadata?: string): JobMetadata {
@@ -63,11 +64,11 @@ function getLatestUserText(chatCtx: llm.ChatContext): string {
   return "";
 }
 
-async function askFelenchoBrain(characterKey: string, message: string): Promise<string> {
+async function askFelenchoBrain(characterKey: string, message: string, studioGuestId?: string): Promise<string> {
   const response = await fetch(FELENCHO_BRAIN_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ character_key: characterKey, message, include_audio: false }),
+    headers: { "Content-Type": "application/json", ...(studioGuestId && process.env.STUDIO_GUEST_CONTEXT_SECRET ? { "x-studio-guest-secret": process.env.STUDIO_GUEST_CONTEXT_SECRET } : {}) },
+    body: JSON.stringify({ character_key: characterKey, message, include_audio: false, ...(studioGuestId ? { studio_guest_id: studioGuestId } : {}) }),
   });
 
   if (!response.ok) {
@@ -92,7 +93,7 @@ class FelenchoBrainNodeMarker extends llm.LLM {
 }
 
 class FelenchoBrainAgent extends voice.Agent {
-  constructor(private readonly characterKey: string, instructions: string, private readonly duo = false, private readonly publishReply?: (text: string) => Promise<void>, private readonly getPeerContext?: () => string) {
+  constructor(private readonly characterKey: string, instructions: string, private readonly duo = false, private readonly publishReply?: (text: string) => Promise<void>, private readonly getPeerContext?: () => string, private readonly studioGuestId?: string) {
     // AgentSession 1.8.1 requires an LLM instance before it schedules a custom llmNode.
     super({ instructions, llm: new FelenchoBrainNodeMarker() });
   }
@@ -115,7 +116,7 @@ class FelenchoBrainAgent extends voice.Agent {
     console.log(`[felencho-universe] brain input (${this.characterKey}): ${userText}`);
     const peerContext = this.duo ? (this.getPeerContext?.() || "") : "";
     const brainInput = peerContext ? `Contexto de la mesa redonda (lo dijo el otro participante): ${peerContext}\n\nPregunta actual de Felencho: ${userText}` : userText;
-    const answer = await askFelenchoBrain(this.characterKey, brainInput);
+    const answer = await askFelenchoBrain(this.characterKey, brainInput, this.duo ? this.studioGuestId : undefined);
     // Share the reply only after it has been generated; the peer receives text as context,
     // never as microphone input, to avoid endless avatar-to-avatar audio loops.
     if (this.duo) await this.publishReply?.(answer).catch(error => console.error("[duo] sharing reply failed", error));
