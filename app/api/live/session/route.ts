@@ -1,3 +1,4 @@
+import { isStudioAuthorized } from "@/lib/studioGuestAuth";
 import { createHmac, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const character = body?.character === "bob" ? "bob" : "lina";
     const duo = body?.mode === "duo";
+    if (duo && !isStudioAuthorized(request)) return NextResponse.json({ error: "Studio access required for shared room." }, { status: 403 });
     const roomName = duo ? `felencho-duo-${randomUUID()}` : `felencho-${character}-${randomUUID()}`;
     const identity = `studio-${duo ? "duo" : character}-${randomUUID()}`;
     const metadata = JSON.stringify({ character });
