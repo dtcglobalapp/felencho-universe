@@ -30,3 +30,17 @@ alter table public.podcast_guest_registrations enable row level security;
 -- No public direct table policies. Server-side intake endpoint uses service role with rate limits.
 revoke all on public.podcast_guest_registrations from anon, authenticated;
 comment on table public.podcast_guest_registrations is 'Guest releases and opt-in permissions. Do not automatically copy into avatar memories before host review.';
+
+create table if not exists public.podcast_guest_invitations (
+ id uuid primary key default gen_random_uuid(),
+ token_hash text not null unique,
+ invited_email text,
+ interview_date timestamptz,
+ expires_at timestamptz not null,
+ used_at timestamptz,
+ created_at timestamptz not null default now()
+);
+alter table public.podcast_guest_invitations enable row level security;
+revoke all on public.podcast_guest_invitations from anon, authenticated;
+alter table public.podcast_guest_registrations add column if not exists invitation_id uuid references public.podcast_guest_invitations(id);
+create unique index if not exists podcast_guest_registrations_invitation_unique on public.podcast_guest_registrations(invitation_id) where invitation_id is not null;
