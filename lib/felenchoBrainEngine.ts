@@ -403,9 +403,11 @@ async function logBrainCall({
 async function askSingleQuestion({
   characterKey,
   question,
+  studioGuestBriefing,
 }: {
   characterKey: BrainCharacterKey;
   question: string;
+  studioGuestBriefing?: string;
 }) {
   const normalizedQuestion = await normalizeFelenchoNames(question);
   const identity = await getCharacterIdentity(characterKey);
