@@ -19,20 +19,27 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
       localStorage.setItem(storageKey, token);
     }
     setDeviceToken(token);
+    let pending = false;
+    let authorized = false;
     const begin = async () => {
+      if (pending || authorized) return;
+      pending = true;
       try {
         const res = await fetch("/api/studio/display-pairing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "begin", character, deviceToken: token }) });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "No se pudo vincular la pantalla");
-        if (data.authorized) { setActive(true); setMessage("Esperando al estudio..."); }
+        if (data.authorized) { authorized = true; setActive(true); setMessage("Esperando al estudio..."); }
         else { setPairingCode(data.code); setMessage("Autoriza esta pantalla desde La Bestia."); }
       } catch (error) { setMessage(error instanceof Error ? error.message : "Error de conexión"); }
+      finally { pending = false; }
     };
     void begin();
     const timer = setInterval(async () => {
+      if (authorized || pending) return;
       try {
         const res = await fetch("/api/studio/display-pairing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "status", character, deviceToken: token }) });
-        if (res.ok && (await res.json()).authorized) { setActive(true); setPairingCode(""); }
+        if (res.ok && (await res.json()).authorized) { authorized = true; setActive(true); setPairingCode(""); }
+        else if (res.ok) { await begin(); }
       } catch { /* reintentar */ }
     }, 5000);
     return () => clearInterval(timer);
@@ -53,7 +60,7 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
         const data = await response.json();
         if (!response.ok) {
           setMessage(data.error || "Error de conexión.");
-          if (response.status === 403) { setActive(false); setMessage("Autorización revocada. Recarga la pantalla."); }
+          if (response.status === 403) { setActive(false); setPairingCode(""); setMessage("Autorización revocada. Recarga la pantalla."); }
           return;
         }
         if (data.waiting) {
