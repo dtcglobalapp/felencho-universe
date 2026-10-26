@@ -169,7 +169,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
             `El agente de ${displayName} falló: ${jobError || jobStatus}`,
             `Dispatch ${dispatchId} · ${jobStatus}${jobError ? ` · ${jobError}` : ""}`,
           );
-        } else if (attempts >= 15) {
+        } else if (attempts >= 60) {
           failSession(
             `${displayName} fue despachado, pero no publicó video a tiempo. La sesión se cerró.`,
             `Dispatch ${dispatchId} · timeout esperando video`,
@@ -265,7 +265,7 @@ export default function LiveCharacterClient({ character }: { character: Characte
           `${displayName} no publicó video a tiempo. La sesión se cerró automáticamente.`,
           dispatchId ? `Dispatch ${dispatchId} · timeout de inicio` : "Timeout de inicio",
         );
-      }, 35_000);
+      }, 120_000);
     } catch (error) {
       console.error(`[live/${character}]`, error);
       roomRef.current?.disconnect();
