@@ -1,0 +1,40 @@
+name: Deploy isolated Felencho Mundial duo agent
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-duo:
+    if: github.ref == 'refs/heads/feature/bob-lina-shared-room'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: livekit-duo-preview
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require dedicated LiveKit agent identity
+        env:
+          DUO_AGENT_ID: ${{ secrets.LIVEKIT_DUO_AGENT_ID }}
+        run: |
+          test -n "$DUO_AGENT_ID" || { echo "LIVEKIT_DUO_AGENT_ID is missing. Create a NEW LiveKit Cloud agent first."; exit 1; }
+          test "$DUO_AGENT_ID" != "CA_EayuspXCCzmg" || { echo "Refusing production agent ID"; exit 1; }
+          [[ "$DUO_AGENT_ID" =~ ^CA_[A-Za-z0-9]+$ ]] || { echo "Invalid dedicated LiveKit agent ID"; exit 1; }
+      - name: Prepare isolated deployment directory
+        env:
+          DUO_AGENT_ID: ${{ secrets.LIVEKIT_DUO_AGENT_ID }}
+        run: |
+          mkdir -p agents/duo-preview
+          # This image must register ONLY under the preview dispatch name.
+          printf '\nENV AGENT_NAME=felencho-mundial-duo-preview\n' >> agents/duo-preview/Dockerfile
+          printf '[project]\nsubdomain = "felencho-universe-qievmphx"\n\n[agent]\nid = "%s"\n' "$DUO_AGENT_ID" > agents/duo-preview/livekit.toml
+          test "$(sed -n 's/^id = "\(.*\)"/\1/p' agents/duo-preview/livekit.toml)" = "$DUO_AGENT_ID"
+      - name: Deploy dedicated LiveKit Cloud worker
+        uses: livekit/deploy-action@v2.12.2
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          SECRET_LIST: ${{ secrets.SECRET_LIST }}
+        with:
+          OPERATION: deploy
+          WORKING_DIRECTORY: agents/duo-preview
