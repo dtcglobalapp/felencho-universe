@@ -30,13 +30,12 @@ jobs:
           test -n "$LIVEKIT_URL" && test -n "$LIVEKIT_API_KEY" && test -n "$LIVEKIT_API_SECRET"
           test -n "$SECRET_LIST" || { echo "SECRET_LIST missing"; exit 1; }
           test -z "$EXISTING_DUO_ID" || { echo "Duo ID already exists; use deploy workflow instead"; exit 1; }
-          test -f agents/lina/Dockerfile
-          test -f agents/lina/src/main.ts
+          test -f agents/duo-preview/Dockerfile
+          test -f agents/duo-preview/src/main.ts
       - name: Prepare separate worker (never use production TOML)
         run: |
           set -euo pipefail
           mkdir -p agents/duo-preview
-          cp -R agents/lina/. agents/duo-preview/
           rm -f agents/duo-preview/livekit.toml
           printf '\nENV AGENT_NAME=felencho-mundial-duo-preview\n' >> agents/duo-preview/Dockerfile
           test ! -f agents/duo-preview/livekit.toml
