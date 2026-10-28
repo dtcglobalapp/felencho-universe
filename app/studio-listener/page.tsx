@@ -54,6 +54,7 @@ export default function StudioListenerPage() {
   const syncRef = useRef<StudioSync | null>(null);
   const activeCharacterRef = useRef<StudioCharacter | null>(null);
   const processingRef = useRef(false);
+  const turnVersionRef = useRef(0);
   const studioOnRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
 
@@ -100,6 +101,13 @@ export default function StudioListenerPage() {
     return null;
   }
 
+  function findSleepCommand(text: string): StudioCharacter | "active" | null {
+    const clean = normalize(text);
+    const match = clean.match(/^(?:(bob|lina|felencho)\s+)?(?:a dormir|duermete|ve a dormir)$/);
+    if (!match) return null;
+    return (match[1] as StudioCharacter | undefined) || "active";
+  }
+
   function isShutdownCommand(text: string) {
     const clean = normalize(text);
 
@@ -133,17 +141,22 @@ export default function StudioListenerPage() {
     addLog(`🐸 ${characterLabel(character)} despertó.`);
   }
 
+  async function sleepCharacter(character: StudioCharacter) {
+    if (activeCharacterRef.current === character) {
+      turnVersionRef.current += 1;
+      StudioAudio.stop();
+      activeCharacterRef.current = null;
+      setActiveCharacter(null);
+    }
+    await syncRef.current?.setPresence(character);
+    addLog(`😴 ${characterLabel(character)} volvió a Presence.`);
+  }
+
   async function sleepActiveCharacter() {
     const character = activeCharacterRef.current;
 
     if (!character) return;
-
-    await syncRef.current?.setPresence(character);
-
-    addLog(`😴 ${characterLabel(character)} volvió a Presence.`);
-
-    activeCharacterRef.current = null;
-    setActiveCharacter(null);
+    await sleepCharacter(character);
   }
 
   async function playAudioFromUrl(audioUrl: string) {
@@ -161,6 +174,7 @@ export default function StudioListenerPage() {
     }
 
     processingRef.current = true;
+    const turnVersion = turnVersionRef.current;
 
     try {
       addLog(`🧠 Enviando a FelenchoGateway: ${character} → ${question}`);
@@ -179,6 +193,7 @@ export default function StudioListenerPage() {
       });
 
       const data = await response.json();
+      if (!studioOnRef.current || turnVersion !== turnVersionRef.current) return;
 
       if (!response.ok) {
         throw new Error(data?.error || "Error llamando FelenchoGateway.");
@@ -197,10 +212,9 @@ export default function StudioListenerPage() {
       addLog(`❌ Error Gateway: ${error.message}`);
     } finally {
       processingRef.current = false;
-      await sleepActiveCharacter();
-
-      activeCharacterRef.current = null;
-      setActiveCharacter(null);
+      if (turnVersion === turnVersionRef.current && activeCharacterRef.current === character) {
+        await sleepActiveCharacter();
+      }
     }
   }
 
@@ -227,8 +241,6 @@ export default function StudioListenerPage() {
 
   async function handleTranscript(text: string) {
     if (!studioOnRef.current) return;
-    if (processingRef.current) return;
-
     const clean = normalize(text);
 
     if (!clean) return;
@@ -240,6 +252,15 @@ export default function StudioListenerPage() {
       await powerOffStudio();
       return;
     }
+
+    const sleepCommand = findSleepCommand(clean);
+    if (sleepCommand) {
+      const target = sleepCommand === "active" ? activeCharacterRef.current : sleepCommand;
+      if (target) await sleepCharacter(target);
+      return;
+    }
+
+    if (processingRef.current) return;
 
     const command = findWakeCommand(clean);
 
@@ -352,6 +373,7 @@ export default function StudioListenerPage() {
 
   async function powerOffStudio() {
     studioOnRef.current = false;
+    turnVersionRef.current += 1;
     setStudioOn(false);
 
     if (reconnectTimerRef.current) {
