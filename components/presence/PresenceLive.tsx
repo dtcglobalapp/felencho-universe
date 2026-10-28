@@ -68,6 +68,18 @@ export default function PresenceLive({
     }
 
     let cancelled = false;
+    let activeSession: LiveAvatarSession | null = null;
+    let stopPromise: Promise<unknown> | null = null;
+
+    function stopSession(session: LiveAvatarSession) {
+      if (stopPromise) return stopPromise;
+      session.removeAllListeners();
+      session.voiceChat.removeAllListeners();
+      stopPromise = Promise.resolve().then(() => session.stop()).catch((error: unknown) => {
+        console.error("Error cerrando LiveAvatar:", error);
+      });
+      return stopPromise;
+    }
 
     async function startBob() {
       try {
@@ -82,6 +94,8 @@ export default function PresenceLive({
         );
 
         const data = (await response.json()) as TokenResponse;
+
+        if (cancelled) return;
 
         if (!response.ok || !data.sessionToken) {
           throw new Error(
@@ -100,6 +114,7 @@ export default function PresenceLive({
           }
         );
 
+        activeSession = session;
         sessionRef.current = session;
 
         session.on(
@@ -176,7 +191,7 @@ export default function PresenceLive({
         await session.start();
 
         if (cancelled) {
-          await session.stop();
+          await stopSession(session);
           return;
         }
 
@@ -190,7 +205,9 @@ export default function PresenceLive({
 
         try {
           await session.voiceChat.start();
+          if (cancelled) return;
           await session.voiceChat.unmute();
+          if (cancelled) return;
 
           setNeedsActivation(false);
           setStatus("Bob está escuchando");
@@ -199,6 +216,8 @@ export default function PresenceLive({
           setStatus("Pulsa para activar audio y micrófono");
         }
       } catch (startError) {
+        if (cancelled) return;
+        if (activeSession) void stopSession(activeSession);
         const message =
           startError instanceof Error
             ? startError.message
@@ -214,14 +233,8 @@ export default function PresenceLive({
     return () => {
       cancelled = true;
 
-      const session = sessionRef.current;
-
-      if (session) {
-        session.removeAllListeners();
-        session.voiceChat.removeAllListeners();
-        void session.stop();
-        sessionRef.current = null;
-      }
+      if (activeSession) void stopSession(activeSession);
+      sessionRef.current = null;
     };
   }, [character]);
 
