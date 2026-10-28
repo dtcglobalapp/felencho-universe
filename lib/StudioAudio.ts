@@ -4,6 +4,7 @@ export type StudioAudioOptions = {
 
 class StudioAudioEngine {
   private currentAudio: HTMLAudioElement | null = null;
+  private finishCurrent: (() => void) | null = null;
   private hasStarted = false;
   private onLog?: (message: string) => void;
 
@@ -19,6 +20,14 @@ class StudioAudioEngine {
       const audio = new Audio(audioUrl);
 
       this.currentAudio = audio;
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        if (this.currentAudio === audio) this.cleanup();
+        resolve();
+      };
+      this.finishCurrent = finish;
 
       audio.onplay = () => {
         this.hasStarted = true;
@@ -26,12 +35,13 @@ class StudioAudioEngine {
       };
 
       audio.onended = () => {
-        this.cleanup();
+        finish();
         this.log("✅ StudioAudio terminó reproducción.");
-        resolve();
       };
 
       audio.onerror = () => {
+        if (this.currentAudio !== audio) return;
+        if (this.currentAudio !== audio) return;
         this.cleanup();
 
         if (this.hasStarted) {
@@ -65,7 +75,9 @@ class StudioAudioEngine {
       this.currentAudio.currentTime = 0;
     } catch {}
 
+    const finish = this.finishCurrent;
     this.cleanup();
+    finish?.();
   }
 
   private cleanup() {
@@ -75,6 +87,7 @@ class StudioAudioEngine {
     this.currentAudio.onended = null;
     this.currentAudio.onerror = null;
     this.currentAudio = null;
+    this.finishCurrent = null;
   }
 
   private log(message: string) {
