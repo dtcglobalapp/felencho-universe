@@ -175,6 +175,11 @@ export default defineAgent({
       );
 
       await ctx.connect();
+      // A deleted LiveKit room must also terminate the paid LemonSlice avatar.
+      (ctx.room as any).on("disconnected", () => {
+        console.log("[felencho-universe] room disconnected; closing paid avatar");
+        void closeSession("room disconnected");
+      });
       console.log(`[felencho-universe] worker connected identity=${ctx.agent?.identity}`);
 
       failSafe = setTimeout(() => {
