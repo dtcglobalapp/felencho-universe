@@ -4,7 +4,34 @@ import {
   getNextSegment,
 } from "./StudioRunSheet";
 
+export type PresenterVoiceCue = {
+  character: "bob" | "lina";
+  action: "wake" | "sleep";
+  phrase: string;
+};
+
+const presenterVoiceCues: Record<string, PresenterVoiceCue[]> = {
+  host_welcome: [{ character: "bob", action: "wake", phrase: "Bob, vamos contigo" }],
+  panel_1: [
+    { character: "bob", action: "wake", phrase: "Bob, vamos contigo" },
+    { character: "bob", action: "sleep", phrase: "Gracias, Bob. Seguimos" },
+    { character: "lina", action: "wake", phrase: "Lina, te escuchamos" },
+    { character: "lina", action: "sleep", phrase: "Gracias, Lina. Continuamos" },
+  ],
+  return_from_break_1: [
+    { character: "lina", action: "wake", phrase: "Lina, te escuchamos" },
+    { character: "lina", action: "sleep", phrase: "Gracias, Lina. Continuamos" },
+  ],
+  closing: [
+    { character: "bob", action: "wake", phrase: "Bob, vamos contigo" },
+    { character: "bob", action: "sleep", phrase: "Gracias, Bob. Seguimos" },
+    { character: "lina", action: "wake", phrase: "Lina, te escuchamos" },
+    { character: "lina", action: "sleep", phrase: "Gracias, Lina. Continuamos" },
+  ],
+};
+
 export type TeleprompterScreen = {
+  voiceCues: PresenterVoiceCue[];
   title: string;
   goal: string;
   currentSegment: string;
@@ -41,6 +68,7 @@ export function buildTeleprompterScreen(
   return {
 
     title: runSheet.title,
+    voiceCues: presenterVoiceCues[current.id] ?? [],
 
     goal: current.goal,
 
