@@ -5,22 +5,31 @@ import { Room, RoomEvent, Track } from "livekit-client";
 
 export default function StudioDisplay() {
   const videoRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState("Conectando pantalla...");
+  const [live, setLive] = useState(false);
+  const [status, setStatus] = useState("");
+  const [character, setCharacter] = useState<"bob" | "lina">("bob");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.slice(1));
     const server = params.get("server");
     const token = params.get("token");
-    const character = params.get("character");
-    if (!server || !token || !["bob", "lina"].includes(character || "")) {
-      setStatus("Enlace de pantalla inválido. Cópialo desde La Bestia.");
+    const selected = params.get("character");
+    if (selected !== "bob" && selected !== "lina") {
+      setStatus("Selecciona una pantalla de Bob o Lina.");
       return;
     }
+    setCharacter(selected);
+    if (!server || !token) return; // Presence mode requires no LiveKit session.
     const room = new Room({ adaptiveStream: true });
     let disposed = false;
-    let videoReceived = false;
-    room.on(RoomEvent.TrackSubscribed, (track) => {
-      if (track.kind !== Track.Kind.Video || !videoRef.current) return;
+    const reset = () => {
+      if (disposed) return;
+      videoRef.current?.replaceChildren();
+      setLive(false);
+      setStatus("");
+    };
+    room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
+      if (track.kind !== Track.Kind.Video || participant.identity !== "felencho-avatar-" + selected || !videoRef.current) return;
       const element = track.attach() as HTMLVideoElement;
       element.autoplay = true;
       element.playsInline = true;
@@ -29,16 +38,15 @@ export default function StudioDisplay() {
       element.style.height = "100%";
       element.style.objectFit = "contain";
       videoRef.current.replaceChildren(element);
-      videoReceived = true;
+      setLive(true);
       setStatus("");
     });
-    room.on(RoomEvent.Disconnected, () => {
-      if (!disposed) setStatus("La sesión terminó. Inicia otra desde La Bestia.");
+    room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
+      if (track.kind === Track.Kind.Video && participant.identity === "felencho-avatar-" + selected) reset();
     });
-    void room.connect(server, token).then(() => {
-      if (!disposed && !videoReceived) setStatus("Esperando video del personaje...");
-    }).catch(() => {
-      if (!disposed) setStatus("No se pudo conectar. Genera otro enlace desde La Bestia.");
+    room.on(RoomEvent.Disconnected, reset);
+    void room.connect(server, token).catch(() => {
+      if (!disposed) reset();
     });
     return () => {
       disposed = true;
@@ -49,7 +57,9 @@ export default function StudioDisplay() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-black text-white">
       <div className="relative h-screen w-full overflow-hidden bg-black">
-        <div ref={videoRef} className="h-full w-full" />
+        <video src={"/videos/" + character + ".mp4"} autoPlay muted loop playsInline controls={false}
+          className="absolute inset-0 h-full w-full object-cover" style={{ display: live ? "none" : "block" }} />
+        <div ref={videoRef} className="absolute inset-0 h-full w-full" style={{ display: live ? "block" : "none" }} />
         {status && <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-xl">{status}</div>}
       </div>
     </main>
