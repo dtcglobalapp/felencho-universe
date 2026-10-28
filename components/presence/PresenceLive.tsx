@@ -70,12 +70,18 @@ export default function PresenceLive({
     let cancelled = false;
     let activeSession: LiveAvatarSession | null = null;
     let stopPromise: Promise<unknown> | null = null;
+    let startPromise: Promise<unknown> | null = null;
 
     function stopSession(session: LiveAvatarSession) {
       if (stopPromise) return stopPromise;
       session.removeAllListeners();
       session.voiceChat.removeAllListeners();
-      stopPromise = Promise.resolve().then(() => session.stop()).catch((error: unknown) => {
+      stopPromise = Promise.resolve().then(async () => {
+        if (startPromise) {
+          try { await startPromise; } catch { /* Failed startups still require cleanup. */ }
+        }
+        await session.stop();
+      }).catch((error: unknown) => {
         console.error("Error cerrando LiveAvatar:", error);
       });
       return stopPromise;
@@ -188,7 +194,8 @@ export default function PresenceLive({
 
         setStatus("Iniciando sesión oficial...");
 
-        await session.start();
+        startPromise = session.start();
+        await startPromise;
 
         if (cancelled) {
           await stopSession(session);
