@@ -5,6 +5,8 @@ import { Room, RoomEvent, Track } from "livekit-client";
 type Person = "bob" | "lina";
 export default function DuoStudio() {
   const roomRef = useRef<Room | null>(null);
+  const roomNameRef = useRef<string | null>(null);
+  const cancelledRef = useRef(false);
   const videoRefs = useRef<Record<Person, HTMLDivElement | null>>({ bob: null, lina: null });
   const audioRef = useRef<HTMLDivElement | null>(null);
   const videoOwners = useRef<Map<string, Person>>(new Map());
@@ -20,12 +22,15 @@ export default function DuoStudio() {
   const [seen, setSeen] = useState<Record<Person, boolean>>({bob:false,lina:false});
   async function start() {
     if (roomRef.current) return;
+    cancelledRef.current = false;
     if (!studioUnlocked) { setStatus("Desbloquea primero el estudio."); return; }
     setStatus("Creando una sala para Bob y Lina...");
     try {
       const response = await fetch("/api/live/session", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({character:"bob",mode:"duo"})});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "No se pudo crear la sala");
+      roomNameRef.current = data.roomName;
+      if (cancelledRef.current) return;
       const room = new Room({adaptiveStream:true,dynacast:true});
       roomRef.current = room;
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
@@ -52,6 +57,7 @@ export default function DuoStudio() {
       await room.connect(data.serverUrl,data.participantToken);
       setActive(true);
       for (const character of ["bob","lina"] as const) {
+        if (cancelledRef.current) return;
         pendingCharacter.current = character;
         setStatus("Conectando a "+character+"...");
         const res = await fetch("/api/live/dispatch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({room:data.roomName,participantIdentity:room.localParticipant.identity,character,mode:"duo",...(guestId ? {studioGuestId:guestId}:{})})});
@@ -60,6 +66,7 @@ export default function DuoStudio() {
         await new Promise<void>((resolve, reject) => {
           const started = Date.now();
           const check = () => {
+            if (cancelledRef.current) return reject(new Error("Inicio cancelado"));
             if (videoRefs.current[character]?.querySelector("video")) return resolve();
             if (Date.now() - started > 90000) return reject(new Error("El video de "+character+" no llegó en 90 segundos."));
             window.setTimeout(check, 500);
@@ -67,14 +74,36 @@ export default function DuoStudio() {
           check();
         });
       }
-      setStatus("Bob y Lina están entrando. Llámalos por su nombre para darles la palabra.");
-    } catch(e) {setStatus(e instanceof Error?e.message:"Error al conectar");await roomRef.current?.disconnect();roomRef.current=null;setActive(false);}
+      if (!cancelledRef.current) setStatus("Bob y Lina están entrando. Llámalos por su nombre para darles la palabra.");
+    } catch(e) {if (!cancelledRef.current) setStatus(e instanceof Error?e.message:"Error al conectar");await roomRef.current?.disconnect();roomRef.current=null;setActive(false);}
   }
   async function microphone() {
     if (!roomRef.current) return;
     try {await roomRef.current.localParticipant.setMicrophoneEnabled(true,undefined,{dtx:false});setMic(true);setStatus("Micrófono activo. Di «Bob» o «Lina» al comenzar cada pregunta.");}
     catch(e){setStatus(e instanceof Error?e.message:"No se pudo activar el micrófono");}
   }
-  async function stop() {await roomRef.current?.disconnect();roomRef.current=null;setActive(false);setMic(false);setSeen({bob:false,lina:false});videoOwners.current.clear();for(const key of ["bob","lina"] as const)videoRefs.current[key]?.replaceChildren();audioRef.current?.replaceChildren();setStatus("Sesión cerrada");}
+  async function stop() {
+    cancelledRef.current = true;
+    setStatus("Cerrando sala y avatares...");
+    const roomName = roomNameRef.current;
+    if (!roomName) { setStatus("No hay sala activa."); return; }
+    try {
+      const response = await fetch("/api/live/stop", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: roomName }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "No se confirmó el cierre");
+      await roomRef.current?.disconnect();
+      roomRef.current = null;
+      roomNameRef.current = null;
+      setActive(false); setMic(false); setSeen({bob:false,lina:false});
+      videoOwners.current.clear();
+      for (const key of ["bob","lina"] as const) videoRefs.current[key]?.replaceChildren();
+      audioRef.current?.replaceChildren();
+      setStatus("Sala cerrada en LiveKit. Verifica el cierre de LemonSlice en los registros.");
+    } catch (error) {
+      setStatus("ATENCIÓN: " + (error instanceof Error ? error.message : "Cierre no confirmado") + ". No inicies otra sesión.");
+    }
+  }
   return <main className="min-h-screen bg-black text-white p-5"><header className="text-center mb-5"><p className="text-cyan-300 tracking-widest text-xs">FELENCHO MUNDIAL · MESA REDONDA</p><h1 className="text-3xl font-bold mt-2">Bob + Lina + Felencho</h1></header><div className="max-w-xl mx-auto mb-5 space-y-2">{!studioUnlocked?<div className="flex gap-2"><input type="password" aria-label="Clave del estudio" placeholder="Clave privada del estudio" value={studioPassword} onChange={e=>setStudioPassword(e.target.value)} className="min-w-0 flex-1 rounded-lg bg-zinc-900 border border-zinc-700 p-2"/><button onClick={unlockStudio} className="rounded-lg bg-cyan-300 text-black px-3">Desbloquear invitados</button></div>:<label className="block text-sm">Invitado aprobado para Bob y Lina<select disabled={active} value={guestId} onChange={e=>setGuestId(e.target.value)} className="block w-full mt-1 rounded-lg bg-zinc-900 border border-zinc-700 p-2"><option value="">Sin invitado seleccionado</option>{guests.map(g=><option key={g.id} value={g.id}>{g.artistic_name||g.full_name}</option>)}</select>{guestId&&<div className="flex gap-3 items-center mt-3"><img src={"/api/studio/guest-photo?id="+encodeURIComponent(guestId)} alt="Fotografía autorizada del invitado" className="w-20 h-20 object-cover rounded-xl border border-zinc-700" onError={e=>{e.currentTarget.style.display="none";}}/><p className="text-sm text-zinc-300">Invitado seleccionado: {guests.find(g=>g.id===guestId)?.artistic_name||guests.find(g=>g.id===guestId)?.full_name}. Bob y Lina recibirán su ficha autorizada al iniciar.</p></div>}</label>}</div><div className="grid grid-cols-2 gap-3 max-w-5xl mx-auto">{(["bob","lina"] as const).map(person=><section key={person} className="min-w-0"><h2 className="text-center text-2xl font-semibold mb-2 capitalize">{person}</h2><div ref={node=>{videoRefs.current[person]=node}} className="aspect-[2/3] rounded-2xl border border-white/20 bg-zinc-950 overflow-hidden flex items-center justify-center"></div></section>)}</div><div ref={audioRef} className="hidden"/><p className="text-center text-sm text-cyan-200 mt-5">{status}</p><div className="flex flex-wrap justify-center gap-3 mt-4">{!active?<button onClick={start} disabled={!studioUnlocked} className="rounded-full bg-white disabled:opacity-40 text-black font-bold px-6 py-3">Iniciar mesa redonda</button>:<><button onClick={microphone} disabled={mic} className="rounded-full bg-emerald-300 disabled:opacity-50 text-black font-bold px-6 py-3">{mic?"Micrófono activo":"Activar micrófono"}</button><button onClick={stop} className="rounded-full border border-white/40 px-6 py-3">Cerrar sesión</button></>}</div><p className="text-center text-zinc-400 text-xs mt-4">Para evitar interrupciones, dirige cada pregunta a Bob o Lina por su nombre. Usa audífonos.</p></main>;
 }
