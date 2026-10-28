@@ -57,11 +57,11 @@ export const defaultFelenchoRunSheet: StudioRunSheet = {
     {
       id: "panel_1",
       type: "panel",
-      title: "Panel Bob, Lina y Felencho Virtual",
+      title: "Panel Bob, Lina y Felencho",
       goal: "Debate breve con perspectivas distintas, sin repetición.",
       durationSeconds: 360,
       hostCue: "Haz una pregunta compartida: ‘Para ustedes...’",
-      moderatorCue: "Bob abre, Lina complementa, Felencho Virtual cierra.",
+      moderatorCue: "Felencho conduce; Bob y Lina intervienen cuando él les da la palabra.",
       nextSegmentId: "music_break_1",
     },
     {
@@ -121,7 +121,7 @@ export const defaultFelenchoRunSheet: StudioRunSheet = {
       goal: "Cerrar con gratitud, llamada a la acción y música de Felencho.",
       durationSeconds: 180,
       hostCue: "Agradece, invita a seguir el canal y despide con identidad.",
-      moderatorCue: "Bob o Lina pueden despedir y Felencho Virtual puede cerrar con frase poderosa.",
+      moderatorCue: "Felencho cierra el programa; Bob y Lina solo se despiden si el conductor los invita.",
     },
   ],
 };
