@@ -84,6 +84,7 @@ class PresenceController {
 
   think(character: string) {
     const status = this.ensureCharacter(character);
+    if (status.mode !== "live") return;
     status.state = "thinking";
     status.updatedAt = Date.now();
     this.notify();
@@ -91,6 +92,7 @@ class PresenceController {
 
   speak(character: string) {
     const status = this.ensureCharacter(character);
+    if (status.mode !== "live") return;
     status.state = "speaking";
     status.updatedAt = Date.now();
     this.notify();
