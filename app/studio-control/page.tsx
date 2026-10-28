@@ -82,6 +82,7 @@ export default function StudioControlPage() {
             Director global conectado a Supabase Realtime.
           </p>
           <p className="mt-2 text-sm text-gray-500">Studio: {studioId}</p>
+          <a href="/studio-teleprompter" className="mt-4 inline-block rounded-xl border border-cyan-400/50 px-4 py-3 font-bold text-cyan-300 hover:bg-cyan-400/10">Abrir teleprompter privado</a>
         </header>
 
         <div className="grid gap-4 md:grid-cols-3">
