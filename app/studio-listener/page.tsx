@@ -81,6 +81,15 @@ export default function StudioListenerPage() {
   function findWakeCommand(text: string) {
     const clean = normalize(text);
 
+    const presenterCue = clean.match(/^(bob|lina) (?:vamos contigo|te escuchamos|nos acompanas)$/);
+    if (presenterCue) {
+      return {
+        character: presenterCue[1] as StudioCharacter,
+        wakeWord: clean,
+        question: "",
+      };
+    }
+
     for (const item of wakeWords) {
       const word = item.words.find((wakeWord) => {
         const normalizedWakeWord = normalize(wakeWord);
@@ -103,6 +112,8 @@ export default function StudioListenerPage() {
 
   function findSleepCommand(text: string): StudioCharacter | "active" | null {
     const clean = normalize(text);
+    const presenterCue = clean.match(/^gracias (bob|lina)(?: seguimos| continuamos)?$/);
+    if (presenterCue) return presenterCue[1] as StudioCharacter;
     const match = clean.match(/^(?:(bob|lina|felencho)\s+)?(?:a dormir|duermete|ve a dormir)$/);
     if (!match) return null;
     return (match[1] as StudioCharacter | undefined) || "active";
