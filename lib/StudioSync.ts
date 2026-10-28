@@ -145,15 +145,15 @@ export default class StudioSync {
       presenceController.setPresence(status.character_id);
     }
 
-    if (status.state === "thinking") {
+    if (status.mode === "live" && status.state === "thinking") {
       presenceController.think(status.character_id);
     }
 
-    if (status.state === "speaking") {
+    if (status.mode === "live" && status.state === "speaking") {
       presenceController.speak(status.character_id);
     }
 
-    if (status.state === "sleeping") {
+    if (status.mode === "presence" || status.state === "sleeping") {
       presenceController.sleep(status.character_id);
     }
 
