@@ -195,7 +195,7 @@ export default function StudioControlPage() {
             </button>
             <button type="button" disabled={!!pending}
               onClick={() => void runAction("sleep-all", (sync) => sync.sleepAll([...characters]))}
-              className="mt-5 w-full rounded-xl border border-rose-500/40 bg-rose-700/30 px-5 py-3 font-bold text-rose-100 disabled:opacity-50">
+              className="rounded-xl border border-rose-500/40 bg-rose-700/30 px-5 py-3 font-bold text-rose-100 disabled:opacity-50">
               Dormir Bob y Lina
             </button>
           </div>
