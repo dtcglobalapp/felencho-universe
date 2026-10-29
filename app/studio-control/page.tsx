@@ -18,6 +18,22 @@ const modules = [
   { title: "Felencho Brain", subtitle: "Conocimiento y seres inteligentes", href: "/felencho-brain", icon: "🧠" },
 ];
 
+type StudioWindow = {
+  id: string;
+  title: string;
+  display: string;
+  path: string;
+  width: number;
+  height: number;
+};
+
+const studioWindows: StudioWindow[] = [
+  { id: "bob", title: "Bob", display: "FireTV 1 · vertical", path: "/presence/bob", width: 650, height: 950 },
+  { id: "lina", title: "Lina", display: "FireTV 2 · vertical", path: "/presence/lina", width: 650, height: 950 },
+  { id: "teleprompter", title: "Teleprompter", display: "iPad · cámara central", path: "/studio-teleprompter", width: 950, height: 750 },
+  { id: "listener", title: "Studio Listener", display: "La Bestia · voz", path: "/studio-listener", width: 960, height: 760 },
+];
+
 export default function StudioControlPage() {
   const syncRef = useRef<StudioSync | null>(null);
   const [statuses, setStatuses] = useState<PresenceCharacterStatus[]>([]);
@@ -64,6 +80,20 @@ export default function StudioControlPage() {
     }
   }
 
+  function openStudioWindow(item: StudioWindow) {
+    // A user click opens a separate, draggable browser window where supported.
+    // The final monitor assignment is done manually in macOS Displays.
+    const features = `popup=yes,width=${item.width},height=${item.height},resizable=yes,scrollbars=yes`;
+    const windowName = `felencho-studio-${item.id}`;
+    const opened = window.open(item.path, windowName, features);
+    if (opened) {
+      opened.focus();
+      addLog(`Ventana abierta: ${item.title} → ${item.display}`);
+    } else {
+      setControlError(`El navegador bloqueó la ventana de ${item.title}. Permite ventanas emergentes para felencho.ai o usa el enlace alternativo.`);
+    }
+  }
+
   function statusFor(character: CharacterId) {
     return statuses.find((item) => item.character === character) ?? presenceController.getStatus(character);
   }
@@ -81,6 +111,39 @@ export default function StudioControlPage() {
             Abrir teleprompter
           </Link>
         </header>
+
+        <section className="rounded-3xl border border-cyan-400/20 bg-[#101b29] p-5" aria-label="Pantallas independientes del estudio">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-bold text-cyan-200">Pantallas del estudio</h2>
+              <p className="mt-1 text-sm text-zinc-400">Abre una ventana independiente y arrástrala a su pantalla física.</p>
+            </div>
+            <span className="rounded-full border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200">27G2G4 · Dashboard principal</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {studioWindows.map((item) => (
+              <article key={item.id} className="flex flex-col justify-between rounded-2xl border border-white/10 bg-black/30 p-4">
+                <div>
+                  <p className="text-lg font-bold">{item.title}</p>
+                  <p className="mt-1 text-xs text-zinc-400">{item.display}</p>
+                </div>
+                <button type="button" onClick={() => openStudioWindow(item)}
+                  className="mt-5 rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black hover:bg-cyan-300">
+                  Abrir ventana ↗
+                </button>
+                <a href={item.path} target="_blank" rel="noopener noreferrer"
+                  className="mt-3 text-center text-xs text-cyan-200 underline underline-offset-4">
+                  Alternativa: nueva pestaña
+                </a>
+              </article>
+            ))}
+          </div>
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-relaxed text-zinc-400">
+            Orden recomendado: Dashboard en 27G2G4 · Bob en FireTV 1 · Lina en FireTV 2 · Teleprompter en el iPad.
+            macOS controla la posición de las ventanas: arrastra cada una a su monitor y después activa pantalla completa si lo deseas.
+            El botón abre la ventana, no despierta ni contrata sesiones de personajes.
+          </div>
+        </section>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,1fr)]">
           <section className="rounded-3xl border border-white/10 bg-[#111824] p-5">
