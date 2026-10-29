@@ -112,38 +112,6 @@ export default function StudioControlPage() {
           </Link>
         </header>
 
-        <section className="rounded-3xl border border-cyan-400/20 bg-[#101b29] p-5" aria-label="Pantallas independientes del estudio">
-          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold text-cyan-200">Pantallas del estudio</h2>
-              <p className="mt-1 text-sm text-zinc-400">Abre una ventana independiente y arrástrala a su pantalla física.</p>
-            </div>
-            <span className="rounded-full border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200">27G2G4 · Dashboard principal</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {studioWindows.map((item) => (
-              <article key={item.id} className="flex flex-col justify-between rounded-2xl border border-white/10 bg-black/30 p-4">
-                <div>
-                  <p className="text-lg font-bold">{item.title}</p>
-                  <p className="mt-1 text-xs text-zinc-400">{item.display}</p>
-                </div>
-                <button type="button" onClick={() => openStudioWindow(item)}
-                  className="mt-5 rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black hover:bg-cyan-300">
-                  Abrir ventana ↗
-                </button>
-                <a href={item.path} target="_blank" rel="noopener noreferrer"
-                  className="mt-3 text-center text-xs text-cyan-200 underline underline-offset-4">
-                  Alternativa: nueva pestaña
-                </a>
-              </article>
-            ))}
-          </div>
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-relaxed text-zinc-400">
-            Orden recomendado: Dashboard en 27G2G4 · Bob en FireTV 1 · Lina en FireTV 2 · Teleprompter en el iPad.
-            macOS controla la posición de las ventanas: arrastra cada una a su monitor y después activa pantalla completa si lo deseas.
-            El botón abre la ventana, no despierta ni contrata sesiones de personajes.
-          </div>
-        </section>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,1fr)]">
           <section className="rounded-3xl border border-white/10 bg-[#111824] p-5">
@@ -187,11 +155,6 @@ export default function StudioControlPage() {
                 );
               })}
             </div>
-            <button type="button" disabled={!!pending}
-              onClick={() => void runAction("sleep-all", (sync) => sync.sleepAll([...characters]))}
-              className="mt-5 w-full rounded-xl border border-rose-500/40 bg-rose-700/30 px-5 py-3 font-bold text-rose-100 disabled:opacity-50">
-              Dormir Bob y Lina
-            </button>
             <p className="mt-3 text-xs text-zinc-500">Este panel cambia el estado visual mediante Supabase. No confirma por sí solo el consumo ni el cierre de una sesión del proveedor.</p>
           </section>
 
@@ -216,6 +179,52 @@ export default function StudioControlPage() {
             </div>
           </section>
         </div>
+
+        <section className="rounded-3xl border border-cyan-400/20 bg-[#101b29] p-5" aria-label="Control general">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-bold text-cyan-200">Control general</h2>
+              <p className="mt-1 text-sm text-zinc-400">Administra a Bob y Lina, y abre sus ventanas independientes en cada monitor.</p>
+            </div>
+            <span className="rounded-full border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200">27G2G4 · Dashboard principal</span>
+          </div>
+          <div className="mb-5 flex flex-wrap gap-3">
+            <button type="button" disabled={!!pending} onClick={() => void runAction("wake-all", async (sync) => { for (const character of characters) await sync.setLive(character); })}
+              className="rounded-xl bg-emerald-400 px-5 py-3 font-bold text-black disabled:opacity-50">
+              Despertar Bob y Lina
+            </button>
+            <button type="button" disabled={!!pending}
+              onClick={() => void runAction("sleep-all", (sync) => sync.sleepAll([...characters]))}
+              className="mt-5 w-full rounded-xl border border-rose-500/40 bg-rose-700/30 px-5 py-3 font-bold text-rose-100 disabled:opacity-50">
+              Dormir Bob y Lina
+            </button>
+          </div>
+          <h3 className="mb-3 text-lg font-semibold">Abrir pantallas independientes</h3>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {studioWindows.map((item) => (
+              <article key={item.id} className="flex flex-col justify-between rounded-2xl border border-white/10 bg-black/30 p-4">
+                <div>
+                  <p className="text-lg font-bold">{item.title}</p>
+                  <p className="mt-1 text-xs text-zinc-400">{item.display}</p>
+                </div>
+                <button type="button" onClick={() => openStudioWindow(item)}
+                  className="mt-5 rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black hover:bg-cyan-300">
+                  Abrir ventana ↗
+                </button>
+                <a href={item.path} target="_blank" rel="noopener noreferrer"
+                  className="mt-3 text-center text-xs text-cyan-200 underline underline-offset-4">
+                  Alternativa: nueva pestaña
+                </a>
+              </article>
+            ))}
+          </div>
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-relaxed text-zinc-400">
+            Orden recomendado: Dashboard en 27G2G4 · Bob en FireTV 1 · Lina en FireTV 2 · Teleprompter en el iPad.
+            macOS controla la posición de las ventanas: arrastra cada una a su monitor y después activa pantalla completa si lo deseas.
+            El botón abre la ventana, no despierta ni contrata sesiones de personajes.
+          </div>
+        </section>
+
 
         {controlError && <p role="alert" className="rounded-xl border border-red-500/40 bg-red-950/40 p-4 text-sm text-red-200">{controlError}</p>}
 
