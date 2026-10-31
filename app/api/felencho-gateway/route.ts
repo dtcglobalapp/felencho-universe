@@ -52,6 +52,15 @@ Responde de forma clara, breve y natural para un programa en vivo.
 }
 
 export async function POST(req: Request) {
+  // Legacy ElevenLabs pipeline is inactive unless explicitly enabled.
+  // The active studio rehearsal uses LiveKit + Cartesia instead.
+  if (process.env.STUDIO_ENABLE_LEGACY_ELEVENLABS !== "true") {
+    return NextResponse.json(
+      { error: "La voz antigua de ElevenLabs está desactivada. Usa los ensayos /live/bob o /live/lina." },
+      { status: 503 }
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
 
