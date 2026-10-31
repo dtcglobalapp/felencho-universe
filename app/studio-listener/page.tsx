@@ -61,6 +61,7 @@ export default function StudioListenerPage() {
   const [studioOn, setStudioOn] = useState(false);
   const [activeCharacter, setActiveCharacter] = useState<StudioCharacter | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [voiceTestBusy, setVoiceTestBusy] = useState<"bob" | "lina" | null>(null);
 
   function addLog(message: string) {
     setLogs((prev) =>
@@ -176,6 +177,34 @@ export default function StudioListenerPage() {
     });
 
     await StudioAudio.play(audioUrl);
+  }
+
+  async function testVoice(character: "bob" | "lina") {
+    if (voiceTestBusy || studioOnRef.current) {
+      addLog("Apaga Studio Listener antes de probar una voz aislada.");
+      return;
+    }
+    setVoiceTestBusy(character);
+    try {
+      const message = character === "bob"
+        ? "Preséntate en una sola oración como Bob, colaborador de Felencho Mundial."
+        : "Preséntate en una sola oración como Lina, colaboradora de Felencho Mundial.";
+      addLog(`Prueba manual de voz: ${character}. Esta solicitud consume créditos de voz.`);
+      const response = await fetch("/api/felencho-gateway", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studioId, character, message, source: "voice_test" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "No se pudo generar la voz.");
+      if (!data?.audioUrl) throw new Error("El servicio respondió sin audio.");
+      await playAudioFromUrl(data.audioUrl);
+      addLog(`Prueba de ${character} terminada.`);
+    } catch (error) {
+      addLog(`Error probando ${character}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setVoiceTestBusy(null);
+    }
   }
 
   async function sendToGateway(character: StudioCharacter, question: string) {
@@ -491,6 +520,29 @@ export default function StudioListenerPage() {
             </p>
           </div>
         </div>
+
+        <section className="rounded-3xl border border-cyan-500/30 bg-zinc-950 p-6">
+          <h2 className="text-2xl font-bold text-cyan-300">Pruebas individuales de voz</h2>
+          <p className="mt-2 text-sm text-gray-400">
+            Pruebas manuales con una frase corta. No abren sesiones de avatar.
+            Cada clic solicita generación de texto y voz, por lo que puede consumir créditos.
+            Usa La Bestia conectada a RØDECaster y deja Studio Listener apagado.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" disabled={!!voiceTestBusy || studioOn}
+              onClick={() => void testVoice("bob")}
+              className="rounded-xl bg-cyan-400 px-5 py-3 font-bold text-black disabled:opacity-50">
+              {voiceTestBusy === "bob" ? "Probando Bob..." : "Escuchar prueba de Bob"}
+            </button>
+            <button type="button" disabled={!!voiceTestBusy || studioOn}
+              onClick={() => void testVoice("lina")}
+              className="rounded-xl bg-violet-400 px-5 py-3 font-bold text-black disabled:opacity-50">
+              {voiceTestBusy === "lina" ? "Probando Lina..." : "Escuchar prueba de Lina"}
+            </button>
+            <button type="button" onClick={() => StudioAudio.stop()}
+              className="rounded-xl bg-zinc-700 px-5 py-3 font-bold text-white">Detener audio</button>
+          </div>
+        </section>
 
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
           <h2 className="text-2xl font-bold text-yellow-300">Logs</h2>
