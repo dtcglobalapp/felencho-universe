@@ -41,7 +41,6 @@ class StudioAudioEngine {
 
       audio.onerror = () => {
         if (this.currentAudio !== audio) return;
-        if (this.currentAudio !== audio) return;
         this.cleanup();
 
         if (this.hasStarted) {
@@ -54,6 +53,7 @@ class StudioAudioEngine {
       };
 
       audio.play().catch((error) => {
+        if (this.currentAudio !== audio) return;
         this.cleanup();
 
         if (this.hasStarted) {
