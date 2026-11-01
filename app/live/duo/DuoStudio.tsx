@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 
 type Person = "bob" | "lina";
@@ -7,6 +7,38 @@ export default function DuoStudio() {
   const roomRef = useRef<Room | null>(null);
   const roomNameRef = useRef<string | null>(null);
   const cancelledRef = useRef(false);
+  const stoppingRef = useRef(false);
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_DUO_MINUTES = 5;
+
+  function clearSafetyTimer() {
+    if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+    safetyTimerRef.current = null;
+  }
+
+  function requestEmergencyShutdown() {
+    const room = roomNameRef.current;
+    if (!room) return;
+    // Page unload cannot await normal fetch; beacon carries session cookies.
+    const payload = new Blob([JSON.stringify({ room })], { type: "application/json" });
+    if (!navigator.sendBeacon?.("/api/live/stop", payload)) {
+      void fetch("/api/live/stop", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "same-origin", body: JSON.stringify({ room }), keepalive: true,
+      }).catch(() => undefined);
+    }
+  }
+
+  useEffect(() => {
+    const onPageExit = () => requestEmergencyShutdown();
+    window.addEventListener("pagehide", onPageExit);
+    return () => {
+      window.removeEventListener("pagehide", onPageExit);
+      clearSafetyTimer();
+      requestEmergencyShutdown();
+      void roomRef.current?.disconnect();
+    };
+  }, []);
   const videoRefs = useRef<Record<Person, HTMLDivElement | null>>({ bob: null, lina: null });
   const audioRef = useRef<HTMLDivElement | null>(null);
   const videoOwners = useRef<Map<string, Person>>(new Map());
@@ -21,7 +53,7 @@ export default function DuoStudio() {
   const [mic, setMic] = useState(false);
   const [seen, setSeen] = useState<Record<Person, boolean>>({bob:false,lina:false});
   async function start() {
-    if (roomRef.current) return;
+    if (roomRef.current || roomNameRef.current || stoppingRef.current) return;
     cancelledRef.current = false;
     if (!studioUnlocked) { setStatus("Desbloquea primero el estudio."); return; }
     setStatus("Creando una sala para Bob y Lina...");
@@ -30,7 +62,8 @@ export default function DuoStudio() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "No se pudo crear la sala");
       roomNameRef.current = data.roomName;
-      if (cancelledRef.current) return;
+      safetyTimerRef.current = setTimeout(() => { void stop("Límite de seguridad de 5 minutos alcanzado."); }, MAX_DUO_MINUTES * 60_000);
+      if (cancelledRef.current) { await stop(); return; }
       const room = new Room({adaptiveStream:true,dynacast:true});
       roomRef.current = room;
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
@@ -53,7 +86,7 @@ export default function DuoStudio() {
           void element.play().catch(()=>{});
         }
       });
-      room.on(RoomEvent.Disconnected, ()=>{roomRef.current=null;setActive(false);setMic(false);setStatus("Sala desconectada");});
+      room.on(RoomEvent.Disconnected, ()=>{roomRef.current=null;setActive(false);setMic(false);if (!stoppingRef.current && roomNameRef.current) { setStatus("Conexión perdida. Solicitando cierre remoto..."); void stop(); }});
       await room.connect(data.serverUrl,data.participantToken);
       setActive(true);
       for (const character of ["bob","lina"] as const) {
@@ -75,18 +108,25 @@ export default function DuoStudio() {
         });
       }
       if (!cancelledRef.current) setStatus("Bob y Lina están entrando. Llámalos por su nombre para darles la palabra.");
-    } catch(e) {if (!cancelledRef.current) setStatus(e instanceof Error?e.message:"Error al conectar");await roomRef.current?.disconnect();roomRef.current=null;setActive(false);}
+    } catch(e) {
+      if (!cancelledRef.current) setStatus(e instanceof Error ? e.message : "Error al conectar");
+      if (roomNameRef.current) await stop("Inicio fallido: cierre de seguridad.");
+      else { await roomRef.current?.disconnect(); roomRef.current = null; setActive(false); }
+    }
   }
   async function microphone() {
     if (!roomRef.current) return;
     try {await roomRef.current.localParticipant.setMicrophoneEnabled(true,undefined,{dtx:false});setMic(true);setStatus("Micrófono activo. Di «Bob» o «Lina» al comenzar cada pregunta.");}
     catch(e){setStatus(e instanceof Error?e.message:"No se pudo activar el micrófono");}
   }
-  async function stop() {
+  async function stop(reason = "Cerrando sala y avatares...") {
+    if (stoppingRef.current) return;
+    stoppingRef.current = true;
     cancelledRef.current = true;
-    setStatus("Cerrando sala y avatares...");
+    clearSafetyTimer();
+    setStatus(reason);
     const roomName = roomNameRef.current;
-    if (!roomName) { setStatus("No hay sala activa."); return; }
+    if (!roomName) { stoppingRef.current = false; setStatus("No hay sala activa."); return; }
     try {
       const response = await fetch("/api/live/stop", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -103,7 +143,9 @@ export default function DuoStudio() {
       setStatus("Sala cerrada en LiveKit. Verifica el cierre de LemonSlice en los registros.");
     } catch (error) {
       setStatus("ATENCIÓN: " + (error instanceof Error ? error.message : "Cierre no confirmado") + ". No inicies otra sesión.");
+    } finally {
+      stoppingRef.current = false;
     }
   }
-  return <main className="min-h-screen bg-black text-white p-5"><header className="text-center mb-5"><p className="text-cyan-300 tracking-widest text-xs">FELENCHO MUNDIAL · MESA REDONDA</p><h1 className="text-3xl font-bold mt-2">Bob + Lina + Felencho</h1></header><div className="max-w-xl mx-auto mb-5 space-y-2">{!studioUnlocked?<div className="flex gap-2"><input type="password" aria-label="Clave del estudio" placeholder="Clave privada del estudio" value={studioPassword} onChange={e=>setStudioPassword(e.target.value)} className="min-w-0 flex-1 rounded-lg bg-zinc-900 border border-zinc-700 p-2"/><button onClick={unlockStudio} className="rounded-lg bg-cyan-300 text-black px-3">Desbloquear invitados</button></div>:<label className="block text-sm">Invitado aprobado para Bob y Lina<select disabled={active} value={guestId} onChange={e=>setGuestId(e.target.value)} className="block w-full mt-1 rounded-lg bg-zinc-900 border border-zinc-700 p-2"><option value="">Sin invitado seleccionado</option>{guests.map(g=><option key={g.id} value={g.id}>{g.artistic_name||g.full_name}</option>)}</select>{guestId&&<div className="flex gap-3 items-center mt-3"><img src={"/api/studio/guest-photo?id="+encodeURIComponent(guestId)} alt="Fotografía autorizada del invitado" className="w-20 h-20 object-cover rounded-xl border border-zinc-700" onError={e=>{e.currentTarget.style.display="none";}}/><p className="text-sm text-zinc-300">Invitado seleccionado: {guests.find(g=>g.id===guestId)?.artistic_name||guests.find(g=>g.id===guestId)?.full_name}. Bob y Lina recibirán su ficha autorizada al iniciar.</p></div>}</label>}</div><div className="grid grid-cols-2 gap-3 max-w-5xl mx-auto">{(["bob","lina"] as const).map(person=><section key={person} className="min-w-0"><h2 className="text-center text-2xl font-semibold mb-2 capitalize">{person}</h2><div ref={node=>{videoRefs.current[person]=node}} className="aspect-[2/3] rounded-2xl border border-white/20 bg-zinc-950 overflow-hidden flex items-center justify-center"></div></section>)}</div><div ref={audioRef} className="hidden"/><p className="text-center text-sm text-cyan-200 mt-5">{status}</p><div className="flex flex-wrap justify-center gap-3 mt-4">{!active?<button onClick={start} disabled={!studioUnlocked} className="rounded-full bg-white disabled:opacity-40 text-black font-bold px-6 py-3">Iniciar mesa redonda</button>:<><button onClick={microphone} disabled={mic} className="rounded-full bg-emerald-300 disabled:opacity-50 text-black font-bold px-6 py-3">{mic?"Micrófono activo":"Activar micrófono"}</button><button onClick={stop} className="rounded-full border border-white/40 px-6 py-3">Cerrar sesión</button></>}</div><p className="text-center text-zinc-400 text-xs mt-4">Para evitar interrupciones, dirige cada pregunta a Bob o Lina por su nombre. Usa audífonos.</p></main>;
+  return <main className="min-h-screen bg-black text-white p-5"><header className="text-center mb-5"><p className="text-cyan-300 tracking-widest text-xs">FELENCHO MUNDIAL · MESA REDONDA</p><h1 className="text-3xl font-bold mt-2">Bob + Lina + Felencho</h1></header><div className="max-w-xl mx-auto mb-5 space-y-2">{!studioUnlocked?<div className="flex gap-2"><input type="password" aria-label="Clave del estudio" placeholder="Clave privada del estudio" value={studioPassword} onChange={e=>setStudioPassword(e.target.value)} className="min-w-0 flex-1 rounded-lg bg-zinc-900 border border-zinc-700 p-2"/><button onClick={unlockStudio} className="rounded-lg bg-cyan-300 text-black px-3">Desbloquear invitados</button></div>:<label className="block text-sm">Invitado aprobado para Bob y Lina<select disabled={active} value={guestId} onChange={e=>setGuestId(e.target.value)} className="block w-full mt-1 rounded-lg bg-zinc-900 border border-zinc-700 p-2"><option value="">Sin invitado seleccionado</option>{guests.map(g=><option key={g.id} value={g.id}>{g.artistic_name||g.full_name}</option>)}</select>{guestId&&<div className="flex gap-3 items-center mt-3"><img src={"/api/studio/guest-photo?id="+encodeURIComponent(guestId)} alt="Fotografía autorizada del invitado" className="w-20 h-20 object-cover rounded-xl border border-zinc-700" onError={e=>{e.currentTarget.style.display="none";}}/><p className="text-sm text-zinc-300">Invitado seleccionado: {guests.find(g=>g.id===guestId)?.artistic_name||guests.find(g=>g.id===guestId)?.full_name}. Bob y Lina recibirán su ficha autorizada al iniciar.</p></div>}</label>}</div><div className="grid grid-cols-2 gap-3 max-w-5xl mx-auto">{(["bob","lina"] as const).map(person=><section key={person} className="min-w-0"><h2 className="text-center text-2xl font-semibold mb-2 capitalize">{person}</h2><div ref={node=>{videoRefs.current[person]=node}} className="aspect-[2/3] rounded-2xl border border-white/20 bg-zinc-950 overflow-hidden flex items-center justify-center"></div></section>)}</div><div ref={audioRef} className="hidden"/><p className="text-center text-sm text-cyan-200 mt-5">{status}</p><div className="flex flex-wrap justify-center gap-3 mt-4">{!active?<button onClick={start} disabled={!studioUnlocked} className="rounded-full bg-white disabled:opacity-40 text-black font-bold px-6 py-3">Iniciar mesa redonda</button>:<><button onClick={microphone} disabled={mic} className="rounded-full bg-emerald-300 disabled:opacity-50 text-black font-bold px-6 py-3">{mic?"Micrófono activo":"Activar micrófono"}</button><button onClick={stop} className="rounded-full border border-white/40 px-6 py-3">Cerrar sesión</button></>}</div><p className="text-center text-zinc-400 text-xs mt-4">Para evitar interrupciones, dirige cada pregunta a Bob o Lina por su nombre. Usa audífonos. El ensayo se cierra automáticamente a los 5 minutos; cerrar la pestaña también solicita apagado.</p></main>;
 }
