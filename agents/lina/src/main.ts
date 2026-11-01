@@ -20,6 +20,7 @@ initializeLogger({ pretty: true });
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
 const AVATAR_JOIN_TIMEOUT_MS = 60_000;
 const SESSION_TIMEOUT_MS = 900_000;
+const DUO_REHEARSAL_TIMEOUT_MS = 300_000; // Hard limit: 5 minutes per paid avatar in duo tests.
 const TRANSCRIPTION_TIMEOUT_MS = 5_000;
 const FELENCHO_BRAIN_URL =
   process.env.FELENCHO_BRAIN_URL ||
@@ -175,12 +176,17 @@ export default defineAgent({
       );
 
       await ctx.connect();
+      (ctx.room as any).on("disconnected", () => {
+        console.log("[felencho-universe] room disconnected; closing avatar");
+        void closeSession("room disconnected");
+      });
       console.log(`[felencho-universe] worker connected identity=${ctx.agent?.identity}`);
 
+      const sessionLimitMs = metadata.duo === true ? DUO_REHEARSAL_TIMEOUT_MS : SESSION_TIMEOUT_MS;
       failSafe = setTimeout(() => {
         console.error("[felencho-universe] interactive hard timeout");
         void closeSession("interactive hard timeout");
-      }, SESSION_TIMEOUT_MS);
+      }, sessionLimitMs);
 
       let peerContext = "";
       if (metadata.duo === true) {
@@ -282,7 +288,7 @@ export default defineAgent({
       }
       console.log("[felencho-universe] interactive greeting played; keeping job alive");
 
-      await new Promise<void>((resolve) => setTimeout(resolve, SESSION_TIMEOUT_MS));
+      await new Promise<void>((resolve) => setTimeout(resolve, sessionLimitMs));
       if (!closing) await closeSession("interactive session timeout");
     } catch (error) {
       console.error("[felencho-universe] interactive startup error", error);
