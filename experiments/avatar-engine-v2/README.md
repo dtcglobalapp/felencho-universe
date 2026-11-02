@@ -149,3 +149,42 @@ No workstation purchase should be recommended until the validated benchmarks abo
 ## Production baseline
 
 The stable LemonSlice implementation remains the reference implementation. This experiment is additive and disposable.
+## November 2026 restart — safe GPU preflight (no production changes)
+
+The experimental branch retains the proven LiveKit + MuseTalk plan and the
+RunPod persistence rules. Do not create a new Pod or start a billable session
+until checking the existing RunPod dashboard for running/stopped status and
+whether a portable Network Volume is mounted.
+
+When an existing GPU Pod is running, from the repository checkout run:
+
+```bash
+python3 experiments/avatar-engine-v2/runpod_preflight.py
+```
+
+This read-only tool reports GPU identity/VRAM, nvidia-smi, ffmpeg, PyTorch/CUDA,
+common project/model directories, and free space. It intentionally does **not**
+install anything, launch a GPU, modify the current LemonSlice connection, or
+trigger avatar credits. A visible /workspace directory is **not** by itself
+proof of durable storage; verify the Network Volume in RunPod before downloading
+weights or preparing characters.
+
+### Render and voice validation gate
+
+- First measure a Lina test with live TTS audio and MuseTalk's synchronized face;
+  compare static-image motion against a prepared moving-video source.
+- A moving-video source adds *pre-recorded* head/shoulder/body gestures; it does
+  **not** make them semantically responsive to dialogue. If this is insufficient,
+  evaluate a compatible motion-generation model as a separate experiment.
+- Measure Bob separately, then both simultaneously; ensure the RT video/audio
+  tracks remain continuously in sync under interruptions and idle states.
+- Before enabling production routing, implement per-character selection in
+  Studio Control: LemonSlice (default) vs Felencho Engine (experimental).
+  Never auto-start both billable engines; first confirm the prior session ended,
+  and keep the loop videos as a fallback.
+
+### Current test status
+
+Code/read-only preflight prepared. No live RunPod GPU benchmark, avatar-motion
+benchmark, model-installation step, Studio Control selector deployment, or
+LemonSlice-to-self-hosted switch is yet confirmed complete.
