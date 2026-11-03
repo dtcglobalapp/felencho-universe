@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
 
-Only five hardcoded read-only actions are supported; no inference. No arbitrary commands,
+Only six hardcoded read-only actions are supported; no inference. No arbitrary commands,
 shell, model execution, file download, or Pod lifecycle operations.
 """
 from __future__ import annotations
@@ -31,6 +31,8 @@ MEDIA_TITLE = "[FAE-RUNPOD] media-inspect"
 MEDIA_BODY = "FAE_RUNPOD_JOB_V1\naction=media-inspect"
 ENV_TITLE = "[FAE-RUNPOD] inference-env-inspect"
 ENV_BODY = "FAE_RUNPOD_JOB_V1\naction=inference-env-inspect"
+ECHO_SOURCE_TITLE = "[FAE-RUNPOD] echo-source-inspect"
+ECHO_SOURCE_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-source-inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
 SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
@@ -39,6 +41,7 @@ INSPECT_SCRIPT = Path(__file__).resolve().with_name("inspect_presets.py")
 PREFLIGHT_SCRIPT = Path(__file__).resolve().with_name("preflight_5s.py")
 MEDIA_SCRIPT = Path(__file__).resolve().with_name("inspect_media_tools.py")
 ENV_SCRIPT = Path(__file__).resolve().with_name("inspect_inference_env.py")
+ECHO_SOURCE_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_source.py")
 
 class GithubError(RuntimeError):
     pass
@@ -89,7 +92,7 @@ def setup() -> None:
     print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
 
 def read_only_job(action: str) -> str:
-    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT}
+    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT, "echo-source-inspect": ECHO_SOURCE_SCRIPT}
     if action not in scripts:
         raise ValueError("Unknown action")
     script = scripts[action]
@@ -119,6 +122,8 @@ def requested_action(issue: dict) -> str | None:
         return "media-inspect"
     if title == ENV_TITLE and body == ENV_BODY:
         return "inference-env-inspect"
+    if title == ECHO_SOURCE_TITLE and body == ECHO_SOURCE_BODY:
+        return "echo-source-inspect"
     return None
 
 def diagnostic() -> str:
@@ -173,7 +178,7 @@ def main():
     if not 15 <= args.interval <= 600:
         raise SystemExit("Polling interval must be 15-600 seconds.")
     token = load_token()
-    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT; author", args.allowed_author, flush=True)
+    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT/ECHO-SOURCE-INSPECT; author", args.allowed_author, flush=True)
     while True:
         try:
             poll(token, args.allowed_author)
