@@ -49,3 +49,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Tests de `test_render_dry_run.py` reforzados: incluyen saltos de línea reales con parámetros no permitidos y campos inesperados del objeto `user`; el validador ahora rechaza estrictamente ambos.
 - **Pendiente de ejecutar en RunPod**: `python3 -m unittest discover -s tools/runpod -p 'test_*.py'` y `python3 tools/runpod/render_dry_run.py --issue-number 100`. No ejecutar `bridge.py --once` para este simulacro: no hay ni debe crearse una orden de render.
 - El simulacro solo valida un contrato en memoria. Ni el rechazo de duplicados mediante un conjunto suministrado ni el tiempo máximo del plan implementan protección persistente o terminación real de procesos. Esos controles continúan pendientes.
+
+## 2C — Registro persistente de solicitudes (experimental y DESCONECTADO)
+- `tools/runpod/job_claims_offline.py` incorpora una base SQLite de reclamos persistentes, con transacciones `BEGIN IMMEDIATE` y un índice de exclusión para impedir más de un trabajo en estado `claimed`. La clave única del Issue impide repetir un reclamo tras un resultado terminal.
+- `tools/runpod/test_job_claims_offline.py` verifica duplicados, contención, persistencia entre conexiones, estados terminales y casos inválidos. **No se ha ejecutado en RunPod todavía**.
+- **Importante**: el registro no inicia procesos, no está conectado al Bridge, no consulta GPU y no realiza renders. Las pruebas crean bases de datos efímeras exclusivamente en directorios temporales; el simulador original sigue sin escribir archivos.
+- Un fallo o reinicio durante `claimed` lo deja bloqueado: **no** existe recuperación automática. Se requiere conciliación manual del proceso y del artefacto antes de marcar `interrupted`, y jamás se reutiliza el mismo Issue.
+- Pendiente una revisión separada de seguridad sobre ownership y permisos del directorio SQLite, protección ante symlinks, lock de procesos, cancelación, topes de recursos y salida privada. Estas garantías no se deben anunciar como implementadas por el solo hecho de existir el índice único.
