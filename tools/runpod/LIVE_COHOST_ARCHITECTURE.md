@@ -38,3 +38,9 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - No exponer tokens, voz privada, imágenes de referencia ni MP4 por Issues públicos.
 - No alterar LemonSlice, LiveKit, Presence o rutas de producción del podcast.
 - El motor de conversación y el motor gráfico son piezas independientes y reemplazables.
+
+## Prototipo offline de orquestación (aún sin streaming)
+- `live_cohost_state_offline.py` define sesiones conectadas y estados por actor separados del motor gráfico. Las operaciones de conexión, escucha, inicio de turno, interrupción, fin, dormir y desconexión son transformaciones puras en memoria.
+- Una sola voz IA puede estar en `speaking` a la vez; el conductor debe otorgar explícitamente el turno. Interrumpir silencia el actor en el estado lógico; **todavía no interrumpe ningún audio físico**.
+- `test_live_cohost_state_offline.py` comprueba presencia mientras están en reposo, turnos exclusivos, prioridad del conductor, interrupción, estados dormidos y rechazo de IDs inválidos.
+- Estos archivos NO están conectados al Bridge, a LiveKit, a Presence o al estudio. No generan voz/video y no sostienen realmente una transmisión. Las pruebas deben ejecutarse antes de declarar la lógica validada.
