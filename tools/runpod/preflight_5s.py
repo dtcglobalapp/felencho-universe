@@ -66,11 +66,13 @@ def inspect(engine: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Read-only Lina five-second preset validation")
-    parser.add_argument("--engine", choices=sorted(INPUTS), required=True)
+    parser.add_argument("--engine", choices=sorted(INPUTS) + ["both"], required=True)
     args = parser.parse_args()
-    report = inspect(args.engine)
-    print(json.dumps(report, ensure_ascii=False, indent=2))
-    raise SystemExit(0 if report["status"] == "preflight_pass" else 2)
+    engines = sorted(INPUTS) if args.engine == "both" else [args.engine]
+    reports = {engine: inspect(engine) for engine in engines}
+    overall = "preflight_pass" if all(item["status"] == "preflight_pass" for item in reports.values()) else "preflight_blocked"
+    print(json.dumps({"status": overall, "inference_executed": False, "results": reports}, ensure_ascii=False, indent=2))
+    raise SystemExit(0 if overall == "preflight_pass" else 2)
 
 
 if __name__ == "__main__":
