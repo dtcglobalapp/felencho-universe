@@ -172,3 +172,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - La inspección comprueba hashes de script/config, tamaño de imagen/WAV/modelos y ausencia de enlaces simbólicos en rutas de referencia. No abre archivos multimedia para generación ni carga modelos.
 - La identidad de un archivo y la existencia de rutas no prueban que EchoMimic importe correctamente, ni que el VAE lea la configuración en inferencia; no aprobar GPU por este resultado.
 - La orden sólo puede procesarse después de actualizar el Bridge y pasar su conjunto de pruebas; PR #8 sigue sin fusionarse.
+
+## Issue #25 completada: preset fijo 9/9
+- RunPod confirmó `preset_paths_verified_offline`: script, configuración, imagen, WAV, pesos VAE y transformer, directorios Wan, Wav2Vec y venv local, todos con los controles pertinentes aprobados. 58 pruebas unitarias OK.
+- El informe aclaró `effective_runtime_config_verified=false` y `bridge_render_enabled=false`. No confundir presencia de archivos con inferencia operativa.
+- Nuevo `tools/runpod/inspect_echo_imports.py`: lanza **exclusivamente** un intérprete Python fijo del venv anidado para importar cinco bibliotecas sin importar el motor ni cargar modelos. Usa `CUDA_VISIBLE_DEVICES=-1`, flags offline y tiempo máximo de 18 s; devuelve únicamente estados de módulos, sin trazas privadas.
+- Acción explícita del Bridge: título `[FAE-RUNPOD] echo-import-smoke`; cuerpo exacto `FAE_RUNPOD_JOB_V1` y `action=echo-import-smoke` en dos líneas. **No activa GPU ni render**, pero a diferencia de inspecciones AST sí ejecuta imports en un proceso hijo; estos pueden tener efectos internos de librería. No equivale a prueba CUDA.
+- La prueba debe ejecutarse en RunPod y revisarse antes de decidir si alguna dependencia necesita atención. No modificar el venv ni instalar nada de momento.
