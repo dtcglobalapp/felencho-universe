@@ -151,3 +151,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Matemáticamente 125 fotogramas a 25 FPS preservan los 5 segundos si el VAE activo realmente usa ratio 4. El inventario no demuestra qué config consume el runtime.
 - `inspect_echo_vae_wiring.py` examina AST del script local y el valor numérico de la config sin ejecutar motores ni divulgar valores sensibles. Nuevo contrato Bridge exclusivamente de lectura: título exacto `[FAE-RUNPOD] echo-vae-wiring-inspect`; cuerpo exacto en dos líneas `FAE_RUNPOD_JOB_V1` y `action=echo-vae-wiring-inspect`.
 - Mantener el objetivo mayor de Bob/Lina presentes durante horas separado de esta prueba de video offline. No habilitar inferencia por el hallazgo del ratio.
+
+## Issue #24 y puerta de preparación offline
+- Issue #24 cerrada tras 49 pruebas OK. La inspección AST localiza `OmegaConf.load(config_path)` en línea 215 y `AutoencoderKLWan.from_pretrained(... additional_kwargs=OmegaConf.to_container(config[...]))` en línea 238, y asigna el VAE al pipeline en línea 288.
+- El archivo `config/config.yaml` reporta ratio temporal 4; el resultado estático **no confirma** que ese sea el archivo `--config_path` de una futura ejecución.
+- `lina_readiness_offline.py` y `test_lina_readiness_offline.py` crean una decisión en memoria que permanece bloqueada hasta corroborar identidad de script/config, ratio compatible, configuración efectiva, prueba de importación local, seguridad real de procesos, aislamiento de salida y autorización explícita de GPU.
+- Este gate **no ejecuta ni habilita** inferencia incluso si todos los indicadores se marcan como verdaderos. Las pruebas son exclusivamente unitarias y deberán ejecutarse en RunPod.
+- Próximo avance: validar la ruta efectiva `--config_path` en un preset fijo, realizar un smoke test importación en entorno aislado sin cargar pesos y someter supervisión y salida privada a pruebas adicionales.
