@@ -1,15 +1,15 @@
-# Felencho RunPod Bridge — instalación y prueba (Fase 1)
+# Felencho RunPod Bridge — instalación y prueba (Fases 1 y 2a)
 
-**Estado:** experimental, sin despliegue en producción. No afecta a Presence, LiveKit ni LemonSlice. Esta fase únicamente devuelve diagnósticos; no puede lanzar inferencias, ejecutar comandos arbitrarios ni gestionar el ciclo de vida de RunPod.
+**Estado:** experimental, sin despliegue en producción. No afecta a Presence, LiveKit ni LemonSlice. Esta fase únicamente devuelve diagnósticos e inventario de scripts; no puede lanzar inferencias, ejecutar comandos arbitrarios ni gestionar el ciclo de vida de RunPod.
 
 ## Diseño
 
 - La comunicación utiliza Issues del repositorio `dtcglobalapp/felencho-universe`.
 - Smart puede crear y consultar Issues mediante la integración GitHub existente.
 - Un proceso pequeño en RunPod consulta los Issues pendientes (conexiones HTTPS salientes) y solo acepta el título exacto `[FAE-RUNPOD] diagnose`, cuerpo exacto definido en `bridge.py`, creador exacto `dtcglobalapp` y estado abierto.
-- El único trabajo posible es ejecutar el diagnóstico **fijo** `tools/runpod/diagnose.py`, publicar un comentario y cerrar el Issue.
+- Los únicos trabajos permitidos son los diagnósticos **fijos** `tools/runpod/diagnose.py` y `tools/runpod/inspect_presets.py`, publicar un comentario y cerrar el Issue.
 - No se abre puerto entrante. No se acepta shell remota ni texto de comandos desde Issues. El bridge ignora pull requests, Issues de terceros y otras órdenes.
-- El token vive solo en RunPod en `/workspace/felencho-avatar-engine/.runpod-bridge-token`, con permisos 0600. No compartir el token en ChatGPT, capturas ni repositorios.
+- El token vive solo en RunPod en `~/.config/felencho-runpod/bridge-token`, con permisos 0600. No compartir el token en ChatGPT, capturas ni repositorios.
 
 ## Antes de instalar
 
@@ -32,3 +32,14 @@ Tras comprobar la fase de una sola ejecución, ejecutar el bridge dentro de un s
 - GitHub Issues **no es transporte de audio ni video en tiempo real**. Este canal solo se usará para operación y orquestación; el futuro avatar vivo requiere otra conexión de media (WebRTC o equivalente).
 - Antes de habilitar generación, añadir cola única, idempotencia robusta, límite de costo, parada segura, autenticación por trabajo y gestión privada de artefactos.
 - La fase 1 no controla RunPod automáticamente hasta instalar el puente, configurar un token y comprobar su funcionamiento.
+
+## Fase 2a — verificar instrucciones reales del motor sin ejecutarlo
+
+Al actualizar el checkout del puente desde la rama experimental, detener el proceso anterior de forma controlada y correr las pruebas. El bridge actualizado acepta un segundo Issue de sólo lectura:
+
+- Título: `[FAE-RUNPOD] inspect`
+- Cuerpo exacto: `FAE_RUNPOD_JOB_V1\naction=inspect`
+
+La respuesta describe únicamente existencia, tamaños, huellas de scripts y nombres de argumentos disponibles. No incluye contenidos de archivos ni ejecuta modelos. Se utilizará para construir presets seguros de video de 5 segundos tras verificar el inventario. GitHub Issues no puede utilizarse para enviar MP4.
+
+**Estado operativo:** se debe confirmar que RunPod está ejecutando la versión nueva antes de enviar una orden `inspect`. Si se deja el proceso antiguo, no reconocerá ese tipo de Issue.
