@@ -198,6 +198,14 @@ class BridgeTests(unittest.TestCase):
             title=bridge.LINA_PRESET_TITLE, body=bridge.LINA_PRESET_BODY + "\\nrender=true"
         ), "dtcglobalapp"))
 
+    def test_echo_import_smoke_exact_contract(self):
+        valid = self.issue(title=bridge.ECHO_IMPORT_TITLE, body=bridge.ECHO_IMPORT_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "echo-import-smoke")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.ECHO_IMPORT_TITLE, body=bridge.ECHO_IMPORT_BODY + "\\nrender=true"
+        ), "dtcglobalapp"))
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
