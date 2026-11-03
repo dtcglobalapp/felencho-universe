@@ -12,7 +12,7 @@ class EchoImportProgressTests(unittest.TestCase):
         ast.parse(probe.CHILD_SOURCE)
 
     def test_finished_error_is_sanitized(self):
-        line = "FAE_IMPORT_PROGRESS_V1=finished:torch:error:ImportError\\n"
+        line = "FAE_IMPORT_PROGRESS_V1=finished:torch:error:ImportError\n"
         self.assertEqual(probe._progress(line)["import_progress"], ["finished:torch:error:ImportError"])
 
     def test_progress_only_contains_allowlisted_modules(self):
