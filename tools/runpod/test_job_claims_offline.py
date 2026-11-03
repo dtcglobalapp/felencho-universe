@@ -73,6 +73,7 @@ class JobClaimsTests(unittest.TestCase):
     def test_registry_hardlink_rejected(self):
         original = Path(self.tmp.name) / "source.db"
         original.write_bytes(b"protected")
+        original.chmod(0o600)
         self.database.hardlink_to(original)
         with self.assertRaises(ClaimRejected):
             claim(self.database, 101, F1)
