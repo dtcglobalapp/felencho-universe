@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
 
-Only one hardcoded action is supported (diagnose). No arbitrary commands,
+Only two hardcoded read-only actions are supported (diagnose, inspect). No arbitrary commands,
 shell, model execution, file download, or Pod lifecycle operations.
 """
 from __future__ import annotations
@@ -23,10 +23,13 @@ REPO = "dtcglobalapp/felencho-universe"
 ISSUES_URL = "https://api.github.com/repos/" + REPO + "/issues"
 JOB_TITLE = "[FAE-RUNPOD] diagnose"
 JOB_BODY = "FAE_RUNPOD_JOB_V1\naction=diagnose"
+INSPECT_TITLE = "[FAE-RUNPOD] inspect"
+INSPECT_BODY = "FAE_RUNPOD_JOB_V1\naction=inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
 SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
 DIAG_SCRIPT = Path(__file__).resolve().with_name("diagnose.py")
+INSPECT_SCRIPT = Path(__file__).resolve().with_name("inspect_presets.py")
 
 class GithubError(RuntimeError):
     pass
@@ -76,23 +79,39 @@ def setup() -> None:
     SECRETS_FILE.chmod(0o600)
     print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
 
-def diagnostic() -> str:
-    if not DIAG_SCRIPT.is_file():
-        return "Diagnostic script absent: " + str(DIAG_SCRIPT)
+def read_only_job(action: str) -> str:
+    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT}
+    if action not in scripts:
+        raise ValueError("Unknown action")
+    script = scripts[action]
+    if not script.is_file():
+        return "Read-only script absent: " + str(script)
     proc = subprocess.run(
-        [sys.executable, str(DIAG_SCRIPT)],
+        [sys.executable, str(script)],
         cwd=str(ROOT), capture_output=True, text=True, timeout=25,
     )
     text = proc.stdout if proc.returncode == 0 else "diagnose failed:\n" + proc.stderr
     # GitHub comment limited in size; always bound output
     return text[-12000:]
 
+def requested_action(issue: dict) -> str | None:
+    title = issue.get("title")
+    body = (issue.get("body") or "").strip()
+    if title == JOB_TITLE and body == JOB_BODY:
+        return "diagnose"
+    if title == INSPECT_TITLE and body == INSPECT_BODY:
+        return "inspect"
+    return None
+
+def diagnostic() -> str:
+    """Backward-compatible function retained for existing unit tests."""
+    return read_only_job("diagnose")
+
 def approved(issue: dict, allowed_author: str) -> bool:
     return (
         issue.get("state") == "open"
         and "pull_request" not in issue
-        and issue.get("title") == JOB_TITLE
-        and (issue.get("body") or "").strip() == JOB_BODY
+        and requested_action(issue) is not None
         and issue.get("user", {}).get("login", "").lower() == allowed_author.lower()
         and isinstance(issue.get("number"), int)
     )
@@ -107,8 +126,9 @@ def process_one(token: str, issue: dict, allowed_author: str) -> bool:
     if any(RESULT_TAG in (c.get("body") or "") for c in comments):
         api(base, token, "PATCH", {"state": "closed"})
         return True
-    result = diagnostic()
-    body = RESULT_TAG + "\n\nRunPod diagnostic snapshot (no GPU inference triggered):\n\n```json\n" + result + "\n```"
+    action = requested_action(issue)
+    result = diagnostic() if action == "diagnose" else read_only_job("inspect")
+    body = RESULT_TAG + "\n\nRead-only RunPod action: " + action + " (no GPU inference triggered):\n\n```json\n" + result + "\n```"
     api(base + "/comments", token, "POST", {"body": body})
     api(base, token, "PATCH", {"state": "closed"})
     print("Completed diagnostic job #" + str(number), flush=True)
@@ -135,7 +155,7 @@ def main():
     if not 15 <= args.interval <= 600:
         raise SystemExit("Polling interval must be 15-600 seconds.")
     token = load_token()
-    print("RunPod bridge started: DIAGNOSTICS ONLY; author", args.allowed_author, flush=True)
+    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT; author", args.allowed_author, flush=True)
     while True:
         try:
             poll(token, args.allowed_author)
