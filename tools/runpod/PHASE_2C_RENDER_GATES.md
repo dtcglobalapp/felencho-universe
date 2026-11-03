@@ -192,3 +192,12 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Smart reemplazó el archivo por código Python válido con eventos acotados `started/finished`, conservando el límite de 18 s y CUDA oculta; añadió pruebas de sintaxis del código hijo.
 - Antes de intentar la orden existente #27, actualizar checkout, ejecutar las pruebas completas; si están en verde, `bridge.py --once`. No crear una segunda Issue ni instalar paquetes.
 - Mantener la inferencia GPU y el render deshabilitados.
+
+## Issue #27 concluida — importaciones del venv correctas (2026-11-03)
+- El último comando RunPod informó **64 pruebas unitarias OK**.
+- Issue #27 se procesó y cerró correctamente, posiblemente por el sondeo automático del Bridge; el terminal no mostró el mensaje `Completed diagnostic job #27`, pero su comentario JSON está publicado.
+- Resultado `import_smoke_pass`. `torch`, `diffusers`, `transformers`, `safetensors` y `omegaconf` se importaron correctamente; los eventos `started/finished` confirman la secuencia de los cinco módulos.
+- No se importó el motor `infer_flash.py`, no se cargaron pesos, no se invocó inferencia GPU. El timeout anterior de Issue #26 no es prueba de incompatibilidad; **el problema de importación básica queda despejado**.
+- No se necesita reinstalar estas dependencias por el resultado del smoke test. No equivale a validar todas las dependencias del entrypoint, capacidad de memoria, versión CUDA, calidad o latencia del video.
+- Próximas puertas reales: verificación del conjunto completo de imports y argumentos fijos del entrypoint sin ejecutar pesos, identidad de `--config_path` en el proceso definitivo, seguridad de supervisión de grupos/descendientes, registro privado con permisos, validador anti-TOCTOU, y autorización expresa para una prueba controlada. El Bridge sigue sin acción de render.
+- El objetivo de duración multi-hora de Bob y Lina pertenece a la arquitectura `LIVE_COHOST_ARCHITECTURE.md`, no depende del límite de cinco segundos del primer clip.
