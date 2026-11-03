@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
+
+Only one hardcoded action is supported (diagnose). No arbitrary commands,
+shell, model execution, file download, or Pod lifecycle operations.
+"""
+from __future__ import annotations
+
+import argparse
+import getpass
+import json
+import os
+import secrets
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+REPO = "dtcglobalapp/felencho-universe"
+ISSUES_URL = "https://api.github.com/repos/" + REPO + "/issues"
+JOB_TITLE = "[FAE-RUNPOD] diagnose"
+JOB_BODY = "FAE_RUNPOD_JOB_V1\naction=diagnose"
+RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
+ROOT = Path("/workspace/felencho-avatar-engine")
+SECRETS_FILE = ROOT / ".runpod-bridge-token"  # never commit
+DIAG_SCRIPT = ROOT / "tools/runpod/diagnose.py"
+
+class GithubError(RuntimeError):
+    pass
+
+def api(path: str, token: str, method: str = "GET", body: dict | None = None):
+    payload = json.dumps(body).encode("utf-8") if body is not None else None
+    req = Request(
+        "https://api.github.com" + path, data=payload, method=method,
+        headers={
+            "Authorization": "Bearer " + token,
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "Felencho-RunPod-Bridge/1",
+            **({"Content-Type": "application/json"} if payload else {}),
+        },
+    )
+    try:
+        with urlopen(req, timeout=15) as resp:
+            raw = resp.read(1_000_000)
+            return json.loads(raw) if raw else {}
+    except HTTPError as exc:
+        raise GithubError(f"GitHub HTTP {exc.code} for {method} {path}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise GithubError("GitHub connection failed") from exc
+
+def load_token() -> str:
+    if not SECRETS_FILE.is_file():
+        raise SystemExit("Bridge not configured. Run --setup.")
+    token = SECRETS_FILE.read_text().strip()
+    if len(token) < 20:
+        raise SystemExit("Invalid bridge token.")
+    return token
+
+def setup() -> None:
+    print("Fine-grained GitHub token: repo " + REPO + ", Issues read/write only.")
+    token = getpass.getpass("Paste token (hidden): ").strip()
+    if len(token) < 20:
+        raise SystemExit("Token too short; nothing saved.")
+    me = api("/user", token)
+    if not me.get("login"):
+        raise SystemExit("GitHub credential validation failed.")
+    SECRETS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(SECRETS_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        fh.write(token + "\n")
+    SECRETS_FILE.chmod(0o600)
+    print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
+
+def diagnostic() -> str:
+    if not DIAG_SCRIPT.is_file():
+        return "Diagnostic script absent: " + str(DIAG_SCRIPT)
+    proc = subprocess.run(
+        [sys.executable, str(DIAG_SCRIPT)],
+        cwd=str(ROOT), capture_output=True, text=True, timeout=25,
+    )
+    text = proc.stdout if proc.returncode == 0 else "diagnose failed:\n" + proc.stderr
+    # GitHub comment limited in size; always bound output
+    return text[-12000:]
+
+def approved(issue: dict, allowed_author: str) -> bool:
+    return (
+        issue.get("state") == "open"
+        and not issue.get("pull_request")
+        and issue.get("title") == JOB_TITLE
+        and (issue.get("body") or "").strip() == JOB_BODY
+        and issue.get("user", {}).get("login", "").lower() == allowed_author.lower()
+        and isinstance(issue.get("number"), int)
+    )
+
+def process_one(token: str, issue: dict, allowed_author: str) -> bool:
+    if not approved(issue, allowed_author):
+        return False
+    number = issue["number"]
+    base = "/repos/" + REPO + "/issues/" + str(number)
+    # A matching result comment indicates job was already processed if close failed.
+    comments = api(base + "/comments?per_page=100", token)
+    if any(RESULT_TAG in (c.get("body") or "") for c in comments):
+        api(base, token, "PATCH", {"state": "closed"})
+        return True
+    result = diagnostic()
+    body = RESULT_TAG + "\n\nRunPod diagnostic snapshot (no GPU inference triggered):\n\n```json\n" + result + "\n```"
+    api(base + "/comments", token, "POST", {"body": body})
+    api(base, token, "PATCH", {"state": "closed"})
+    print("Completed diagnostic job #" + str(number), flush=True)
+    return True
+
+def poll(token: str, allowed_author: str) -> int:
+    entries = api("/repos/" + REPO + "/issues?state=open&per_page=50&sort=created&direction=desc", token)
+    count = 0
+    for issue in entries:
+        if process_one(token, issue, allowed_author):
+            count += 1
+    return count
+
+def main():
+    parser = argparse.ArgumentParser(description="Felencho RunPod Bridge (diagnose only)")
+    parser.add_argument("--setup", action="store_true", help="Safely save scoped GitHub token")
+    parser.add_argument("--once", action="store_true", help="Check pending jobs once and exit")
+    parser.add_argument("--interval", type=int, default=30, help="Polling interval, seconds")
+    parser.add_argument("--allowed-author", default="dtcglobalapp", help="Only accept jobs by this GitHub login")
+    args = parser.parse_args()
+    if args.setup:
+        setup()
+        return
+    if not 15 <= args.interval <= 600:
+        raise SystemExit("Polling interval must be 15-600 seconds.")
+    token = load_token()
+    print("RunPod bridge started: DIAGNOSTICS ONLY; author", args.allowed_author, flush=True)
+    while True:
+        try:
+            poll(token, args.allowed_author)
+        except GithubError as exc:
+            print("Transient GitHub error:", exc, flush=True)
+        if args.once:
+            return
+        time.sleep(args.interval)
+
+if __name__ == "__main__":
+    main()
