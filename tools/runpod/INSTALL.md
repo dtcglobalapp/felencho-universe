@@ -54,3 +54,13 @@ La respuesta describe únicamente existencia, tamaños, huellas de scripts y nom
 - Aún **no** se admite ejecución remota de animación ni descarga de MP4 por GitHub Issues. Para ello se necesitan límites de tiempo y concurrencia, cancelación, idempotencia y acceso privado a artefactos.
 
 **Criterio de promoción:** conservar el PR como borrador; solo diseñar un runner de presets de cinco segundos tras pruebas correctas y revisión de salidas. No lanzar GPU automáticamente al pasar el preflight.
+
+## Fase 2b — FFmpeg: diagnóstico de disponibilidad
+
+La orden #12 confirmó los archivos y el audio de cinco segundos en ambos motores, pero devolvió `ffmpeg_available=false` en el entorno del Bridge. No demuestra que FFmpeg no esté instalado: solo que `shutil.which("ffmpeg")` no lo encuentra en el PATH activo.
+
+El nuevo script `tools/runpod/inspect_media_tools.py` comprueba rutas comunes y ruedas `imageio_ffmpeg` sin lanzar programas, importar motores, instalar ni escribir archivos. Se invoca únicamente con:
+- Título exacto: `[FAE-RUNPOD] media-inspect`
+- Cuerpo exacto: dos líneas `FAE_RUNPOD_JOB_V1` y `action=media-inspect`.
+
+Actualizar mediante fast-forward y ejecutar pruebas antes de procesar la orden. Aunque encuentre FFmpeg, **no** activar renderizado todavía: la preflight debe volver a pasar y falta revisar el diseño seguro del runner.
