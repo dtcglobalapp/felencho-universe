@@ -186,3 +186,9 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `inspect_echo_imports.py` ahora publica marcas acotadas `started/finished` de cada una de las cinco bibliotecas. En caso de timeout conserva solo esos eventos del stdout parcial; no publica trazas, rutas personales ni contenido de archivos. Las pruebas unitarias del progreso están en `test_echo_import_progress.py`.
 - Nueva orden #27 con exactamente el mismo contrato de solo lectura/importación controlada que #26: título `[FAE-RUNPOD] echo-import-smoke` y cuerpo `FAE_RUNPOD_JOB_V1` / `action=echo-import-smoke`. **No duplicar Issue #26 ni alterar el Bridge para permitir parámetros libres.**
 - Mantener timeout de 18 s en el subprocess (25 s exterior del Bridge). No instalar paquetes, no intentar render ni utilizar la GPU para inferencia.
+
+## Corrección del diagnóstico #27 (tras error de sintaxis)
+- El `git pull --ff-only` anterior se aplicó, pero RunPod registró `Ran 60 tests` y `FAILED (errors=1)` por un `SyntaxError` en `inspect_echo_imports.py`: la revisión anterior había insertado caracteres `\\n` literales en vez de saltos de línea de Python. **La orden #27 no se procesó**, porque el comando encadenado se detuvo antes de `bridge.py --once`.
+- Smart reemplazó el archivo por código Python válido con eventos acotados `started/finished`, conservando el límite de 18 s y CUDA oculta; añadió pruebas de sintaxis del código hijo.
+- Antes de intentar la orden existente #27, actualizar checkout, ejecutar las pruebas completas; si están en verde, `bridge.py --once`. No crear una segunda Issue ni instalar paquetes.
+- Mantener la inferencia GPU y el render deshabilitados.
