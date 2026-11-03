@@ -135,7 +135,7 @@ def process_one(token: str, issue: dict, allowed_author: str) -> bool:
         api(base, token, "PATCH", {"state": "closed"})
         return True
     action = requested_action(issue)
-    result = diagnostic() if action == "diagnose" else read_only_job("inspect")
+    result = diagnostic() if action == "diagnose" else read_only_job(action)
     body = RESULT_TAG + "\n\nRead-only RunPod action: " + action + " (no GPU inference triggered):\n\n```json\n" + result + "\n```"
     api(base + "/comments", token, "POST", {"body": body})
     api(base, token, "PATCH", {"state": "closed"})
