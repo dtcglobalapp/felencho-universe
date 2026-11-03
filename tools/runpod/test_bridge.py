@@ -1,0 +1,56 @@
+"""Safe bridge job contract tests. No network, GPU or credentials required."""
+import importlib.util
+from pathlib import Path
+import unittest
+from unittest.mock import patch
+
+path = Path(__file__).with_name("bridge.py")
+spec = importlib.util.spec_from_file_location("fae_bridge", path)
+bridge = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bridge)
+
+class BridgeTests(unittest.TestCase):
+    def issue(self, **changes):
+        item = {"number": 12, "state": "open", "title": bridge.JOB_TITLE,
+                "body": bridge.JOB_BODY, "user": {"login": "dtcglobalapp"}}
+        item.update(changes)
+        return item
+
+    def test_requires_exact_title_body_author(self):
+        self.assertTrue(bridge.approved(self.issue(), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(self.issue(title="run shell"), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(self.issue(body="action=exec"), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(self.issue(user={"login": "someone-else"}), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(self.issue(state="closed"), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(self.issue(pull_request={}), "dtcglobalapp"))
+
+    def test_success_returns_diagnostics_and_closes(self):
+        calls = []
+        def fake_api(path, token, method="GET", body=None):
+            calls.append((path, method, body))
+            if path.endswith("/comments?per_page=100"):
+                return []
+            return {}
+        with patch.object(bridge, "api", side_effect=fake_api), patch.object(
+            bridge, "diagnostic", return_value='{"gpu":"test"}'
+        ):
+            self.assertTrue(bridge.process_one("unused", self.issue(), "dtcglobalapp"))
+        self.assertTrue(any(method == "POST" and bridge.RESULT_TAG in body["body"]
+                            for _, method, body in calls if body))
+        self.assertTrue(any(method == "PATCH" and body == {"state": "closed"}
+                            for _, method, body in calls if body))
+
+    def test_never_runs_diagnostic_twice_if_result_exists(self):
+        calls = []
+        def fake_api(path, token, method="GET", body=None):
+            calls.append((path, method))
+            if path.endswith("/comments?per_page=100"):
+                return [{"body": bridge.RESULT_TAG}]
+            return {}
+        with patch.object(bridge, "api", side_effect=fake_api), patch.object(bridge, "diagnostic") as diag:
+            self.assertTrue(bridge.process_one("unused", self.issue(), "dtcglobalapp"))
+            diag.assert_not_called()
+        self.assertFalse(any(method == "POST" for _, method in calls))
+
+if __name__ == "__main__":
+    unittest.main()
