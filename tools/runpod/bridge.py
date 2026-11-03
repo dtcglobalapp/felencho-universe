@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
 
-Only sixteen hardcoded diagnostic actions are supported; no inference. No arbitrary commands,
+Only seventeen hardcoded diagnostic actions are supported; no inference. No arbitrary commands,
 shell, model execution, file download, or Pod lifecycle operations.
 """
 from __future__ import annotations
@@ -53,6 +53,8 @@ LINA_PRESET_TITLE = "[FAE-RUNPOD] lina-preset-inspect"
 LINA_PRESET_BODY = "FAE_RUNPOD_JOB_V1\naction=lina-preset-inspect"
 ECHO_IMPORT_TITLE = "[FAE-RUNPOD] echo-import-smoke"
 ECHO_IMPORT_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-import-smoke"
+ECHO_REMAINING_TITLE = "[FAE-RUNPOD] echo-remaining-deps-inspect"
+ECHO_REMAINING_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-remaining-deps-inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
 SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
@@ -72,6 +74,7 @@ ECHO_VAE_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_vae_ratio.py"
 ECHO_VAE_WIRING_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_vae_wiring.py")
 LINA_PRESET_SCRIPT = Path(__file__).resolve().with_name("lina_pinned_preset_offline.py")
 ECHO_IMPORT_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_imports.py")
+ECHO_REMAINING_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_remaining_deps.py")
 
 class GithubError(RuntimeError):
     pass
@@ -122,7 +125,7 @@ def setup() -> None:
     print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
 
 def read_only_job(action: str) -> str:
-    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT, "echo-source-inspect": ECHO_SOURCE_SCRIPT, "echo-cli-inspect": ECHO_CLI_SCRIPT, "echo-config-inspect": ECHO_CONFIG_SCRIPT, "echo-layout-inspect": ECHO_LAYOUT_SCRIPT, "echo-venv-inspect": ECHO_VENV_SCRIPT, "echo-frames-inspect": ECHO_FRAMES_SCRIPT, "echo-frame-formula-inspect": ECHO_FORMULA_SCRIPT, "echo-vae-ratio-inspect": ECHO_VAE_SCRIPT, "echo-vae-wiring-inspect": ECHO_VAE_WIRING_SCRIPT, "lina-preset-inspect": LINA_PRESET_SCRIPT, "echo-import-smoke": ECHO_IMPORT_SCRIPT}
+    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT, "echo-source-inspect": ECHO_SOURCE_SCRIPT, "echo-cli-inspect": ECHO_CLI_SCRIPT, "echo-config-inspect": ECHO_CONFIG_SCRIPT, "echo-layout-inspect": ECHO_LAYOUT_SCRIPT, "echo-venv-inspect": ECHO_VENV_SCRIPT, "echo-frames-inspect": ECHO_FRAMES_SCRIPT, "echo-frame-formula-inspect": ECHO_FORMULA_SCRIPT, "echo-vae-ratio-inspect": ECHO_VAE_SCRIPT, "echo-vae-wiring-inspect": ECHO_VAE_WIRING_SCRIPT, "lina-preset-inspect": LINA_PRESET_SCRIPT, "echo-import-smoke": ECHO_IMPORT_SCRIPT, "echo-remaining-deps-inspect": ECHO_REMAINING_SCRIPT}
     if action not in scripts:
         raise ValueError("Unknown action")
     script = scripts[action]
@@ -174,6 +177,8 @@ def requested_action(issue: dict) -> str | None:
         return "lina-preset-inspect"
     if title == ECHO_IMPORT_TITLE and body == ECHO_IMPORT_BODY:
         return "echo-import-smoke"
+    if title == ECHO_REMAINING_TITLE and body == ECHO_REMAINING_BODY:
+        return "echo-remaining-deps-inspect"
     return None
 
 def diagnostic() -> str:
@@ -228,7 +233,7 @@ def main():
     if not 15 <= args.interval <= 600:
         raise SystemExit("Polling interval must be 15-600 seconds.")
     token = load_token()
-    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT/ECHO-SOURCE-INSPECT/ECHO-CLI-INSPECT/ECHO-CONFIG-INSPECT/ECHO-LAYOUT-INSPECT/ECHO-VENV-INSPECT/ECHO-FRAMES-INSPECT/ECHO-FRAME-FORMULA-INSPECT/ECHO-VAE-RATIO-INSPECT/ECHO-VAE-WIRING-INSPECT/LINA-PRESET-INSPECT/ECHO-IMPORT-SMOKE; author", args.allowed_author, flush=True)
+    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT/ECHO-SOURCE-INSPECT/ECHO-CLI-INSPECT/ECHO-CONFIG-INSPECT/ECHO-LAYOUT-INSPECT/ECHO-VENV-INSPECT/ECHO-FRAMES-INSPECT/ECHO-FRAME-FORMULA-INSPECT/ECHO-VAE-RATIO-INSPECT/ECHO-VAE-WIRING-INSPECT/LINA-PRESET-INSPECT/ECHO-IMPORT-SMOKE/ECHO-REMAINING-DEPS-INSPECT; author", args.allowed_author, flush=True)
     while True:
         try:
             poll(token, args.allowed_author)
