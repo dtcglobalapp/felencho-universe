@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
 
-Only thirteen hardcoded read-only actions are supported; no inference. No arbitrary commands,
+Only fourteen hardcoded read-only actions are supported; no inference. No arbitrary commands,
 shell, model execution, file download, or Pod lifecycle operations.
 """
 from __future__ import annotations
@@ -47,6 +47,8 @@ ECHO_FORMULA_TITLE = "[FAE-RUNPOD] echo-frame-formula-inspect"
 ECHO_FORMULA_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-frame-formula-inspect"
 ECHO_VAE_TITLE = "[FAE-RUNPOD] echo-vae-ratio-inspect"
 ECHO_VAE_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-vae-ratio-inspect"
+ECHO_VAE_WIRING_TITLE = "[FAE-RUNPOD] echo-vae-wiring-inspect"
+ECHO_VAE_WIRING_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-vae-wiring-inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
 SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
@@ -63,6 +65,7 @@ ECHO_VENV_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_venv.py")
 ECHO_FRAMES_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_frame_semantics.py")
 ECHO_FORMULA_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_frame_formula.py")
 ECHO_VAE_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_vae_ratio.py")
+ECHO_VAE_WIRING_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_vae_wiring.py")
 
 class GithubError(RuntimeError):
     pass
@@ -113,7 +116,7 @@ def setup() -> None:
     print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
 
 def read_only_job(action: str) -> str:
-    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT, "echo-source-inspect": ECHO_SOURCE_SCRIPT, "echo-cli-inspect": ECHO_CLI_SCRIPT, "echo-config-inspect": ECHO_CONFIG_SCRIPT, "echo-layout-inspect": ECHO_LAYOUT_SCRIPT, "echo-venv-inspect": ECHO_VENV_SCRIPT, "echo-frames-inspect": ECHO_FRAMES_SCRIPT, "echo-frame-formula-inspect": ECHO_FORMULA_SCRIPT, "echo-vae-ratio-inspect": ECHO_VAE_SCRIPT}
+    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT, "echo-source-inspect": ECHO_SOURCE_SCRIPT, "echo-cli-inspect": ECHO_CLI_SCRIPT, "echo-config-inspect": ECHO_CONFIG_SCRIPT, "echo-layout-inspect": ECHO_LAYOUT_SCRIPT, "echo-venv-inspect": ECHO_VENV_SCRIPT, "echo-frames-inspect": ECHO_FRAMES_SCRIPT, "echo-frame-formula-inspect": ECHO_FORMULA_SCRIPT, "echo-vae-ratio-inspect": ECHO_VAE_SCRIPT, "echo-vae-wiring-inspect": ECHO_VAE_WIRING_SCRIPT}
     if action not in scripts:
         raise ValueError("Unknown action")
     script = scripts[action]
@@ -159,6 +162,8 @@ def requested_action(issue: dict) -> str | None:
         return "echo-frame-formula-inspect"
     if title == ECHO_VAE_TITLE and body == ECHO_VAE_BODY:
         return "echo-vae-ratio-inspect"
+    if title == ECHO_VAE_WIRING_TITLE and body == ECHO_VAE_WIRING_BODY:
+        return "echo-vae-wiring-inspect"
     return None
 
 def diagnostic() -> str:
@@ -213,7 +218,7 @@ def main():
     if not 15 <= args.interval <= 600:
         raise SystemExit("Polling interval must be 15-600 seconds.")
     token = load_token()
-    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT/ECHO-SOURCE-INSPECT/ECHO-CLI-INSPECT/ECHO-CONFIG-INSPECT/ECHO-LAYOUT-INSPECT/ECHO-VENV-INSPECT/ECHO-FRAMES-INSPECT/ECHO-FRAME-FORMULA-INSPECT/ECHO-VAE-RATIO-INSPECT; author", args.allowed_author, flush=True)
+    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT/ECHO-SOURCE-INSPECT/ECHO-CLI-INSPECT/ECHO-CONFIG-INSPECT/ECHO-LAYOUT-INSPECT/ECHO-VENV-INSPECT/ECHO-FRAMES-INSPECT/ECHO-FRAME-FORMULA-INSPECT/ECHO-VAE-RATIO-INSPECT/ECHO-VAE-WIRING-INSPECT; author", args.allowed_author, flush=True)
     while True:
         try:
             poll(token, args.allowed_author)
