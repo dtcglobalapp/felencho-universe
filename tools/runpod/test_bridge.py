@@ -206,6 +206,14 @@ class BridgeTests(unittest.TestCase):
             title=bridge.ECHO_IMPORT_TITLE, body=bridge.ECHO_IMPORT_BODY + "\\nrender=true"
         ), "dtcglobalapp"))
 
+    def test_echo_remaining_deps_inspect_exact_contract(self):
+        valid = self.issue(title=bridge.ECHO_REMAINING_TITLE, body=bridge.ECHO_REMAINING_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "echo-remaining-deps-inspect")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.ECHO_REMAINING_TITLE, body=bridge.ECHO_REMAINING_BODY + "\\ninstall=true"
+        ), "dtcglobalapp"))
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
