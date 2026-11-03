@@ -182,6 +182,14 @@ class BridgeTests(unittest.TestCase):
             title=bridge.ECHO_VAE_TITLE, body=bridge.ECHO_VAE_BODY + "\\nrender=true"
         ), "dtcglobalapp"))
 
+    def test_echo_vae_wiring_inspect_exact_contract(self):
+        valid = self.issue(title=bridge.ECHO_VAE_WIRING_TITLE, body=bridge.ECHO_VAE_WIRING_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "echo-vae-wiring-inspect")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.ECHO_VAE_WIRING_TITLE, body=bridge.ECHO_VAE_WIRING_BODY + "\\nrender=true"
+        ), "dtcglobalapp"))
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
