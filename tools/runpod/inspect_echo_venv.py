@@ -33,22 +33,16 @@ def inspect():
     python = venv / "bin/python"
     sites = sorted(p for p in (venv / "lib").glob("python*/site-packages")
                    if p.is_dir() and not p.is_symlink())[:3]
-    versions = {}
-    for package in PACKAGES:
-        versions[package] = None
-        for site in sites:
-            try:
-                version = metadata.version(package) if False else None
-                for dist in metadata.distributions(path=[str(site)]):
-                    name = dist.metadata.get("Name", "")
-                    if name.lower().replace("_", "-") == package.lower().replace("_", "-"):
-                        version = dist.version
-                        break
-                if version:
-                    versions[package] = version
-                    break
-            except (OSError, ValueError):
-                versions[package] = "metadata_unavailable"
+    installed = {}
+    for site in sites:
+        try:
+            for dist in metadata.distributions(path=[str(site)]):
+                name = dist.metadata.get("Name", "").lower().replace("_", "-")
+                if name and name not in installed:
+                    installed[name] = dist.version
+        except (OSError, ValueError):
+            continue
+    versions = {name: installed.get(name.lower().replace("_", "-")) for name in PACKAGES}
     paths = {}
     for label, relative in PATHS.items():
         p = ROOT / relative
