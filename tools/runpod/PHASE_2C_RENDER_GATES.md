@@ -143,3 +143,11 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `tools/runpod/inspect_echo_vae_ratio.py` consulta solo ubicaciones fijas de configuración del EchoMimic local, buscando un valor numérico literal `temporal_compression_ratio`. No carga modelos ni ejecuta GPU. Su resultado puede ser inconcluso si el ratio está definido en código o en otro archivo.
 - Contrato GitHub exacto: título `[FAE-RUNPOD] echo-vae-ratio-inspect`; cuerpo `FAE_RUNPOD_JOB_V1` y `action=echo-vae-ratio-inspect` en líneas separadas.
 - La fase 3 de cohosts continuos está definida en `LIVE_COHOST_ARCHITECTURE.md`; los requisitos de podcast de varias horas no son limitaciones del clip de cinco segundos. No afirmar streaming o estabilidad multi-hora como implementados.
+
+## Resultado Issue #23 — ratio del VAE en configuración
+- 48 pruebas RunPod OK, Issue #23 cerrada.
+- `experiments/echomimic_v3/config/config.yaml` declara `temporal_compression_ratio: 4` en línea 11 (SHA256 `21fe4409b664385a1c1cc5c23d92506ffb05ef3c374a18de9df67b715dca07e9`).
+- Localizado `experiments/echomimic_v3/flash/Wan2.1-Fun-V1.1-1.3B-InP/Wan2.1_VAE.pth` (507,609,880 bytes).
+- Matemáticamente 125 fotogramas a 25 FPS preservan los 5 segundos si el VAE activo realmente usa ratio 4. El inventario no demuestra qué config consume el runtime.
+- `inspect_echo_vae_wiring.py` examina AST del script local y el valor numérico de la config sin ejecutar motores ni divulgar valores sensibles. Nuevo contrato Bridge exclusivamente de lectura: título exacto `[FAE-RUNPOD] echo-vae-wiring-inspect`; cuerpo exacto en dos líneas `FAE_RUNPOD_JOB_V1` y `action=echo-vae-wiring-inspect`.
+- Mantener el objetivo mayor de Bob/Lina presentes durante horas separado de esta prueba de video offline. No habilitar inferencia por el hallazgo del ratio.
