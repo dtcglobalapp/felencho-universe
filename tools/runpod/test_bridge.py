@@ -67,6 +67,21 @@ class BridgeTests(unittest.TestCase):
             self.assertTrue(bridge.process_one("unused", valid, "dtcglobalapp"))
             worker.assert_called_once_with("preflight")
 
+    def test_media_inspect_exact_contract(self):
+        valid = self.issue(title=bridge.MEDIA_TITLE, body=bridge.MEDIA_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "media-inspect")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.MEDIA_TITLE, body=bridge.MEDIA_BODY + "\\ncommand=install"
+        ), "dtcglobalapp"))
+        def fake_api(path, token, method="GET", body=None):
+            return [] if path.endswith("/comments?per_page=100") else {}
+        with patch.object(bridge, "api", side_effect=fake_api), patch.object(
+            bridge, "read_only_job", return_value='{"status":"media_tools_inspection_only"}'
+        ) as worker:
+            self.assertTrue(bridge.process_one("unused", valid, "dtcglobalapp"))
+            worker.assert_called_once_with("media-inspect")
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
