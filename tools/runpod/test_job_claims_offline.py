@@ -52,6 +52,38 @@ class JobClaimsTests(unittest.TestCase):
         with self.assertRaises(ClaimRejected):
             finish(self.database, 101, F1, "failed")
 
+    def test_registry_created_private(self):
+        claim(self.database, 101, F1)
+        self.assertEqual(self.database.stat().st_mode & 0o777, 0o600)
+
+    def test_registry_symlink_rejected(self):
+        target = Path(self.tmp.name) / "target.db"
+        target.write_bytes(b"never modify")
+        self.database.symlink_to(target)
+        with self.assertRaises(ClaimRejected):
+            claim(self.database, 101, F1)
+        self.assertEqual(target.read_bytes(), b"never modify")
+
+    def test_registry_world_readable_rejected(self):
+        self.database.write_bytes(b"not a valid database")
+        self.database.chmod(0o644)
+        with self.assertRaises(ClaimRejected):
+            claim(self.database, 101, F1)
+
+    def test_registry_hardlink_rejected(self):
+        original = Path(self.tmp.name) / "source.db"
+        original.write_bytes(b"protected")
+        self.database.hardlink_to(original)
+        with self.assertRaises(ClaimRejected):
+            claim(self.database, 101, F1)
+        self.assertEqual(original.read_bytes(), b"protected")
+
+    def test_registry_parent_must_be_private(self):
+        parent = self.database.parent
+        parent.chmod(0o755)
+        with self.assertRaises(ClaimRejected):
+            claim(self.database, 101, F1)
+
     def test_bad_inputs_rejected(self):
         for issue in (0, -1, True, 10**11):
             with self.subTest(issue=issue), self.assertRaises(ValueError):
