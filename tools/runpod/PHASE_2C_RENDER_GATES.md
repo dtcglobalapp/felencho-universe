@@ -56,3 +56,9 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - **Importante**: el registro no inicia procesos, no está conectado al Bridge, no consulta GPU y no realiza renders. Las pruebas crean bases de datos efímeras exclusivamente en directorios temporales; el simulador original sigue sin escribir archivos.
 - Un fallo o reinicio durante `claimed` lo deja bloqueado: **no** existe recuperación automática. Se requiere conciliación manual del proceso y del artefacto antes de marcar `interrupted`, y jamás se reutiliza el mismo Issue.
 - Pendiente una revisión separada de seguridad sobre ownership y permisos del directorio SQLite, protección ante symlinks, lock de procesos, cancelación, topes de recursos y salida privada. Estas garantías no se deben anunciar como implementadas por el solo hecho de existir el índice único.
+
+## 2C — Ensayo de supervisor de procesos (solo pruebas offline)
+- `tools/runpod/process_timeout_rehearsal.py` inicia **únicamente** dos fixtures Python integrados: uno termina al instante y otro espera 30 segundos. No admite comandos externos, entradas libres, shells, ni archivos del motor.
+- El proceso de prueba se inicia en una sesión nueva; ante timeout se envía SIGTERM al grupo y, si no sale, SIGKILL. Las pruebas en `test_process_timeout_rehearsal.py` verifican salida normal, timeout y rechazo de entradas inválidas.
+- **No** está conectado a `bridge.py`. Este ensayo no ejecuta GPU, no importa modelos y no constituye autorización de renderizado.
+- Por verificar en ejecución: límites y comportamiento en el sistema real. Faltan comprobar grupos de procesos con nietos, bloqueos reales, finalización segura, límites de VRAM, validación MP4 y rutas privadas. No ampliar el Bridge con `render` todavía.
