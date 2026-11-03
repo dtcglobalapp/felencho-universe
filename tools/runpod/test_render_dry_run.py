@@ -1,6 +1,5 @@
 """Offline render contract tests; no GPU, disk writes, network, or model imports."""
 import unittest
-from dataclasses import replace
 
 from render_dry_run import (
     ALLOWED_AUTHOR, ALLOWED_ISSUE_BODY, ALLOWED_ISSUE_TITLE,
@@ -33,10 +32,11 @@ class RenderDryRunTests(unittest.TestCase):
     def test_denies_every_mutable_command_surface(self):
         cases = [
             {"title": "[FAE-RUNPOD] exec"},
-            {"body": ALLOWED_ISSUE_BODY + "\\npath=/tmp"},
-            {"body": ALLOWED_ISSUE_BODY + "\\nseconds=30"},
+            {"body": ALLOWED_ISSUE_BODY + "\npath=/tmp"},
+            {"body": ALLOWED_ISSUE_BODY + "\nseconds=30"},
             {"state": "closed"},
             {"user": {"login": "other"}},
+            {"user": {"login": ALLOWED_AUTHOR, "extra": "data"}},
             {"number": -1},
             {"number": 0},
             {"number": True},
