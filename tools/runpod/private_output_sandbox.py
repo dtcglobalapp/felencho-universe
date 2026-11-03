@@ -27,7 +27,8 @@ def _open_trusted_dir(path: Path) -> int:
     except OSError as exc:
         raise PrivateOutputRejected("workspace_unavailable") from exc
     info = os.fstat(fd)
-    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()\n            or stat.S_IMODE(info.st_mode) != 0o700):
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) != 0o700):
         os.close(fd)
         raise PrivateOutputRejected("workspace_owner_or_permissions_invalid")
     return fd
