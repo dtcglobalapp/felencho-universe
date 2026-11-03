@@ -158,6 +158,14 @@ class BridgeTests(unittest.TestCase):
             title=bridge.ECHO_VENV_TITLE, body=bridge.ECHO_VENV_BODY + "\\ninstall=true"
         ), "dtcglobalapp"))
 
+    def test_echo_frames_inspect_exact_contract(self):
+        valid = self.issue(title=bridge.ECHO_FRAMES_TITLE, body=bridge.ECHO_FRAMES_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "echo-frames-inspect")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.ECHO_FRAMES_TITLE, body=bridge.ECHO_FRAMES_BODY + "\\nrender=true"
+        ), "dtcglobalapp"))
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
