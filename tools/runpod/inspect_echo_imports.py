@@ -26,12 +26,12 @@ for name in mods:
         importlib.import_module(name)
         checks[name] = "ok"
     except Exception as exc:
-        checks[name] = "error:" + type(exc).__name__
+        checks[name] = "error:" + type(exc).__name__\n    print("FAE_IMPORT_PROGRESS_V1=finished:" + name + ":" + checks[name], flush=True)
 print("FAE_IMPORT_RESULTS_V1=" + json.dumps(checks, sort_keys=True))
 """
 
 
-def run() -> dict:
+def _progress(stdout: str | bytes | None) -> dict:\n    if isinstance(stdout, bytes):\n        stdout = stdout.decode("utf-8", errors="replace")\n    lines = (stdout or "").splitlines()\n    events = [line.partition("FAE_IMPORT_PROGRESS_V1=")[2] for line in lines\n              if line.startswith("FAE_IMPORT_PROGRESS_V1=")]\n    events = [item for item in events if len(item) <= 90 and\n              (item.startswith("started:") or item.startswith("finished:")) and\n              any((":" + name) in item for name in MODULES)]\n    return {"import_progress": events[:15]}\n\ndef run() -> dict:
     report = {
         "status": "import_smoke_blocked",
         "gpu_inference_executed": False,
@@ -71,7 +71,7 @@ def run() -> dict:
     records = [line[len(marker):] for line in process.stdout.splitlines()
                if line.startswith(marker)]
     if process.returncode != 0 or len(records) != 1 or len(records[0]) > 3000:
-        return {**report, "error": "child_import_failed_or_invalid_response"}
+        return {**report, "error": "child_import_failed_or_invalid_response",\n                **_progress(process.stdout)}
     try:
         checks = json.loads(records[0])
     except (ValueError, TypeError):
@@ -85,7 +85,7 @@ def run() -> dict:
         **report,
         "status": "import_smoke_pass" if all(value == "ok" for value in checks.values())
                   else "import_smoke_partial",
-        "module_results": checks,
+        "module_results": checks,\n        **_progress(process.stdout),
         "note": "No model/weights imported; GPU runtime compatibility and inference unverified.",
     }
 
