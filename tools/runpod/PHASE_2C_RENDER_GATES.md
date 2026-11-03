@@ -93,3 +93,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - No asumir ausencia definitiva: pueden existir rutas alternativas. Ninguna instalación ni inferencia se realizó.
 - Nueva acción de exploración `[FAE-RUNPOD] echo-layout-inspect` con cuerpo exacto de dos líneas `FAE_RUNPOD_JOB_V1` / `action=echo-layout-inspect`. Script `inspect_echo_layout.py`, exploración acotada a directorios concretos, rutas relativas y nombres sin contenidos. No descargar ni modificar archivos.
 - Aunque se encuentren alternativas, no lanzar GPU hasta verificar compatibilidad, rutas canónicas privadas, versión de dependencias y restricciones de seguridad.
+
+## Resultado #19: los archivos estaban en un layout alternativo
+- Localizado `experiments/echomimic_v3/config/config.yaml`.
+- Localizados `experiments/echomimic_v3/flash/Wan2.1-Fun-V1.1-1.3B-InP/`, `flash/chinese-wav2vec2-base/` y `flash/transformer/config.json`; existencia de archivos no garantiza que los pesos/formatos sean compatibles.
+- Hallado `experiments/echomimic_v3/venv/`, diferente del Python general. La ausencia previa de dependencias no implica que falten en ese entorno.
+- Nueva acción de solo lectura `[FAE-RUNPOD] echo-venv-inspect` con cuerpo exacto `FAE_RUNPOD_JOB_V1` y `action=echo-venv-inspect` en dos líneas. `inspect_echo_venv.py` lee solo metadatos de distribuciones dentro del venv y presencia de rutas conocidas; **no ejecuta el intérprete** ni instala nada.
+- El resultado se interpretará antes de elegir el modo de instalación o inferencia. Render GPU continúa deshabilitado.
