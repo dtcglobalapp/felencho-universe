@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
 
-Only nine hardcoded read-only actions are supported; no inference. No arbitrary commands,
+Only ten hardcoded read-only actions are supported; no inference. No arbitrary commands,
 shell, model execution, file download, or Pod lifecycle operations.
 """
 from __future__ import annotations
@@ -39,6 +39,8 @@ ECHO_CONFIG_TITLE = "[FAE-RUNPOD] echo-config-inspect"
 ECHO_CONFIG_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-config-inspect"
 ECHO_LAYOUT_TITLE = "[FAE-RUNPOD] echo-layout-inspect"
 ECHO_LAYOUT_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-layout-inspect"
+ECHO_VENV_TITLE = "[FAE-RUNPOD] echo-venv-inspect"
+ECHO_VENV_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-venv-inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
 SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
@@ -51,6 +53,7 @@ ECHO_SOURCE_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_source.py"
 ECHO_CLI_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_cli.py")
 ECHO_CONFIG_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_config.py")
 ECHO_LAYOUT_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_layout.py")
+ECHO_VENV_SCRIPT = Path(__file__).resolve().with_name("inspect_echo_venv.py")
 
 class GithubError(RuntimeError):
     pass
@@ -101,7 +104,7 @@ def setup() -> None:
     print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
 
 def read_only_job(action: str) -> str:
-    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT, "echo-source-inspect": ECHO_SOURCE_SCRIPT, "echo-cli-inspect": ECHO_CLI_SCRIPT, "echo-config-inspect": ECHO_CONFIG_SCRIPT, "echo-layout-inspect": ECHO_LAYOUT_SCRIPT}
+    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT, "inference-env-inspect": ENV_SCRIPT, "echo-source-inspect": ECHO_SOURCE_SCRIPT, "echo-cli-inspect": ECHO_CLI_SCRIPT, "echo-config-inspect": ECHO_CONFIG_SCRIPT, "echo-layout-inspect": ECHO_LAYOUT_SCRIPT, "echo-venv-inspect": ECHO_VENV_SCRIPT}
     if action not in scripts:
         raise ValueError("Unknown action")
     script = scripts[action]
@@ -139,6 +142,8 @@ def requested_action(issue: dict) -> str | None:
         return "echo-config-inspect"
     if title == ECHO_LAYOUT_TITLE and body == ECHO_LAYOUT_BODY:
         return "echo-layout-inspect"
+    if title == ECHO_VENV_TITLE and body == ECHO_VENV_BODY:
+        return "echo-venv-inspect"
     return None
 
 def diagnostic() -> str:
@@ -193,7 +198,7 @@ def main():
     if not 15 <= args.interval <= 600:
         raise SystemExit("Polling interval must be 15-600 seconds.")
     token = load_token()
-    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT/ECHO-SOURCE-INSPECT/ECHO-CLI-INSPECT/ECHO-CONFIG-INSPECT/ECHO-LAYOUT-INSPECT; author", args.allowed_author, flush=True)
+    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT/INFERENCE-ENV-INSPECT/ECHO-SOURCE-INSPECT/ECHO-CLI-INSPECT/ECHO-CONFIG-INSPECT/ECHO-LAYOUT-INSPECT/ECHO-VENV-INSPECT; author", args.allowed_author, flush=True)
     while True:
         try:
             poll(token, args.allowed_author)
