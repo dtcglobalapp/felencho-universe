@@ -64,3 +64,13 @@ El nuevo script `tools/runpod/inspect_media_tools.py` comprueba rutas comunes y 
 - Cuerpo exacto: dos líneas `FAE_RUNPOD_JOB_V1` y `action=media-inspect`.
 
 Actualizar mediante fast-forward y ejecutar pruebas antes de procesar la orden. Aunque encuentre FFmpeg, **no** activar renderizado todavía: la preflight debe volver a pasar y falta revisar el diseño seguro del runner.
+
+## Fase 2C-1 — inventario de entorno de inferencia, sin GPU
+
+La orden #14 devolvió `preflight_pass` en EchoMimic y MuseTalk. El siguiente paso no ejecuta ningún modelo. `tools/runpod/inspect_inference_env.py` utiliza metadatos de paquetes del intérprete del Bridge, presencia de rutas conocidas y disponibilidad de `nvidia-smi`, `ffmpeg` y `ffprobe`. **No ejecuta** dichos programas, no importa PyTorch y no accede a contenidos de archivos.
+
+Contrato Issue exacto:
+- Título: `[FAE-RUNPOD] inference-env-inspect`
+- Cuerpo: `FAE_RUNPOD_JOB_V1` seguido de `action=inference-env-inspect` en la línea siguiente.
+
+Antes de procesar, ejecutar pruebas de `tools/runpod/test_bridge.py` desde el checkout independiente del Bridge. Respetar archivos locales sin seguimiento. No usar `reset --hard` ni `git clean`.
