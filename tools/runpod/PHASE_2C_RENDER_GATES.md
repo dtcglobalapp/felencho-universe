@@ -137,3 +137,9 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Con un WAV de 5.0 s a 25 FPS, hacen falta 125 fotogramas después del ajuste VAE. Que 125 sea válido depende de `vae.config.temporal_compression_ratio`; si este fuera 4, preservaría los 125, pero ese valor no está aún verificado.
 - `frame_budget_offline.py` y `test_frame_budget_offline.py` calculan y prueban esta regla de forma puramente matemática; no importan ni ejecutan el motor. Se rechaza cualquier relación que recorte el audio. **El ratio usado en pruebas es ilustrativo, no una afirmación sobre los pesos locales.**
 - Pendiente: identificar el ratio del VAE efectivamente utilizado y revisar si la salida puede durar exactamente 5 s. Mantener render deshabilitado.
+
+## Tras 47 pruebas: inspección VAE y streaming separado
+- RunPod reportó 47 pruebas OK en el último checkout. `live_cohost_state_offline.py` y sus cinco pruebas validan lógica de turnos y presencia en memoria; **NO** streaming real ni silenciamiento de audio externo.
+- `tools/runpod/inspect_echo_vae_ratio.py` consulta solo ubicaciones fijas de configuración del EchoMimic local, buscando un valor numérico literal `temporal_compression_ratio`. No carga modelos ni ejecuta GPU. Su resultado puede ser inconcluso si el ratio está definido en código o en otro archivo.
+- Contrato GitHub exacto: título `[FAE-RUNPOD] echo-vae-ratio-inspect`; cuerpo `FAE_RUNPOD_JOB_V1` y `action=echo-vae-ratio-inspect` en líneas separadas.
+- La fase 3 de cohosts continuos está definida en `LIVE_COHOST_ARCHITECTURE.md`; los requisitos de podcast de varias horas no son limitaciones del clip de cinco segundos. No afirmar streaming o estabilidad multi-hora como implementados.
