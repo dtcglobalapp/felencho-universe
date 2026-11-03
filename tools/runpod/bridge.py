@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
 
-Only two hardcoded read-only actions are supported (diagnose, inspect). No arbitrary commands,
+Only three hardcoded read-only actions are supported (diagnose, inspect, preflight). No arbitrary commands,
 shell, model execution, file download, or Pod lifecycle operations.
 """
 from __future__ import annotations
@@ -25,11 +25,14 @@ JOB_TITLE = "[FAE-RUNPOD] diagnose"
 JOB_BODY = "FAE_RUNPOD_JOB_V1\naction=diagnose"
 INSPECT_TITLE = "[FAE-RUNPOD] inspect"
 INSPECT_BODY = "FAE_RUNPOD_JOB_V1\naction=inspect"
+PREFLIGHT_TITLE = "[FAE-RUNPOD] preflight"
+PREFLIGHT_BODY = "FAE_RUNPOD_JOB_V1\naction=preflight"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
 SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
 DIAG_SCRIPT = Path(__file__).resolve().with_name("diagnose.py")
 INSPECT_SCRIPT = Path(__file__).resolve().with_name("inspect_presets.py")
+PREFLIGHT_SCRIPT = Path(__file__).resolve().with_name("preflight_5s.py")
 
 class GithubError(RuntimeError):
     pass
@@ -80,17 +83,20 @@ def setup() -> None:
     print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
 
 def read_only_job(action: str) -> str:
-    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT}
+    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT}
     if action not in scripts:
         raise ValueError("Unknown action")
     script = scripts[action]
+    args = [sys.executable, str(script)]
+    if action == "preflight":
+        args.extend(["--engine", "both"])
     if not script.is_file():
         return "Read-only script absent: " + str(script)
     proc = subprocess.run(
-        [sys.executable, str(script)],
+        args,
         cwd=str(ROOT), capture_output=True, text=True, timeout=25,
     )
-    text = proc.stdout if proc.returncode == 0 else "diagnose failed:\n" + proc.stderr
+    text = proc.stdout if proc.returncode == 0 else "Read-only job returned nonzero status:\n" + (proc.stdout or proc.stderr)
     # GitHub comment limited in size; always bound output
     return text[-12000:]
 
@@ -101,6 +107,8 @@ def requested_action(issue: dict) -> str | None:
         return "diagnose"
     if title == INSPECT_TITLE and body == INSPECT_BODY:
         return "inspect"
+    if title == PREFLIGHT_TITLE and body == PREFLIGHT_BODY:
+        return "preflight"
     return None
 
 def diagnostic() -> str:
@@ -143,7 +151,7 @@ def poll(token: str, allowed_author: str) -> int:
     return count
 
 def main():
-    parser = argparse.ArgumentParser(description="Felencho RunPod Bridge (diagnose only)")
+    parser = argparse.ArgumentParser(description="Felencho RunPod Bridge (read-only diagnostics and preflight)")
     parser.add_argument("--setup", action="store_true", help="Safely save scoped GitHub token")
     parser.add_argument("--once", action="store_true", help="Check pending jobs once and exit")
     parser.add_argument("--interval", type=int, default=30, help="Polling interval, seconds")
@@ -155,7 +163,7 @@ def main():
     if not 15 <= args.interval <= 600:
         raise SystemExit("Polling interval must be 15-600 seconds.")
     token = load_token()
-    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT; author", args.allowed_author, flush=True)
+    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT; author", args.allowed_author, flush=True)
     while True:
         try:
             poll(token, args.allowed_author)
