@@ -43,3 +43,14 @@ Al actualizar el checkout del puente desde la rama experimental, detener el proc
 La respuesta describe únicamente existencia, tamaños, huellas de scripts y nombres de argumentos disponibles. No incluye contenidos de archivos ni ejecuta modelos. Se utilizará para construir presets seguros de video de 5 segundos tras verificar el inventario. GitHub Issues no puede utilizarse para enviar MP4.
 
 **Estado operativo:** se debe confirmar que RunPod está ejecutando la versión nueva antes de enviar una orden `inspect`. Si se deja el proceso antiguo, no reconocerá ese tipo de Issue.
+
+## Fase 2b — preflight de Lina, sin inferencia
+
+- Nuevo script `tools/runpod/preflight_5s.py`; comprueba archivos requeridos, audio WAV de cinco segundos (margen de 0.25 s) y FFmpeg para ambos motores.
+- El bridge reconoce **solo** el Issue de título exacto `[FAE-RUNPOD] preflight` y cuerpo exacto formado por las líneas `FAE_RUNPOD_JOB_V1` y `action=preflight`. Ignora argumentos extras, presets dinámicos y comandos.
+- El script es de solo lectura, no modifica motores ni dispara GPU. Un fallo de preflight también devuelve informe y cierra el Issue; `preflight_blocked` significa que **no** se debe habilitar la ejecución.
+- Actualizar solamente el checkout independiente `/workspace/felencho-runpod-bridge` tras comprobar su estado limpio. No ejecutar `git reset --hard`, `git clean` ni tocar `/workspace/felencho-avatar-engine`.
+- Antes de ejecutar el Issue, probar con `python3 -m unittest discover -s tools/runpod -p 'test_*.py'`. Ejecutar `python3 tools/runpod/bridge.py --once` con la nueva versión. No reiniciar el daemon anterior hasta verificar que se detuvo sin afectar trabajos; si el daemon antiguo sigue vivo puede ignorar `preflight`.
+- Aún **no** se admite ejecución remota de animación ni descarga de MP4 por GitHub Issues. Para ello se necesitan límites de tiempo y concurrencia, cancelación, idempotencia y acceso privado a artefactos.
+
+**Criterio de promoción:** conservar el PR como borrador; solo diseñar un runner de presets de cinco segundos tras pruebas correctas y revisión de salidas. No lanzar GPU automáticamente al pasar el preflight.
