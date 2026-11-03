@@ -72,3 +72,9 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `tools/runpod/inspect_echo_source.py` analiza con AST el archivo local fijo `experiments/echomimic_v3/infer_flash.py`, sin importar el módulo, cargar modelos ni ejecutar CLI. Reporta huella SHA-256, nombres de imports, flags de `add_argument` y líneas de paquetes simples de archivos de requisitos fijos.
 - El Bridge admite solo la orden exacta `[FAE-RUNPOD] echo-source-inspect` con cuerpo `FAE_RUNPOD_JOB_V1\naction=echo-source-inspect` (dos líneas).
 - El análisis no proporciona los defaults o valores de runtime ni acredita compatibilidad CUDA. Se debe contrastar con el entorno y revisar la fuente antes de escribir el comando de inferencia. No hay acción de render.
+
+## EchoMimic: inspección #16 aprobada, siguientes argumentos
+- El código local `experiments/echomimic_v3/infer_flash.py` fue inspeccionado estáticamente, SHA-256 `59cb489d5d661d4c518c0e185cb74c83c3e87cd06f4da6fdcce14d900c2d9bcd`.
+- Imports detectados: torch, diffusers, transformers, librosa, safetensors, decord, omegaconf, moviepy, entre otros. El requirements específico declara `moviepy==2.2.1`, `tensorflow==2.15.0`, `diffusers>=0.30.1`, `transformers>=4.46.2`, `accelerate>=0.25.0`. No instalar la lista indiscriminadamente en el Python global que contiene PyTorch nightly CUDA 12.8.
+- `tools/runpod/inspect_echo_cli.py` examina solo AST del archivo de código permitido para obtener valores por defecto, obligatoriedad y opciones literales de argparse. No importa el motor ni ejecuta inferencia. Orden GitHub exacta: título `[FAE-RUNPOD] echo-cli-inspect`, cuerpo de dos líneas `FAE_RUNPOD_JOB_V1` / `action=echo-cli-inspect`.
+- Pendiente: verificar defaults con la ejecución real y dependencias en entorno aislado. El paso de inspección no activa renderizado.
