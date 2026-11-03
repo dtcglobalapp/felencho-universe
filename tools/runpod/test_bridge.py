@@ -174,6 +174,14 @@ class BridgeTests(unittest.TestCase):
             title=bridge.ECHO_FORMULA_TITLE, body=bridge.ECHO_FORMULA_BODY + "\\nexecute=true"
         ), "dtcglobalapp"))
 
+    def test_echo_vae_ratio_inspect_exact_contract(self):
+        valid = self.issue(title=bridge.ECHO_VAE_TITLE, body=bridge.ECHO_VAE_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "echo-vae-ratio-inspect")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.ECHO_VAE_TITLE, body=bridge.ECHO_VAE_BODY + "\\nrender=true"
+        ), "dtcglobalapp"))
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
