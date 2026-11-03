@@ -49,6 +49,24 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(any(method == "POST" and '"inspection_only"' in body["body"]
                             for _, method, body in calls if body))
 
+    def test_preflight_contract_and_dispatch(self):
+        valid = self.issue(title=bridge.PREFLIGHT_TITLE, body=bridge.PREFLIGHT_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "preflight")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.PREFLIGHT_TITLE, body=bridge.PREFLIGHT_BODY + "\\nengine=anything"
+        ), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.PREFLIGHT_TITLE, body="FAE_RUNPOD_JOB_V1\\naction=render"
+        ), "dtcglobalapp"))
+        def fake_api(path, token, method="GET", body=None):
+            return [] if path.endswith("/comments?per_page=100") else {}
+        with patch.object(bridge, "api", side_effect=fake_api), patch.object(
+            bridge, "read_only_job", return_value='{"status":"preflight_pass"}'
+        ) as worker:
+            self.assertTrue(bridge.process_one("unused", valid, "dtcglobalapp"))
+            worker.assert_called_once_with("preflight")
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
