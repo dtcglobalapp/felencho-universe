@@ -150,6 +150,14 @@ class BridgeTests(unittest.TestCase):
             self.assertTrue(bridge.process_one("unused", valid, "dtcglobalapp"))
             worker.assert_called_once_with("echo-layout-inspect")
 
+    def test_echo_venv_inspect_exact_contract(self):
+        valid = self.issue(title=bridge.ECHO_VENV_TITLE, body=bridge.ECHO_VENV_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "echo-venv-inspect")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.ECHO_VENV_TITLE, body=bridge.ECHO_VENV_BODY + "\\ninstall=true"
+        ), "dtcglobalapp"))
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
