@@ -82,6 +82,21 @@ class BridgeTests(unittest.TestCase):
             self.assertTrue(bridge.process_one("unused", valid, "dtcglobalapp"))
             worker.assert_called_once_with("media-inspect")
 
+    def test_inference_env_inspect_is_read_only_and_exact(self):
+        valid = self.issue(title=bridge.ENV_TITLE, body=bridge.ENV_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "inference-env-inspect")
+        self.assertFalse(bridge.approved(self.issue(
+            title=bridge.ENV_TITLE, body=bridge.ENV_BODY + "\\nrun=1"
+        ), "dtcglobalapp"))
+        def fake_api(path, token, method="GET", body=None):
+            return [] if path.endswith("/comments?per_page=100") else {}
+        with patch.object(bridge, "api", side_effect=fake_api), patch.object(
+            bridge, "read_only_job", return_value='{"status":"inference_env_inspection_only"}'
+        ) as worker:
+            self.assertTrue(bridge.process_one("unused", valid, "dtcglobalapp"))
+            worker.assert_called_once_with("inference-env-inspect")
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
