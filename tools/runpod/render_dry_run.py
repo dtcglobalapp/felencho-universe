@@ -44,7 +44,7 @@ def validate_request(issue: dict, claimed_ids: frozenset[int] = frozenset()) -> 
             or issue["state"] != "open"):
         raise ValueError("request_not_allowlisted")
     user = issue["user"]
-    if type(user) is not dict or user.get("login") != ALLOWED_AUTHOR:
+    if type(user) is not dict or set(user) != {"login"} or user["login"] != ALLOWED_AUTHOR:
         raise ValueError("unauthorized_author")
     number = issue["number"]
     if type(number) is not int or not REQUEST_PATTERN.fullmatch(str(number)):
