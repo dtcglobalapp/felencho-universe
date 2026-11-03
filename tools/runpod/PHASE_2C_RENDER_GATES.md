@@ -215,3 +215,9 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `test_private_output_sandbox.py` verifica modos privados, nombre fijo, duplicados, enlaces simbólicos y bloqueo de directorios públicos. **Las nuevas pruebas no se han ejecutado todavía en RunPod.**
 - El ayudante todavía no está conectado al Bridge, no crea outputs reales de producción, no produce MP4 y no autoriza GPU. El control de todos los ancestros del workspace, la asignación de identidades/permiso por proceso, el TOCTOU posterior a la asignación y el manejo de crash siguen bajo revisión; usar `workspace` creado fuera del repositorio motor y previamente verificado.
 - Un resultado aprobado de este ayudante es solo una protección parcial del directorio de resultados; no reemplaza supervisión real, validación robusta de artefactos ni autorización de primer render.
+
+## Corrección después de fallo de sintaxis en private output sandbox
+- RunPod actualizó correctamente a `a4474fc`, pero el conjunto nuevo devolvió `Ran 70 tests` y `FAILED (errors=1)` porque `private_output_sandbox.py` contenía un `\\n` textual en una condición Python.
+- Se sustituyó ese único texto mal escapado por un salto de línea real. La corrección está en el commit `b8492de5f4815dda4df0f784ef68f6014a30bb17`.
+- **Aún pendiente:** volver a ejecutar el conjunto completo de pruebas en RunPod. No se ha probado ningún render ni creado un directorio de salida de producción.
+- Tras confirmar el conjunto, inspeccionar posibles fallos de seguridad pendientes del ayudante, sin conectarlo todavía al Bridge.
