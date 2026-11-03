@@ -62,3 +62,8 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - El proceso de prueba se inicia en una sesión nueva; ante timeout se envía SIGTERM al grupo y, si no sale, SIGKILL. Las pruebas en `test_process_timeout_rehearsal.py` verifican salida normal, timeout y rechazo de entradas inválidas.
 - **No** está conectado a `bridge.py`. Este ensayo no ejecuta GPU, no importa modelos y no constituye autorización de renderizado.
 - Por verificar en ejecución: límites y comportamiento en el sistema real. Faltan comprobar grupos de procesos con nietos, bloqueos reales, finalización segura, límites de VRAM, validación MP4 y rutas privadas. No ampliar el Bridge con `render` todavía.
+
+## 2C — Validador de video desconectado (offline)
+- `tools/runpod/validate_artifact_offline.py` ofrece una primera verificación de MP4 con `ffprobe`: nombre de salida predefinido, sin enlaces simbólicos directos, máximo 60 MiB, duración 5.0 ± 0.25 s, un stream de video, dimensiones razonables, FPS y SHA-256.
+- `tools/runpod/test_validate_artifact_offline.py` usa metadatos simulados. Las pruebas no renderizan ni crean MP4 real, y todavía están pendientes de ejecución en RunPod.
+- **Importante**: no es validador de producción contra atacantes concurrentes. Falta endurecimiento contra condiciones TOCTOU/symlinks en directorios ascendentes, validación de códecs/fotogramas y permisos de salida. No conectar al Bridge ni habilitar ejecución por GPU.
