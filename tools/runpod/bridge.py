@@ -25,8 +25,8 @@ JOB_TITLE = "[FAE-RUNPOD] diagnose"
 JOB_BODY = "FAE_RUNPOD_JOB_V1\naction=diagnose"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
-SECRETS_FILE = ROOT / ".runpod-bridge-token"  # never commit
-DIAG_SCRIPT = ROOT / "tools/runpod/diagnose.py"
+SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
+DIAG_SCRIPT = Path(__file__).resolve().with_name("diagnose.py")
 
 class GithubError(RuntimeError):
     pass
@@ -68,8 +68,9 @@ def setup() -> None:
     me = api("/user", token)
     if not me.get("login"):
         raise SystemExit("GitHub credential validation failed.")
-    SECRETS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(SECRETS_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    SECRETS_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    SECRETS_FILE.parent.chmod(0o700)
+    fd = os.open(str(SECRETS_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "w") as fh:
         fh.write(token + "\n")
     SECRETS_FILE.chmod(0o600)
