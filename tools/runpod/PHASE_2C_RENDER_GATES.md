@@ -44,3 +44,8 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `tools/runpod/render_dry_run.py`: solo genera un plan fijo en memoria; no tiene llamadas a subprocess ni al Bridge, no crea directorios, no importa PyTorch. La salida de ejemplo no autoriza inferencia.
 - `tools/runpod/test_render_dry_run.py`: pruebas de rechazo de comandos adicionales, suplantación de usuario, IDs incorrectos y solicitudes repetidas.
 - Los valores de tiempo, salida y huella son **una propuesta**: faltan locks persistentes y pruebas de cancelación. No introducir la acción `render` en el Bridge todavía.
+
+## Revisión adicional del contrato offline
+- Tests de `test_render_dry_run.py` reforzados: incluyen saltos de línea reales con parámetros no permitidos y campos inesperados del objeto `user`; el validador ahora rechaza estrictamente ambos.
+- **Pendiente de ejecutar en RunPod**: `python3 -m unittest discover -s tools/runpod -p 'test_*.py'` y `python3 tools/runpod/render_dry_run.py --issue-number 100`. No ejecutar `bridge.py --once` para este simulacro: no hay ni debe crearse una orden de render.
+- El simulacro solo valida un contrato en memoria. Ni el rechazo de duplicados mediante un conjunto suministrado ni el tiempo máximo del plan implementan protección persistente o terminación real de procesos. Esos controles continúan pendientes.
