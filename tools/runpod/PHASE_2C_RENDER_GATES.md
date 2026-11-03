@@ -165,3 +165,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `tools/runpod/test_lina_pinned_preset_offline.py` ejercita condiciones de bloqueo y un fixture aislado en directorios temporales. Las pruebas no ejecutan inferencia ni archivos originales del motor.
 - La nueva comprobación **no está conectada al Bridge**, no crea outputs y nunca certifica `effective_runtime_config_verified`. El valor de `--config_path` de una futura ejecución deberá fijarse y validarse al implementar un runner separado, y no se autoriza GPU por una inspección de rutas.
 - Los resultados deben revisarse antes de continuar con smoke tests de importación en el venv existente y pruebas de recuperación/cancelación y protección del MP4.
+
+## Tras 57 pruebas — inspección real de preset fijo, solo lectura
+- El conjunto completo pasó 57 pruebas unitarias en RunPod (sin GPU).
+- `tools/runpod/lina_pinned_preset_offline.py` puede verificar los archivos del preset contra el árbol local existente; ahora el Bridge admite **solo** la orden `[FAE-RUNPOD] lina-preset-inspect` con cuerpo de dos líneas `FAE_RUNPOD_JOB_V1` / `action=lina-preset-inspect`.
+- La inspección comprueba hashes de script/config, tamaño de imagen/WAV/modelos y ausencia de enlaces simbólicos en rutas de referencia. No abre archivos multimedia para generación ni carga modelos.
+- La identidad de un archivo y la existencia de rutas no prueban que EchoMimic importe correctamente, ni que el VAE lea la configuración en inferencia; no aprobar GPU por este resultado.
+- La orden sólo puede procesarse después de actualizar el Bridge y pasar su conjunto de pruebas; PR #8 sigue sin fusionarse.
