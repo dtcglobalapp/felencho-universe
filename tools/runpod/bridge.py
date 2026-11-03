@@ -90,7 +90,7 @@ def diagnostic() -> str:
 def approved(issue: dict, allowed_author: str) -> bool:
     return (
         issue.get("state") == "open"
-        and not issue.get("pull_request")
+        and "pull_request" not in issue
         and issue.get("title") == JOB_TITLE
         and (issue.get("body") or "").strip() == JOB_BODY
         and issue.get("user", {}).get("login", "").lower() == allowed_author.lower()
