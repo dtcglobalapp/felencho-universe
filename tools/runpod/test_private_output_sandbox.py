@@ -49,6 +49,12 @@ class PrivateOutputSandboxTests(unittest.TestCase):
             create_private_job_directory(self.workspace, "job-0000000001")
         self.assertFalse((outputs / "job-0000000001").exists())
 
+    def test_rejects_world_readable_workspace(self):
+        self.workspace.chmod(0o755)
+        with self.assertRaisesRegex(PrivateOutputRejected, "workspace_owner_or_permissions_invalid"):
+            create_private_job_directory(self.workspace, "job-0000000001")
+        self.assertFalse((self.workspace / "outputs").exists())
+
     def test_rejects_symlinked_workspace(self):
         other = Path(self.tmp.name) / "other"
         other.mkdir()
