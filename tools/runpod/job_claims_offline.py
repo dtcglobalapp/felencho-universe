@@ -8,6 +8,8 @@ Only call from isolated unit tests until the render runner is reviewed.
 from __future__ import annotations
 
 import sqlite3
+import os
+import stat
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -25,9 +27,42 @@ ON jobs ((1)) WHERE status = 'claimed';
 class ClaimRejected(Exception):
     pass
 
+
+def _validate_private_database(database: Path) -> None:
+    """Create mode-0600 file or reject insecure existing paths in private workspace.
+
+    The directory must be owned and mode 0700. This offline sandbox assumes
+    no untrusted process shares the same UID; it is not an fd-based SQLite VFS.
+    """
+    if not isinstance(database, Path) or database.name in ("", ".", ".."):
+        raise ClaimRejected("invalid_database_path")
+    parent = database.parent
+    if parent.is_symlink() or not parent.is_dir():
+        raise ClaimRejected("unsafe_registry_parent")
+    pinfo = parent.stat()
+    if pinfo.st_uid != os.geteuid() or stat.S_IMODE(pinfo.st_mode) != 0o700:
+        raise ClaimRejected("unsafe_registry_parent_permissions")
+    flags = os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW
+    try:
+        try:
+            fd = os.open(database, flags | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            fd = os.open(database, flags)
+    except OSError as exc:
+        raise ClaimRejected("registry_unavailable_or_symlink") from exc
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_uid != os.geteuid()
+                or stat.S_IMODE(info.st_mode) != 0o600):
+            raise ClaimRejected("unsafe_registry_file")
+    finally:
+        os.close(fd)
+
 @contextmanager
 def connection(database: Path):
     # Caller must choose a private directory. Do not accept a DB path from Issues.
+    _validate_private_database(database)
     db = sqlite3.connect(str(database), timeout=5.0, isolation_level=None)
     try:
         db.execute("PRAGMA busy_timeout=5000")
