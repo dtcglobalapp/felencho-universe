@@ -116,3 +116,9 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 6. Mantener el Bridge restringido a tareas de solo lectura; emitir autorización explícita y singular antes de agregar una acción real de render.
 
 **Estado**: fase 2C de diagnóstico y pruebas offline. No hay MP4 generado ni inferencia ejecutada.
+
+## Fase 2C — análisis de longitud de fotogramas (sin inferencia)
+- Tras Issue #20 quedó confirmado el venv específico de EchoMimic con bibliotecas principales. No instalar paquetes globales.
+- `tools/runpod/inspect_echo_frame_semantics.py` inspecciona mediante AST únicamente `experiments/echomimic_v3/infer_flash.py` y un archivo fijo candidato `experiments/echomimic_v3/src/pipeline_wan_fun_inpaint.py` si existe. Reporta referencias estructurales a `video_length`, `fps`, `num_frames` y `frames` sin ejecutar el código. El análisis puede ser incompleto y no garantiza que el motor admita una longitud específica.
+- Nueva acción de Bridge de solo lectura: título exacto `[FAE-RUNPOD] echo-frames-inspect`; cuerpo exacto de dos líneas `FAE_RUNPOD_JOB_V1` y `action=echo-frames-inspect`.
+- No hay acción render, descarga de modelos o escritura de archivos. El código debe pasar tests antes de procesar la orden.
