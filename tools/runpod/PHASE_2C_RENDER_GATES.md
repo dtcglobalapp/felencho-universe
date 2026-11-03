@@ -86,3 +86,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Modelo por defecto `Wan2.1-Fun-V1.1-1.3B-InP` y config `config/wan2.1/wan_civitai.yaml`. No asumir que todos los pesos auxiliares existen.
 - Nuevo script de inspección `tools/runpod/inspect_echo_config.py`: solo presencia, tamaños, hash de archivos de configuración y nombres de claves de rutas fijas. No muestra valores, no llama GPU, no modifica motor.
 - Nueva orden read-only: título `[FAE-RUNPOD] echo-config-inspect`, cuerpo dos líneas `FAE_RUNPOD_JOB_V1` y `action=echo-config-inspect`.
+
+## Issue #18 — Resultado de inventario de componentes
+- Presente: script `infer_flash.py`, imagen de Lina, WAV de 5.0 s y archivo Flash de pesos de 3,727,671,120 bytes.
+- No presente **en las rutas examinadas**: `config/wan2.1/wan_civitai.yaml`, `experiments/echomimic_v3/flash/config.json` ni el directorio `chinese-wav2vec2-base`.
+- No asumir ausencia definitiva: pueden existir rutas alternativas. Ninguna instalación ni inferencia se realizó.
+- Nueva acción de exploración `[FAE-RUNPOD] echo-layout-inspect` con cuerpo exacto de dos líneas `FAE_RUNPOD_JOB_V1` / `action=echo-layout-inspect`. Script `inspect_echo_layout.py`, exploración acotada a directorios concretos, rutas relativas y nombres sin contenidos. No descargar ni modificar archivos.
+- Aunque se encuentren alternativas, no lanzar GPU hasta verificar compatibilidad, rutas canónicas privadas, versión de dependencias y restricciones de seguridad.
