@@ -29,7 +29,7 @@ def rehearse_lina_job(issue: dict, workspace: Path, *, fixture: str = "quick") -
     Not a production runner. All callers must explicitly supply a trusted
     scratch workspace; no default, no CLI, no Bridge registration.
     """
-    if type(workspace) is not Path:
+    if not isinstance(workspace, Path):
         raise ValueError("workspace_must_be_path")
     if type(fixture) is not str or fixture not in _ALLOWED_CASES:
         raise ValueError("only_fixed_test_fixtures")
