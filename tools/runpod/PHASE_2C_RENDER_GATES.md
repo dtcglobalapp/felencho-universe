@@ -179,3 +179,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Nuevo `tools/runpod/inspect_echo_imports.py`: lanza **exclusivamente** un intérprete Python fijo del venv anidado para importar cinco bibliotecas sin importar el motor ni cargar modelos. Usa `CUDA_VISIBLE_DEVICES=-1`, flags offline y tiempo máximo de 18 s; devuelve únicamente estados de módulos, sin trazas privadas.
 - Acción explícita del Bridge: título `[FAE-RUNPOD] echo-import-smoke`; cuerpo exacto `FAE_RUNPOD_JOB_V1` y `action=echo-import-smoke` en dos líneas. **No activa GPU ni render**, pero a diferencia de inspecciones AST sí ejecuta imports en un proceso hijo; estos pueden tener efectos internos de librería. No equivale a prueba CUDA.
 - La prueba debe ejecutarse en RunPod y revisarse antes de decidir si alguna dependencia necesita atención. No modificar el venv ni instalar nada de momento.
+
+## Issue #26 — import smoke timeout y diagnóstico acotado
+- 59 pruebas unitarias anteriores OK. Issue #26 cerró con `import_smoke_blocked` y `TimeoutExpired` antes de 18 segundos, sin inferencia GPU, importación del motor ni carga de pesos.
+- **No se puede concluir** que falte una dependencia o que PyTorch/CUDA estén dañados. El script anterior imprimía el resultado de las cinco importaciones solo al finalizar; el timeout no mostraba dónde había llegado.
+- `inspect_echo_imports.py` ahora publica marcas acotadas `started/finished` de cada una de las cinco bibliotecas. En caso de timeout conserva solo esos eventos del stdout parcial; no publica trazas, rutas personales ni contenido de archivos. Las pruebas unitarias del progreso están en `test_echo_import_progress.py`.
+- Nueva orden #27 con exactamente el mismo contrato de solo lectura/importación controlada que #26: título `[FAE-RUNPOD] echo-import-smoke` y cuerpo `FAE_RUNPOD_JOB_V1` / `action=echo-import-smoke`. **No duplicar Issue #26 ni alterar el Bridge para permitir parámetros libres.**
+- Mantener timeout de 18 s en el subprocess (25 s exterior del Bridge). No instalar paquetes, no intentar render ni utilizar la GPU para inferencia.
