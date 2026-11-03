@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RunPod -> GitHub Issues bridge, phase 1: read-only diagnostics.
 
-Only three hardcoded read-only actions are supported (diagnose, inspect, preflight). No arbitrary commands,
+Only four hardcoded read-only actions are supported (diagnose, inspect, preflight, media-inspect). No arbitrary commands,
 shell, model execution, file download, or Pod lifecycle operations.
 """
 from __future__ import annotations
@@ -27,12 +27,15 @@ INSPECT_TITLE = "[FAE-RUNPOD] inspect"
 INSPECT_BODY = "FAE_RUNPOD_JOB_V1\naction=inspect"
 PREFLIGHT_TITLE = "[FAE-RUNPOD] preflight"
 PREFLIGHT_BODY = "FAE_RUNPOD_JOB_V1\naction=preflight"
+MEDIA_TITLE = "[FAE-RUNPOD] media-inspect"
+MEDIA_BODY = "FAE_RUNPOD_JOB_V1\naction=media-inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
 SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
 DIAG_SCRIPT = Path(__file__).resolve().with_name("diagnose.py")
 INSPECT_SCRIPT = Path(__file__).resolve().with_name("inspect_presets.py")
 PREFLIGHT_SCRIPT = Path(__file__).resolve().with_name("preflight_5s.py")
+MEDIA_SCRIPT = Path(__file__).resolve().with_name("inspect_media_tools.py")
 
 class GithubError(RuntimeError):
     pass
@@ -83,7 +86,7 @@ def setup() -> None:
     print("Connected to GitHub as", me["login"], "Token stored locally (0600).")
 
 def read_only_job(action: str) -> str:
-    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT}
+    scripts = {"diagnose": DIAG_SCRIPT, "inspect": INSPECT_SCRIPT, "preflight": PREFLIGHT_SCRIPT, "media-inspect": MEDIA_SCRIPT}
     if action not in scripts:
         raise ValueError("Unknown action")
     script = scripts[action]
@@ -109,6 +112,8 @@ def requested_action(issue: dict) -> str | None:
         return "inspect"
     if title == PREFLIGHT_TITLE and body == PREFLIGHT_BODY:
         return "preflight"
+    if title == MEDIA_TITLE and body == MEDIA_BODY:
+        return "media-inspect"
     return None
 
 def diagnostic() -> str:
@@ -163,7 +168,7 @@ def main():
     if not 15 <= args.interval <= 600:
         raise SystemExit("Polling interval must be 15-600 seconds.")
     token = load_token()
-    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT; author", args.allowed_author, flush=True)
+    print("RunPod bridge started: READ-ONLY DIAGNOSE/INSPECT/PREFLIGHT/MEDIA-INSPECT; author", args.allowed_author, flush=True)
     while True:
         try:
             poll(token, args.allowed_author)
