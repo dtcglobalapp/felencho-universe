@@ -27,7 +27,7 @@ class PreflightTests(unittest.TestCase):
                 wav.setnchannels(1)
                 wav.setsampwidth(2)
                 wav.setframerate(8000)
-                wav.writeframes(b"\\x00\\x00" * 40000)
+                wav.writeframes(b"\x00\x00" * 40000)
             with patch.object(p, "ROOT", root), patch.object(p, "AUDIO", audio), patch.object(p.shutil, "which", return_value="/usr/bin/ffmpeg"):
                 result = p.inspect("musetalk")
             self.assertEqual(result["status"], "preflight_pass")
@@ -46,7 +46,7 @@ class PreflightTests(unittest.TestCase):
                 wav.setnchannels(1)
                 wav.setsampwidth(2)
                 wav.setframerate(8000)
-                wav.writeframes(b"\\x00\\x00" * 24000)
+                wav.writeframes(b"\x00\x00" * 24000)
             with patch.object(p, "ROOT", root), patch.object(p, "AUDIO", audio), patch.object(p.shutil, "which", return_value="/usr/bin/ffmpeg"):
                 self.assertEqual(p.inspect("echomimic")["status"], "preflight_blocked")
 
