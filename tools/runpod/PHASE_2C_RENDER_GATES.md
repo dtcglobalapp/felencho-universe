@@ -100,3 +100,19 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Hallado `experiments/echomimic_v3/venv/`, diferente del Python general. La ausencia previa de dependencias no implica que falten en ese entorno.
 - Nueva acción de solo lectura `[FAE-RUNPOD] echo-venv-inspect` con cuerpo exacto `FAE_RUNPOD_JOB_V1` y `action=echo-venv-inspect` en dos líneas. `inspect_echo_venv.py` lee solo metadatos de distribuciones dentro del venv y presencia de rutas conocidas; **no ejecuta el intérprete** ni instala nada.
 - El resultado se interpretará antes de elegir el modo de instalación o inferencia. Render GPU continúa deshabilitado.
+
+## Issue #20: EchoMimic dispone de entorno Python independiente
+- La inspección leyó **metadatos** de `experiments/echomimic_v3/venv/lib/python*/site-packages`. Existe `experiments/echomimic_v3/venv/bin/python` y es ejecutable; no se ejecutó.
+- Versiones halladas: `torch 2.5.1+cu121`, `torchvision 0.20.1+cu121`, `torchaudio 2.5.1+cu121`, `diffusers 0.34.0`, `transformers 4.49.0`, `accelerate 1.15.0`, `safetensors 0.8.0`, `librosa 0.11.0`, `decord 0.6.0`, `moviepy 2.2.1`, `numpy 1.26.4`. También figuran `einops`, `omegaconf`, `pyloudnorm`, `opencv-python`, `imageio` y `mmgp`.
+- Presentes (sin enlaces simbólicos): `experiments/echomimic_v3/config/config.yaml`, `flash/Wan2.1-Fun-V1.1-1.3B-InP/config.json`, `flash/Wan2.1-Fun-V1.1-1.3B-InP/configuration.json`, `flash/chinese-wav2vec2-base/config.json` y `flash/transformer/config.json`.
+- **Decisión**: no instalar dependencias globales ni sobreescribir el venv. La presencia de paquetes como metadatos NO demuestra importabilidad, compatibilidad de CUDA o archivos completos de pesos.
+
+### Barreras antes de autorizar el primer render
+1. Comprobar el punto de entrada con el entorno anidado y validar en modo no-inferencia la importabilidad, sin iniciar modelos.
+2. Revisar el `config/config.yaml` local y comprobar a qué rutas concretas resuelven las referencias de modelo; no asumir el default de config de otro directorio.
+3. Determinar qué significa realmente `--video_length` para el modelo Wan/EchoMimic y cómo obtener aproximadamente cinco segundos a 25 FPS con la longitud válida; no escoger 125/126 fotogramas sin esa comprobación.
+4. Aislar la salida por directorio privado con permisos y rutas seguras; revisar validación MP4 y protección contra cambios de archivos concurrentes.
+5. Revisar el control real de tiempo, árbol de procesos y GPU. Los ensayos previos fueron offline, no una prueba de modelo.
+6. Mantener el Bridge restringido a tareas de solo lectura; emitir autorización explícita y singular antes de agregar una acción real de render.
+
+**Estado**: fase 2C de diagnóstico y pruebas offline. No hay MP4 generado ni inferencia ejecutada.
