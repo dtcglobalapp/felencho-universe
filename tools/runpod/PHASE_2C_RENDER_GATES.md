@@ -158,3 +158,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `lina_readiness_offline.py` y `test_lina_readiness_offline.py` crean una decisión en memoria que permanece bloqueada hasta corroborar identidad de script/config, ratio compatible, configuración efectiva, prueba de importación local, seguridad real de procesos, aislamiento de salida y autorización explícita de GPU.
 - Este gate **no ejecuta ni habilita** inferencia incluso si todos los indicadores se marcan como verdaderos. Las pruebas son exclusivamente unitarias y deberán ejecutarse en RunPod.
 - Próximo avance: validar la ruta efectiva `--config_path` en un preset fijo, realizar un smoke test importación en entorno aislado sin cargar pesos y someter supervisión y salida privada a pruebas adicionales.
+
+## Tras 53 pruebas RunPod: preset fijo y rutas de solo lectura
+- 53 pruebas unitarias completadas en RunPod, incluido `lina_readiness_offline.py`. PR #8 sigue en borrador, sin fusionar.
+- `tools/runpod/lina_pinned_preset_offline.py` verifica las rutas *fijas* del script EchoMimic, la configuración `experiments/echomimic_v3/config/config.yaml`, imagen y WAV de Lina, pesos Wan VAE y Flash Transformer; comprueba hash de script/config, tamaños de archivos de referencia y rechaza enlaces simbólicos en la ruta relativa.
+- `tools/runpod/test_lina_pinned_preset_offline.py` ejercita condiciones de bloqueo y un fixture aislado en directorios temporales. Las pruebas no ejecutan inferencia ni archivos originales del motor.
+- La nueva comprobación **no está conectada al Bridge**, no crea outputs y nunca certifica `effective_runtime_config_verified`. El valor de `--config_path` de una futura ejecución deberá fijarse y validarse al implementar un runner separado, y no se autoriza GPU por una inspección de rutas.
+- Los resultados deben revisarse antes de continuar con smoke tests de importación en el venv existente y pruebas de recuperación/cancelación y protección del MP4.
