@@ -67,3 +67,8 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `tools/runpod/validate_artifact_offline.py` ofrece una primera verificación de MP4 con `ffprobe`: nombre de salida predefinido, sin enlaces simbólicos directos, máximo 60 MiB, duración 5.0 ± 0.25 s, un stream de video, dimensiones razonables, FPS y SHA-256.
 - `tools/runpod/test_validate_artifact_offline.py` usa metadatos simulados. Las pruebas no renderizan ni crean MP4 real, y todavía están pendientes de ejecución en RunPod.
 - **Importante**: no es validador de producción contra atacantes concurrentes. Falta endurecimiento contra condiciones TOCTOU/symlinks en directorios ascendentes, validación de códecs/fotogramas y permisos de salida. No conectar al Bridge ni habilitar ejecución por GPU.
+
+## 2C — Inspección estática local de EchoMimic (read-only)
+- `tools/runpod/inspect_echo_source.py` analiza con AST el archivo local fijo `experiments/echomimic_v3/infer_flash.py`, sin importar el módulo, cargar modelos ni ejecutar CLI. Reporta huella SHA-256, nombres de imports, flags de `add_argument` y líneas de paquetes simples de archivos de requisitos fijos.
+- El Bridge admite solo la orden exacta `[FAE-RUNPOD] echo-source-inspect` con cuerpo `FAE_RUNPOD_JOB_V1\naction=echo-source-inspect` (dos líneas).
+- El análisis no proporciona los defaults o valores de runtime ni acredita compatibilidad CUDA. Se debe contrastar con el entorno y revisar la fuente antes de escribir el comando de inferencia. No hay acción de render.
