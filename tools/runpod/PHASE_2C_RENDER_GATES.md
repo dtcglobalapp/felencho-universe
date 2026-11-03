@@ -129,3 +129,11 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - **No deducir** número correcto de frames solo de `video_length/fps`. La fórmula y el recorte pueden modificarlo.
 - Nuevo inspector `tools/runpod/inspect_echo_frame_formula.py` reporta expresiones estructurales de asignaciones relevantes y el recorte de audio; no ejecuta el motor. Orden GitHub exacta: título `[FAE-RUNPOD] echo-frame-formula-inspect`; cuerpo dos líneas `FAE_RUNPOD_JOB_V1` / `action=echo-frame-formula-inspect`.
 - Permanecen pendientes el chequeo del venv real, aislamiento de salidas, bloqueo de procesos y validación privada antes de autorizar GPU.
+
+## Issue #22 — fórmula exacta de longitud, confirmada por AST
+- `video_length_actual=min(int(audio_clip.duration * fps), video_length)`.
+- Después el motor aplica `((video_length_actual - 1) // vae.config.temporal_compression_ratio) * vae.config.temporal_compression_ratio + 1` (excepto el caso de un fotograma).
+- Finalmente el audio se recorta mediante `audio_clip.subclipped(0, video_length_actual / fps)`.
+- Con un WAV de 5.0 s a 25 FPS, hacen falta 125 fotogramas después del ajuste VAE. Que 125 sea válido depende de `vae.config.temporal_compression_ratio`; si este fuera 4, preservaría los 125, pero ese valor no está aún verificado.
+- `frame_budget_offline.py` y `test_frame_budget_offline.py` calculan y prueban esta regla de forma puramente matemática; no importan ni ejecutan el motor. Se rechaza cualquier relación que recorte el audio. **El ratio usado en pruebas es ilustrativo, no una afirmación sobre los pesos locales.**
+- Pendiente: identificar el ratio del VAE efectivamente utilizado y revisar si la salida puede durar exactamente 5 s. Mantener render deshabilitado.
