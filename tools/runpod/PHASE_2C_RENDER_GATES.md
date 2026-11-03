@@ -122,3 +122,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `tools/runpod/inspect_echo_frame_semantics.py` inspecciona mediante AST únicamente `experiments/echomimic_v3/infer_flash.py` y un archivo fijo candidato `experiments/echomimic_v3/src/pipeline_wan_fun_inpaint.py` si existe. Reporta referencias estructurales a `video_length`, `fps`, `num_frames` y `frames` sin ejecutar el código. El análisis puede ser incompleto y no garantiza que el motor admita una longitud específica.
 - Nueva acción de Bridge de solo lectura: título exacto `[FAE-RUNPOD] echo-frames-inspect`; cuerpo exacto de dos líneas `FAE_RUNPOD_JOB_V1` y `action=echo-frames-inspect`.
 - No hay acción render, descarga de modelos o escritura de archivos. El código debe pasar tests antes de procesar la orden.
+
+## Issue #21: referencias exactas de duración pendientes
+- 37 pruebas unitarias aprobadas. Inspección AST estática completada con script SHA-256 `59cb489d5d661d4c518c0e185cb74c83c3e87cd06f4da6fdcce14d900c2d9bcd`.
+- `infer_flash.py` contiene asignaciones `video_length=args.video_length` (línea 175), `fps=args.fps` (línea 199), cálculo `video_length_actual=min(...)` (línea 343) y recorte de audio `audio_clip.subclipped(...)` (línea 409).
+- **No deducir** número correcto de frames solo de `video_length/fps`. La fórmula y el recorte pueden modificarlo.
+- Nuevo inspector `tools/runpod/inspect_echo_frame_formula.py` reporta expresiones estructurales de asignaciones relevantes y el recorte de audio; no ejecuta el motor. Orden GitHub exacta: título `[FAE-RUNPOD] echo-frame-formula-inspect`; cuerpo dos líneas `FAE_RUNPOD_JOB_V1` / `action=echo-frame-formula-inspect`.
+- Permanecen pendientes el chequeo del venv real, aislamiento de salidas, bloqueo de procesos y validación privada antes de autorizar GPU.
