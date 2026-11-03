@@ -221,3 +221,11 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - Se sustituyó ese único texto mal escapado por un salto de línea real. La corrección está en el commit `b8492de5f4815dda4df0f784ef68f6014a30bb17`.
 - **Aún pendiente:** volver a ejecutar el conjunto completo de pruebas en RunPod. No se ha probado ningún render ni creado un directorio de salida de producción.
 - Tras confirmar el conjunto, inspeccionar posibles fallos de seguridad pendientes del ayudante, sin conectarlo todavía al Bridge.
+
+## Hito 77/77 aprobado — cierre de pruebas del sandbox de salida (2026-11-03)
+- RunPod actualizó la rama al commit `623b3708bea3daa77a7bd1070f48b08fa75a6cae` y ejecutó **77 pruebas unitarias: OK**. Las ocho pruebas de `test_private_output_sandbox.py` ya están incluidas; el error anterior de sintaxis fue resuelto.
+- **Alcance exacto del éxito:** comportamiento del ayudante con directorios temporales y fixtures, no un ensayo sobre un directorio de resultados real ni una validación anti-TOCTOU integral. El Bridge permanece limitado a inspecciones y diagnósticos; no hay acción `render`.
+- **Siguiente hito de implementación (integración, no más inventarios):** revisar el orden de permisos y rutas desde un workspace confiable; ligar el lock SQLite, los límites/terminación de grupos de procesos, un argv **fijo** revisado de `infer_flash.py`, el preset con `--config_path` explícito, salida privada y el validador ffprobe en un único runner aislado. Primero un ensayo completo **sin invocar el motor**; solo después evaluar autorización para la primera inferencia GPU.
+- **Puertas todavía abiertas:** imports del entrypoint completo (las 9 distribuciones restantes solo tienen metadatos), compatibilidad CUDA y memoria real, argumentos de pesos y overrides efectivos, protección de procesos descendientes y reintentos, privacidad de archivos y recuperación segura de fallos.
+- No afirmar que los 77 tests demuestran generación, streaming continuo, latencia real o capacidad de dos cohosts simultáneos. Los pilotos del podcast de varias horas siguen definidos en `LIVE_COHOST_ARCHITECTURE.md`.
+- Hasta revisión y autorización expresa: no crear Issue de render, no habilitar GPU, no fusionar PR #8 y no modificar motores locales, LiveKit, Presence o LemonSlice.
