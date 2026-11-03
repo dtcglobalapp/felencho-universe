@@ -208,3 +208,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - `test_echo_remaining_deps.py`: cuatro casos de metadata vacía/completa, rechazo de symlink y de intérpretes ambiguos. El prototipo del inventario se comprobó localmente con cuatro tests aprobados; aún debe pasar el conjunto completo RunPod.
 - Bridge solo acepta el título `[FAE-RUNPOD] echo-remaining-deps-inspect` con cuerpo exacto de dos líneas `FAE_RUNPOD_JOB_V1` y `action=echo-remaining-deps-inspect`.
 - `metadata_complete` no significa que el script EchoMimic pueda importar todos los paquetes o renderizar correctamente. No se autorizan instalaciones ni inferencia por ese resultado.
+
+## Issue #28 completada; protección privada offline (2026-11-03)
+- RunPod ejecutó **69 tests OK** y cerró #28 con `metadata_complete`: los metadatos de las nueve dependencias restantes están presentes y sin duplicados. No fueron importadas. Las cinco principales sí se importaron exitosamente en #27.
+- `private_output_sandbox.py` añade un ayudante **desconectado** para crear `outputs/job-XXXXXXXXXX` sin reutilizar carpetas, con modo 0700, usando `mkdir` y descriptores de directorio `O_NOFOLLOW` para evitar redirecciones por enlaces simbólicos directos. Requiere un directorio raíz previamente confiable, con dueño efectivo y modo exacto 0700.
+- `test_private_output_sandbox.py` verifica modos privados, nombre fijo, duplicados, enlaces simbólicos y bloqueo de directorios públicos. **Las nuevas pruebas no se han ejecutado todavía en RunPod.**
+- El ayudante todavía no está conectado al Bridge, no crea outputs reales de producción, no produce MP4 y no autoriza GPU. El control de todos los ancestros del workspace, la asignación de identidades/permiso por proceso, el TOCTOU posterior a la asignación y el manejo de crash siguen bajo revisión; usar `workspace` creado fuera del repositorio motor y previamente verificado.
+- Un resultado aprobado de este ayudante es solo una protección parcial del directorio de resultados; no reemplaza supervisión real, validación robusta de artefactos ni autorización de primer render.
