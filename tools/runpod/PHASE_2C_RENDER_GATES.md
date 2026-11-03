@@ -32,3 +32,15 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 
 ## Criterios de decisión
 **Aprobado preflight** no equivale a **aprobado render**. No introducir una acción de inferencia en `bridge.py` antes de superar 2C-1 a 2C-3.
+
+## Resultados 2C-1 (Issue #15)
+- Bridge Python: `/usr/bin/python3`.
+- Detectados: `torch=2.8.0.dev20250319+cu128`, `torchaudio=2.6.0.dev20250319+cu128`, `torchvision=0.22.0.dev20250319+cu128`, `numpy=2.1.2`.
+- No detectados en **ese intérprete**: diffusers, transformers, accelerate, safetensors, librosa, imageio y opencv-python. Esto no prueba ausencia en otros entornos.
+- FFmpeg, FFprobe y nvidia-smi disponibles; scripts y pesos existen; ningún modelo cargado.
+- Evitar instalar dependencias globalmente hasta identificar compatibilidad real; el intérprete PyTorch actual es una compilación de desarrollo CUDA 12.8.
+
+## Avance 2C-2 / 2C-3: contrato offline (sin ejecución)
+- `tools/runpod/render_dry_run.py`: solo genera un plan fijo en memoria; no tiene llamadas a subprocess ni al Bridge, no crea directorios, no importa PyTorch. La salida de ejemplo no autoriza inferencia.
+- `tools/runpod/test_render_dry_run.py`: pruebas de rechazo de comandos adicionales, suplantación de usuario, IDs incorrectos y solicitudes repetidas.
+- Los valores de tiempo, salida y huella son **una propuesta**: faltan locks persistentes y pruebas de cancelación. No introducir la acción `render` en el Bridge todavía.
