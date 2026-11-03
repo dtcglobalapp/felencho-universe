@@ -24,6 +24,31 @@ class BridgeTests(unittest.TestCase):
         self.assertFalse(bridge.approved(self.issue(state="closed"), "dtcglobalapp"))
         self.assertFalse(bridge.approved(self.issue(pull_request={}), "dtcglobalapp"))
 
+    def test_inspect_contract_is_exact(self):
+        valid = self.issue(title=bridge.INSPECT_TITLE, body=bridge.INSPECT_BODY)
+        self.assertTrue(bridge.approved(valid, "dtcglobalapp"))
+        self.assertEqual(bridge.requested_action(valid), "inspect")
+        self.assertFalse(bridge.approved(self.issue(title=bridge.INSPECT_TITLE), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(self.issue(body=bridge.INSPECT_BODY), "dtcglobalapp"))
+        self.assertFalse(bridge.approved(
+            self.issue(title=bridge.INSPECT_TITLE, body=bridge.INSPECT_BODY + "\\naction=exec"),
+            "dtcglobalapp"
+        ))
+
+    def test_inspect_dispatches_only_read_only_script(self):
+        calls = []
+        def fake_api(path, token, method="GET", body=None):
+            calls.append((path, method, body))
+            return [] if path.endswith("/comments?per_page=100") else {}
+        valid = self.issue(title=bridge.INSPECT_TITLE, body=bridge.INSPECT_BODY)
+        with patch.object(bridge, "api", side_effect=fake_api), patch.object(
+            bridge, "read_only_job", return_value='{"status":"inspection_only"}'
+        ) as worker:
+            self.assertTrue(bridge.process_one("unused", valid, "dtcglobalapp"))
+            worker.assert_called_once_with("inspect")
+        self.assertTrue(any(method == "POST" and '"inspection_only"' in body["body"]
+                            for _, method, body in calls if body))
+
     def test_success_returns_diagnostics_and_closes(self):
         calls = []
         def fake_api(path, token, method="GET", body=None):
