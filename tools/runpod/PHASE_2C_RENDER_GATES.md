@@ -201,3 +201,10 @@ Obtener un **único clip aislado de 5 segundos** de Lina, primero con el motor c
 - No se necesita reinstalar estas dependencias por el resultado del smoke test. No equivale a validar todas las dependencias del entrypoint, capacidad de memoria, versión CUDA, calidad o latencia del video.
 - Próximas puertas reales: verificación del conjunto completo de imports y argumentos fijos del entrypoint sin ejecutar pesos, identidad de `--config_path` en el proceso definitivo, seguridad de supervisión de grupos/descendientes, registro privado con permisos, validador anti-TOCTOU, y autorización expresa para una prueba controlada. El Bridge sigue sin acción de render.
 - El objetivo de duración multi-hora de Bob y Lina pertenece a la arquitectura `LIVE_COHOST_ARCHITECTURE.md`, no depende del límite de cinco segundos del primer clip.
+
+## Issue #28 — inventario restante de dependencias, sin imports
+- Issue #27 completó `import_smoke_pass` de `torch`, `diffusers`, `transformers`, `safetensors` y `omegaconf`; 64 tests RunPod OK.
+- Nuevo `inspect_echo_remaining_deps.py`: inspecciona solamente METADATA de distribuciones instaladas en el entorno virtual específico de EchoMimic: `librosa`, `decord`, `moviepy`, `accelerate`, `opencv-python`, `Pillow`, `einops`, `imageio` y `pyloudnorm`. No importa librerías, no toca pesos ni usa GPU.
+- `test_echo_remaining_deps.py`: cuatro casos de metadata vacía/completa, rechazo de symlink y de intérpretes ambiguos. El prototipo del inventario se comprobó localmente con cuatro tests aprobados; aún debe pasar el conjunto completo RunPod.
+- Bridge solo acepta el título `[FAE-RUNPOD] echo-remaining-deps-inspect` con cuerpo exacto de dos líneas `FAE_RUNPOD_JOB_V1` y `action=echo-remaining-deps-inspect`.
+- `metadata_complete` no significa que el script EchoMimic pueda importar todos los paquetes o renderizar correctamente. No se autorizan instalaciones ni inferencia por ese resultado.
