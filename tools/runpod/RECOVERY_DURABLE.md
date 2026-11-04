@@ -26,3 +26,11 @@ Se incluyó `tools/runpod/boot_bridge.sh`. Requiere la variable inyectada, verif
 5. No ejecutar render hasta superar los gates de Fase 2C.
 
 **Alcance**: los permisos inseguros del volumen requieren también revisar si otros secretos se guardaron en /workspace. No relajar los controles de propiedad/archivos del bridge.
+
+
+## Sidecar opcional preparado (4 noviembre 2026)
+- `tools/runpod/start_bridge_sidecar.sh`: **solo si el hook real de la imagen es compatible**, realiza preflight y lanza `boot_bridge.sh` como proceso independiente mediante `nohup`. No ejecuta modelos ni cambia el entrypoint.
+- No utilizar este archivo como `Docker CMD` o `startCommand` único: reemplazaría el arranque original y arriesgaría SSH/Jupyter. Primero inspeccionar la pestaña **Template** y el entrypoint real del Pod. El script aún NO está instalado en el Pod ni verificado mediante reinicio.
+- `test_bridge_sidecar_offline.py` comprueba sintaxis y ausencia de operaciones destructivas; las pruebas no equivalen a recuperación real.
+- Criterio de aceptación **obligatorio**: secreto vinculado desde RunPod, servicios SSH/Jupyter intactos, `bridge.py --once` responde a Issue #29, un único trabajador tras dos reinicios controlados, sin ningún comando repetitivo requerido al dueño.
+- La ejecución sin terminal desde ChatGPT seguirá dependiendo de que el Bridge pueda recibir las instrucciones. El primer enlace de secreto y hook es un trabajo de instalación única, no algo que se haya resuelto por haber creado este script.
