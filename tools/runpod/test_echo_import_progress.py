@@ -26,6 +26,7 @@ class EchoImportProgressTests(unittest.TestCase):
 
     def test_handles_timeout_stdout_bytes(self):
         with patch.object(probe, "PYTHON", __import__("pathlib").Path(__file__)), \
+             patch.object(probe, "ROOT", __import__("pathlib").Path(__file__).parent), \
              patch.object(probe.os, "access", return_value=True), \
              patch.object(probe.subprocess, "run",
                  side_effect=subprocess.TimeoutExpired(
