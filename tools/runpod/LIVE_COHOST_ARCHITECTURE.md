@@ -50,3 +50,10 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - `test_live_audio_gate_offline.py` cubre audio tardío, bloqueo de turno mientras habla Felencho, turnos exclusivos, IDs malformados y finalización de respuesta.
 - **Aún es lógica pura offline**: no silencia ninguna pista física del RØDECaster, no para tareas TTS en curso, no interactúa con LiveKit ni garantiza latencia real. Antes de integrarlo, un adaptador de audio debe comprobar `allow_chunk` en el último punto de entrega y cancelar tareas/subidas al cambiar generación.
 - Código y tests guardados en la rama experimental, pendientes de ejecución de CI; no implica GPU ni render de avatares.
+
+
+## Coordinación atómica de presencia y voz (4 nov 2026)
+- Nuevo `studio_turn_coordinator_offline.py`: une el modelo de estados de Bob/Lina y la autorización de fragmentos de voz en una transformación inmutable. Solo devuelve un turno si ambos subsistemas lo aceptan; rechaza estados incoherentes y prioriza la interrupción del conductor.
+- Una generación monotónica invalida todos los fragmentos pendientes al terminar un turno, interrumpir, dormir un avatar o desconectar la sesión; la reconexión no reautoriza audio antiguo.
+- `test_studio_turn_coordinator_offline.py` incluye siete escenarios de coordinación, audio tardío, interrupción, exclusión y reconexión. Tests añadidos a la rama experimental, aún no verificados por ejecución.
+- **Esto no controla todavía dispositivos físicos**, la cola del proveedor TTS, el transporte LiveKit ni una pantalla; el adaptador real deberá cancelar/descartar el audio en el punto final de entrega y aplicar IDs de sesión resistentes a reinicios del proceso. El prototipo guarda generaciones solo en memoria.
