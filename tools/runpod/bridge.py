@@ -57,7 +57,7 @@ ECHO_REMAINING_TITLE = "[FAE-RUNPOD] echo-remaining-deps-inspect"
 ECHO_REMAINING_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-remaining-deps-inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
-SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # never commit
+SECRETS_FILE = Path("/workspace/.felencho-runpod-private/bridge-token")  # persistent Pod volume; outside Git checkout
 DIAG_SCRIPT = Path(__file__).resolve().with_name("diagnose.py")
 INSPECT_SCRIPT = Path(__file__).resolve().with_name("inspect_presets.py")
 PREFLIGHT_SCRIPT = Path(__file__).resolve().with_name("preflight_5s.py")
@@ -101,8 +101,14 @@ def api(path: str, token: str, method: str = "GET", body: dict | None = None):
         raise GithubError("GitHub connection failed") from exc
 
 def load_token() -> str:
-    if not SECRETS_FILE.is_file():
+    if not SECRETS_FILE.is_file() or SECRETS_FILE.is_symlink():
         raise SystemExit("Bridge not configured. Run --setup.")
+    directory = SECRETS_FILE.parent
+    if directory.is_symlink() or directory.stat().st_uid != os.geteuid() or (directory.stat().st_mode & 0o777) != 0o700:
+        raise SystemExit("Bridge private directory is unsafe.")
+    info = SECRETS_FILE.stat()
+    if info.st_uid != os.geteuid() or (info.st_mode & 0o777) != 0o600 or info.st_nlink != 1:
+        raise SystemExit("Bridge token file has unsafe permissions.")
     token = SECRETS_FILE.read_text().strip()
     if len(token) < 20:
         raise SystemExit("Invalid bridge token.")
@@ -116,8 +122,14 @@ def setup() -> None:
     me = api("/user", token)
     if not me.get("login"):
         raise SystemExit("GitHub credential validation failed.")
+    if SECRETS_FILE.parent.is_symlink():
+        raise SystemExit("Refusing symlink secret directory.")
     SECRETS_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if SECRETS_FILE.parent.stat().st_uid != os.geteuid():
+        raise SystemExit("Secret directory must be owned by current user.")
     SECRETS_FILE.parent.chmod(0o700)
+    if SECRETS_FILE.is_symlink():
+        raise SystemExit("Refusing symlink token file.")
     fd = os.open(str(SECRETS_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "w") as fh:
         fh.write(token + "\n")
