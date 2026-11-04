@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
-# Long-running Felencho RunPod bridge launcher; only starts authorized read-only jobs.
-# Intended for execution by a container startup hook AFTER a RunPod Account Secret
-# is injected into FELENCHO_RUNPOD_GITHUB_TOKEN.
+# RunPod Bridge bootstrap: safe preflight and one read-only worker.
+# Run *after* existing SSH/Jupyter services, via an explicitly reviewed Pod hook.
 set -euo pipefail
 BASE=/workspace/felencho-runpod-bridge
-if [[ -z "${FELENCHO_RUNPOD_GITHUB_TOKEN:-}" || "${FELENCHO_RUNPOD_GITHUB_TOKEN}" == '{{'* ]]; then
-  echo 'Felencho Bridge: RunPod account secret is not available; refusing to start.' >&2
-  exit 2
-fi
-if [[ ! -f "$BASE/tools/runpod/bridge.py" ]]; then
-  echo 'Felencho Bridge: code checkout unavailable; refusing to start.' >&2
+case "${1:-}" in
+  --check) MODE=check ;;
+  "") MODE=start ;;
+  *) echo 'Usage: boot_bridge.sh [--check]' >&2; exit 64 ;;
+esac
+if [[ ! -f "$BASE/tools/runpod/cold_start_readiness.py" ]]; then
+  echo 'Felencho Bridge: missing readiness checker.' >&2
   exit 3
 fi
+# This script only emits redacted booleans, never the secret value.
+python3 "$BASE/tools/runpod/cold_start_readiness.py"
+if [[ "$MODE" == check ]]; then
+  echo 'Felencho Bridge: preflight OK. No daemon started.'
+  exit 0
+fi
+# Do not git pull or modify the ML engine here. The Pod's reviewed startup
+# hook should spawn this as a *separate* service, without replacing PID 1.
 cd "$BASE"
-# flock ensures at most one polling bridge per container.
 exec flock -n /tmp/felencho-runpod-bridge.lock python3 -u tools/runpod/bridge.py --interval 30
