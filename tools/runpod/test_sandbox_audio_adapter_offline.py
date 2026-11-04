@@ -63,6 +63,24 @@ class SandboxAudioTests(unittest.IsolatedAsyncioTestCase):
             await app._task
         self.assertTrue(app.state.gate.presenter_override)
 
+    async def test_interrupt_cancels_blocked_sink_push(self):
+        entered = asyncio.Event()
+        class BlockedSink(adapter.MemorySink):
+            async def push(self, actor, payload):
+                entered.set()
+                await asyncio.Event().wait()  # cancellation must release this
+                await super().push(actor, payload)
+
+        sink = BlockedSink()
+        app = adapter.SandboxAudioAdapter(sink)
+        await app.connect()
+        await app.start("lina", "blocked", source(b"audio"), presenter_granted=True)
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        await asyncio.wait_for(app.interrupt(), timeout=1)
+        self.assertIsNone(app.state.presence.active_speaker)
+        self.assertEqual(sink.chunks, [])
+        self.assertTrue(app.state.gate.presenter_override)
+
     async def test_close_disconnects(self):
         app = adapter.SandboxAudioAdapter(adapter.MemorySink())
         await app.connect()
