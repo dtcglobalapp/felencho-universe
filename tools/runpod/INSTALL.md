@@ -9,13 +9,13 @@
 - Un proceso pequeño en RunPod consulta los Issues pendientes (conexiones HTTPS salientes) y solo acepta el título exacto `[FAE-RUNPOD] diagnose`, cuerpo exacto definido en `bridge.py`, creador exacto `dtcglobalapp` y estado abierto.
 - Los únicos trabajos permitidos son los diagnósticos **fijos** `tools/runpod/diagnose.py` y `tools/runpod/inspect_presets.py`, publicar un comentario y cerrar el Issue.
 - No se abre puerto entrante. No se acepta shell remota ni texto de comandos desde Issues. El bridge ignora pull requests, Issues de terceros y otras órdenes.
-- El token vive solo en RunPod en `~/.config/felencho-runpod/bridge-token`, con permisos 0600. No compartir el token en ChatGPT, capturas ni repositorios.
+- El token vive solo en RunPod en `/workspace/.felencho-runpod-private/bridge-token`, con permisos 0600. No compartir el token en ChatGPT, capturas ni repositorios.
 
 ## Antes de instalar
 
 1. Revisar la propuesta GitHub de la rama `feature/actor-engine-runpod-control-v1`. No fusionar ni desplegar en felencho.ai todavía.
 2. Confirmar conectividad GitHub desde RunPod y cómo instalar archivos de la rama. Si el repositorio es privado, usar autenticación de GitHub mediante mecanismos oficiales; nunca colocar tokens en URLs.
-3. Crear, en GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens, un token **solo para este repositorio**, con permiso **Issues: Read and write** (y `Metadata: Read` implícito). Definir una caducidad corta. No conceder permisos a otros repositorios. Una alternativa más robusta a largo plazo es GitHub App con token de instalación.
+3. Crear, en GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens, un token **solo para este repositorio**, con permiso **Issues: Read and write** (y `Metadata: Read` implícito). Definir una caducidad apropiada y rotar la credencial cuando sea necesario. No conceder permisos a otros repositorios. Una alternativa más robusta a largo plazo es GitHub App con token de instalación.
 4. Verificar la instalación de `tools/runpod/bridge.py` y `tools/runpod/diagnose.py` en el Pod.
 5. Ejecutar pruebas: `python3 -m unittest discover -s tools/runpod -p 'test_*.py'`.
 6. Ejecutar `python3 tools/runpod/bridge.py --setup` directamente en una terminal segura del Pod. La entrada del token es oculta.
@@ -74,3 +74,13 @@ Contrato Issue exacto:
 - Cuerpo: `FAE_RUNPOD_JOB_V1` seguido de `action=inference-env-inspect` en la línea siguiente.
 
 Antes de procesar, ejecutar pruebas de `tools/runpod/test_bridge.py` desde el checkout independiente del Bridge. Respetar archivos locales sin seguimiento. No usar `reset --hard` ni `git clean`.
+
+## Recuperación tras sustitución del contenedor (4 noviembre 2026)
+
+El nuevo contenedor `f9df8578da3a` devolvió `Bridge not configured. Run --setup.` aunque el checkout en `/workspace` persistía. Causa: el token original se guardó bajo `/root/.config` (capa del contenedor), no en el volumen persistente. **No se presupone que la credencial original sobrevivió.**
+
+Desde el commit de corrección, el token vive en `/workspace/.felencho-runpod-private/bridge-token`, fuera de cualquier checkout Git. Directorio privado 0700 y archivo 0600; el Bridge rechaza symlinks y permisos inseguros al leerlo. Este diseño depende de que **/workspace sea el volumen persistente** del Pod. Si no lo fuera, usar RunPod Secrets o un secret manager, no un archivo en una capa efímera.
+
+**Única intervención del propietario tras esta migración:** `git pull --ff-only`, ejecutar tests y `python3 tools/runpod/bridge.py --setup`. Ingresar el token existente (si aún está disponible en el administrador de secretos) o crear uno nuevo de permisos Issues read/write únicamente para el repositorio. Nunca pegar el token en ChatGPT ni en una orden shell visible.
+
+Tras validar el token, `python3 tools/runpod/bridge.py --once` puede atender el diagnóstico #29 pendiente. La configuración automática posterior al arranque necesita mecanismo independiente (supervisor/container startup), y no debe darse por resuelta por reubicar el token. El archivo 0600 reduce accesos accidentales, pero no protege frente a otros procesos con el mismo UID root ni frente a pérdida del volumen.
