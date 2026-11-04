@@ -64,11 +64,14 @@ class SandboxAudioAdapter:
             raise
 
     async def interrupt(self) -> None:
+        # Cancellation must be requested BEFORE waiting on _guard: the
+        # producer may currently be awaiting a blocked sink.push under it.
+        # This avoids deadlock when the sink cooperates with cancellation.
+        task = self._task
+        if task is not None and not task.done():
+            task.cancel()
         async with self._guard:
             self.state = coordinator.presenter_interrupt(self.state)
-            task = self._task
-            if task is not None and not task.done():
-                task.cancel()
             await self.sink.clear()
         if task is not None:
             try:
