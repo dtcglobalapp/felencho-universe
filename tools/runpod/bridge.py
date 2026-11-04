@@ -57,7 +57,8 @@ ECHO_REMAINING_TITLE = "[FAE-RUNPOD] echo-remaining-deps-inspect"
 ECHO_REMAINING_BODY = "FAE_RUNPOD_JOB_V1\naction=echo-remaining-deps-inspect"
 RESULT_TAG = "FAE_RUNPOD_RESULT_V1"
 ROOT = Path("/workspace/felencho-avatar-engine")
-SECRETS_FILE = Path("/workspace/.felencho-runpod-private/bridge-token")  # persistent Pod volume; outside Git checkout
+SECRETS_FILE = Path.home() / ".config/felencho-runpod/bridge-token"  # legacy ephemeral fallback only
+ENV_TOKEN_NAME = "FELENCHO_RUNPOD_GITHUB_TOKEN"  # prefer RunPod account Secret injection
 DIAG_SCRIPT = Path(__file__).resolve().with_name("diagnose.py")
 INSPECT_SCRIPT = Path(__file__).resolve().with_name("inspect_presets.py")
 PREFLIGHT_SCRIPT = Path(__file__).resolve().with_name("preflight_5s.py")
@@ -101,6 +102,11 @@ def api(path: str, token: str, method: str = "GET", body: dict | None = None):
         raise GithubError("GitHub connection failed") from exc
 
 def load_token() -> str:
+    env_token = os.environ.get(ENV_TOKEN_NAME, "").strip()
+    if env_token:
+        if len(env_token) < 20 or env_token.startswith("{{"):
+            raise SystemExit("Bridge environment secret not resolved or invalid.")
+        return env_token
     if not SECRETS_FILE.is_file() or SECRETS_FILE.is_symlink():
         raise SystemExit("Bridge not configured. Run --setup.")
     directory = SECRETS_FILE.parent
@@ -115,6 +121,7 @@ def load_token() -> str:
     return token
 
 def setup() -> None:
+    print("Legacy temporary setup. For durable Pods, configure a RunPod account Secret as " + ENV_TOKEN_NAME + ".")
     print("Fine-grained GitHub token: repo " + REPO + ", Issues read/write only.")
     token = getpass.getpass("Paste token (hidden): ").strip()
     if len(token) < 20:
