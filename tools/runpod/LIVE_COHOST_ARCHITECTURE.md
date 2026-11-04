@@ -75,3 +75,9 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - `test_sandbox_interrupt_benchmark_offline.py` comprueba el contrato y límites del contador de repeticiones.
 - La herramienta no toca audio físico, TTS, WebRTC, GPUs ni servidores. **Estos tiempos no pueden usarse como promesa de latencia para el estudio:** solo miden el protocolo de cancelación en memoria y dependen del ejecutor donde se corran.
 - Ejecutar el script solo cuando CI esté verde y distinguir el benchmark de las pruebas unitarias; los resultados aún están pendientes de verificar.
+
+## Contrato de salida cancelable (4 nov 2026)
+- `audio_output_contract_offline.py` introduce una interfaz `write / stop_and_flush / resume` y un dispositivo falso `BufferedMockOutput`. El adaptador `CancellableOutputSink` sirve de frontera entre fragmentos de voz y una salida explícitamente detenible.
+- `test_audio_output_contract_offline.py` verifica limpieza de búfer, bloqueo mientras está detenido, reanudación explícita y rechazo de datos inválidos.
+- No existe driver de altavoz real: el `stop_and_flush` de un dispositivo físico aún requiere una implementación específica, comprobación de permisos y medición del sonido que queda en el búfer de hardware o red. El sandbox mantiene el audio en memoria; no requiere RunPod.
+- La reanudación del presentador en el coordinador y la reanudación del dispositivo físico son operaciones separadas por diseño: una futura integración deberá ordenarlas de manera segura y atómica, sin liberar el dispositivo antes de la autorización.
