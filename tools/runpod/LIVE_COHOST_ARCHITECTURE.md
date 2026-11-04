@@ -81,3 +81,9 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - `test_audio_output_contract_offline.py` verifica limpieza de búfer, bloqueo mientras está detenido, reanudación explícita y rechazo de datos inválidos.
 - No existe driver de altavoz real: el `stop_and_flush` de un dispositivo físico aún requiere una implementación específica, comprobación de permisos y medición del sonido que queda en el búfer de hardware o red. El sandbox mantiene el audio en memoria; no requiere RunPod.
 - La reanudación del presentador en el coordinador y la reanudación del dispositivo físico son operaciones separadas por diseño: una futura integración deberá ordenarlas de manera segura y atómica, sin liberar el dispositivo antes de la autorización.
+
+## Demo audible local en navegador (4 nov 2026)
+- `tools/runpod/demo/browser_voice_interrupt.html` permite escuchar una voz genérica instalada en el navegador mediante Web Speech Synthesis. Ofrece botones de ejemplo para Bob/Lina, detener/cancelar, reinicio y un contador de tiempo para **emitir la orden de cancelación**.
+- La página es estática e independiente, sin captura de micrófono, servicios remotos, claves, modelos o GPU. Se abre como archivo HTML local; no es la voz clonada ni los avatares de producción.
+- `test_browser_voice_demo_offline.py` verifica estáticamente los controles y el aislamiento básico. No ejecuta JavaScript ni prueba el sonido del navegador; debe validarse manualmente en Safari/Chrome antes de extraer conclusiones sobre audio.
+- Los tiempos del navegador no miden silencio físico, cola de audio del sistema, RØDECaster ni WebRTC. No usar como benchmark del estudio; la compatibilidad de voces y cancelación varía por navegador/sistema.
