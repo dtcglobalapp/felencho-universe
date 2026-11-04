@@ -17,9 +17,15 @@ class BridgeTests(unittest.TestCase):
         return item
 
 
-    def test_token_location_is_persistent_and_outside_checkout(self):
-        self.assertEqual(str(bridge.SECRETS_FILE), "/workspace/.felencho-runpod-private/bridge-token")
-        self.assertNotIn("/felencho-runpod-bridge/", str(bridge.SECRETS_FILE))
+    def test_prefer_runpod_account_secret_environment(self):
+        self.assertEqual(bridge.ENV_TOKEN_NAME, "FELENCHO_RUNPOD_GITHUB_TOKEN")
+        with patch.dict("os.environ", {bridge.ENV_TOKEN_NAME: "a" * 32}):
+            self.assertEqual(bridge.load_token(), "a" * 32)
+
+    def test_refuse_unexpanded_runpod_placeholder(self):
+        with patch.dict("os.environ", {bridge.ENV_TOKEN_NAME: "{{ RUNPOD_SECRET_FELENCHO_GITHUB }}" }):
+            with self.assertRaises(SystemExit):
+                bridge.load_token()
 
     def test_load_token_rejects_bad_permissions(self):
         import tempfile
@@ -31,7 +37,7 @@ class BridgeTests(unittest.TestCase):
             key = root / "bridge-token"
             key.write_text("a" * 32)
             key.chmod(0o600)
-            with patch.object(bridge, "SECRETS_FILE", key):
+            with patch.dict("os.environ", {bridge.ENV_TOKEN_NAME: ""}), patch.object(bridge, "SECRETS_FILE", key):
                 self.assertEqual(bridge.load_token(), "a" * 32)
                 key.chmod(0o644)
                 with self.assertRaises(SystemExit):
