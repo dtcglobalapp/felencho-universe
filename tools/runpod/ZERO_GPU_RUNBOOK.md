@@ -31,3 +31,9 @@
 - La variable de entorno protege el secreto mejor que el archivo 0666, pero un proceso con privilegios root dentro del contenedor podría inspeccionarla: limitar acceso al Pod y no registrar `env` ni `printenv`.
 - Una GitHub App o un token corto renovable sería preferible más adelante a un token personal permanente.
 - No mezclar Bridge con transporte WebRTC de Bob y Lina. El canal GitHub Issues es solo control.
+
+## Actualización 4 nov: preflight en el mismo launcher
+
+El script `tools/runpod/boot_bridge.sh --check` ejecuta únicamente `cold_start_readiness.py` y sale **sin iniciar demonio ni GPU**, con reporte redacted de comprobaciones (no imprime secreto). El modo por defecto `boot_bridge.sh` invoca el preflight primero y solo después intenta iniciar el sondeo bajo `flock`. Este launcher NO se auto-instala y debe engancharse a un hook compatible, revisado para no interferir con SSH/Jupyter. No prueba autenticación real de GitHub: la prueba completa seguirá siendo una solicitud de diagnóstico y lectura del Issue #29.
+
+**Pendiente:** ejecutar las pruebas unitarias nuevas en un entorno adecuado y verificar el lanzamiento real tras vincular `FELENCHO_GITHUB` en la plantilla del Pod. No encender GPU únicamente para este trabajo.
