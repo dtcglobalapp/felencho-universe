@@ -87,3 +87,9 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - La página es estática e independiente, sin captura de micrófono, servicios remotos, claves, modelos o GPU. Se abre como archivo HTML local; no es la voz clonada ni los avatares de producción.
 - `test_browser_voice_demo_offline.py` verifica estáticamente los controles y el aislamiento básico. No ejecuta JavaScript ni prueba el sonido del navegador; debe validarse manualmente en Safari/Chrome antes de extraer conclusiones sobre audio.
 - Los tiempos del navegador no miden silencio físico, cola de audio del sistema, RØDECaster ni WebRTC. No usar como benchmark del estudio; la compatibilidad de voces y cancelación varía por navegador/sistema.
+
+## Continuación contextual tras interrupciones — 4 nov 2026
+- `conversation_resume_offline.py` conserva hasta ocho checkpoints recientes, por actor y tema, más un número limitado de fragmentos de texto cuya **entrega al consumidor** fue confirmada. La entrega no prueba que la audiencia los oyera.
+- Una interrupción guarda el checkpoint y permite construir `resume_brief` con tema, turno previo y petición del presentador. El resultado **no genera texto**, no vuelve a reproducir el diálogo y no accede a Felencho Brain: es una estructura para un futuro adaptador de conversación.
+- `test_conversation_resume_offline.py` cubre interrupción, rechazo de fragmentos tardíos, historial entre Bob y Lina, límites de memoria y reinicio explícito.
+- Importante: no integrar directamente con mensajes privados o persistentes hasta definir consentimiento, conservación, límites por sesión, y reconocimiento de reproducción final. Sin integración real de Felencho Brain, continuar naturalmente es una **meta**, no un resultado demostrado.
