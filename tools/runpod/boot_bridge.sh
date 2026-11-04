@@ -18,7 +18,7 @@ if [[ "$MODE" == check ]]; then
   echo 'Felencho Bridge: preflight OK. No daemon started.'
   exit 0
 fi
-# Do not git pull or modify the ML engine here. The Pod's reviewed startup
+# Never update the repository or modify the ML engine here. The Pod's reviewed startup
 # hook should spawn this as a *separate* service, without replacing PID 1.
 cd "$BASE"
 exec flock -n /tmp/felencho-runpod-bridge.lock python3 -u tools/runpod/bridge.py --interval 30
