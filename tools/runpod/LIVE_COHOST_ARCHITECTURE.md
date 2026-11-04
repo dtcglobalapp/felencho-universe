@@ -57,3 +57,11 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - Una generación monotónica invalida todos los fragmentos pendientes al terminar un turno, interrumpir, dormir un avatar o desconectar la sesión; la reconexión no reautoriza audio antiguo.
 - `test_studio_turn_coordinator_offline.py` incluye siete escenarios de coordinación, audio tardío, interrupción, exclusión y reconexión. Tests añadidos a la rama experimental, aún no verificados por ejecución.
 - **Esto no controla todavía dispositivos físicos**, la cola del proveedor TTS, el transporte LiveKit ni una pantalla; el adaptador real deberá cancelar/descartar el audio en el punto final de entrega y aplicar IDs de sesión resistentes a reinicios del proceso. El prototipo guarda generaciones solo en memoria.
+
+
+## Adaptador de audio simulado, cancelación asíncrona (4 nov 2026)
+- `sandbox_audio_adapter_offline.py` conecta el coordinador de turnos con un sumidero de bytes **exclusivamente en memoria**. La producción de fragmentos es asíncrona; `interrupt()` revoca el turno, cancela la tarea de producción y borra el buffer del sumidero; `resume_presenter()` permite otro turno explícitamente concedido.
+- El adaptador serializa `push` e interrupciones con un cierre asíncrono para evitar que un fragmento del turno revocado se acepte después del cambio de estado, siempre que el sumidero cumpla el contrato. Las tareas del proveedor real de TTS y las colas de hardware todavía necesitan integración específica.
+- `test_sandbox_audio_adapter_offline.py`: cinco pruebas async para entrega autorizada, interrupción y descarte, ausencia de permiso, carga inválida y cierre.
+- **No toca RØDECaster, LiveKit, pantallas, motores ni GPU. No hay sonido generado o reproducido.** Un `MemorySink` no demuestra que se pueda vaciar un buffer ya transmitido por red o por una interfaz de audio. Requiere un sink con contrato explícito de flush/cancel y latencia medida antes de cualquier uso en vivo.
+- Los tests están escritos en GitHub, todavía pendientes de ejecución/verificación.
