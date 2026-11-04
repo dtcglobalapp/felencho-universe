@@ -69,3 +69,9 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 ### Corrección posterior: interrupción frente a salida de audio bloqueada
 - El adaptador solicita cancelar la tarea productora **antes** de esperar el bloqueo de entrega, de modo que una llamada asíncrona `sink.push` bloqueada y cooperativa con cancelación pueda terminar y liberar la exclusión. Se añadió una prueba con salida simulada bloqueada y límite de espera.
 - Esto no demuestra cancelación de interfaces físicas que ignoran la señal de cancelación, ni vaciado de buffers externos. Pendiente resultado de GitHub Actions; no desplegar en producción.
+
+## Instrumentación offline de interrupciones — 4 nov 2026
+- Se añadió `sandbox_interrupt_benchmark_offline.py` para medir la latencia de cancelación de una tarea asyncio bloqueada deliberadamente en un sumidero simulado, con 20 repeticiones por defecto; devuelve mediana, p95 y máximo en milisegundos.
+- `test_sandbox_interrupt_benchmark_offline.py` comprueba el contrato y límites del contador de repeticiones.
+- La herramienta no toca audio físico, TTS, WebRTC, GPUs ni servidores. **Estos tiempos no pueden usarse como promesa de latencia para el estudio:** solo miden el protocolo de cancelación en memoria y dependen del ejecutor donde se corran.
+- Ejecutar el script solo cuando CI esté verde y distinguir el benchmark de las pruebas unitarias; los resultados aún están pendientes de verificar.
