@@ -12,7 +12,8 @@ class BridgeBootTests(unittest.TestCase):
 
     def test_requires_secret_and_has_duplicate_guard(self):
         source = SCRIPT.read_text()
-        self.assertIn("FELENCHO_RUNPOD_GITHUB_TOKEN", source)
+        readiness = Path(__file__).with_name("cold_start_readiness.py").read_text()
+        self.assertIn("FELENCHO_RUNPOD_GITHUB_TOKEN", readiness)
         self.assertIn("flock -n", source)
         self.assertIn("--check", source)
         self.assertIn("cold_start_readiness.py", source)
