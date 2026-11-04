@@ -16,6 +16,31 @@ class BridgeTests(unittest.TestCase):
         item.update(changes)
         return item
 
+
+    def test_token_location_is_persistent_and_outside_checkout(self):
+        self.assertEqual(str(bridge.SECRETS_FILE), "/workspace/.felencho-runpod-private/bridge-token")
+        self.assertNotIn("/felencho-runpod-bridge/", str(bridge.SECRETS_FILE))
+
+    def test_load_token_rejects_bad_permissions(self):
+        import tempfile
+        import os
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "private"
+            root.mkdir(mode=0o700)
+            key = root / "bridge-token"
+            key.write_text("a" * 32)
+            key.chmod(0o600)
+            with patch.object(bridge, "SECRETS_FILE", key):
+                self.assertEqual(bridge.load_token(), "a" * 32)
+                key.chmod(0o644)
+                with self.assertRaises(SystemExit):
+                    bridge.load_token()
+                key.chmod(0o600)
+                root.chmod(0o755)
+                with self.assertRaises(SystemExit):
+                    bridge.load_token()
+
     def test_requires_exact_title_body_author(self):
         self.assertTrue(bridge.approved(self.issue(), "dtcglobalapp"))
         self.assertFalse(bridge.approved(self.issue(title="run shell"), "dtcglobalapp"))
