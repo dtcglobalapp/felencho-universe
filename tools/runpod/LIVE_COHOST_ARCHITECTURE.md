@@ -44,3 +44,9 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - Una sola voz IA puede estar en `speaking` a la vez; el conductor debe otorgar explícitamente el turno. Interrumpir silencia el actor en el estado lógico; **todavía no interrumpe ningún audio físico**.
 - `test_live_cohost_state_offline.py` comprueba presencia mientras están en reposo, turnos exclusivos, prioridad del conductor, interrupción, estados dormidos y rechazo de IDs inválidos.
 - Estos archivos NO están conectados al Bridge, a LiveKit, a Presence o al estudio. No generan voz/video y no sostienen realmente una transmisión. Las pruebas deben ejecutarse antes de declarar la lógica validada.
+
+## Prototipo de bloqueo de audio tras interrupción (4 nov 2026)
+- `live_audio_gate_offline.py` define una generación monotónica por turno, exclusión de cohosts y una orden de prioridad del conductor. Toda interrupción invalida fragmentos de voz en cola; al liberar prioridad, los turnos viejos siguen rechazados incluso cuando se reutiliza el mismo ID.
+- `test_live_audio_gate_offline.py` cubre audio tardío, bloqueo de turno mientras habla Felencho, turnos exclusivos, IDs malformados y finalización de respuesta.
+- **Aún es lógica pura offline**: no silencia ninguna pista física del RØDECaster, no para tareas TTS en curso, no interactúa con LiveKit ni garantiza latencia real. Antes de integrarlo, un adaptador de audio debe comprobar `allow_chunk` en el último punto de entrega y cancelar tareas/subidas al cambiar generación.
+- Código y tests guardados en la rama experimental, pendientes de ejecución de CI; no implica GPU ni render de avatares.
