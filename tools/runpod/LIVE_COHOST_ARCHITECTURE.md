@@ -65,3 +65,7 @@ Los cinco segundos de Lina son una **prueba offline de sincronización**, no un 
 - `test_sandbox_audio_adapter_offline.py`: cinco pruebas async para entrega autorizada, interrupción y descarte, ausencia de permiso, carga inválida y cierre.
 - **No toca RØDECaster, LiveKit, pantallas, motores ni GPU. No hay sonido generado o reproducido.** Un `MemorySink` no demuestra que se pueda vaciar un buffer ya transmitido por red o por una interfaz de audio. Requiere un sink con contrato explícito de flush/cancel y latencia medida antes de cualquier uso en vivo.
 - Los tests están escritos en GitHub, todavía pendientes de ejecución/verificación.
+
+### Corrección posterior: interrupción frente a salida de audio bloqueada
+- El adaptador solicita cancelar la tarea productora **antes** de esperar el bloqueo de entrega, de modo que una llamada asíncrona `sink.push` bloqueada y cooperativa con cancelación pueda terminar y liberar la exclusión. Se añadió una prueba con salida simulada bloqueada y límite de espera.
+- Esto no demuestra cancelación de interfaces físicas que ignoran la señal de cancelación, ni vaciado de buffers externos. Pendiente resultado de GitHub Actions; no desplegar en producción.
