@@ -1,0 +1,30 @@
+name: RunPod bridge offline checks
+
+on:
+  pull_request:
+    paths:
+      - 'tools/runpod/**'
+      - '.github/workflows/runpod-bridge-offline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate bridge Python and shell syntax
+        run: |
+          python3 -m compileall -q tools/runpod
+          bash -n tools/runpod/boot_bridge.sh
+      - name: Run offline security and cold-start tests
+        run: |
+          python3 -m unittest discover -s tools/runpod -p 'test_*.py'
+      - name: Measure simulated barge-in cancellation (in-memory only)
+        run: |
+          PYTHONPATH=tools/runpod python3 tools/runpod/sandbox_interrupt_benchmark_offline.py
+      - name: Check browser voice controls with mocked speech (no audio device)
+        run: node tools/runpod/demo/browser_voice_smoke.cjs

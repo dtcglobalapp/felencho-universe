@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 960">
+<defs>
+ <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b8ffff"/><stop offset=".4" stop-color="#5df3ff"/><stop offset=".76" stop-color="#bf69ff"/><stop offset="1" stop-color="#ff62dc"/></linearGradient>
+ <linearGradient id="hair"><stop stop-color="#48ebff"/><stop offset=".47" stop-color="#925afe"/><stop offset="1" stop-color="#ff66e1"/></linearGradient>
+ <radialGradient id="body"><stop stop-color="#4f2b99"/><stop offset=".65" stop-color="#142452"/><stop offset="1" stop-color="#030b20"/></radialGradient>
+ <radialGradient id="crystal"><stop stop-color="#fff"/><stop offset=".2" stop-color="#ef8dff"/><stop offset=".5" stop-color="#804ee0"/><stop offset="1" stop-color="#101d5d"/></radialGradient>
+ <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="4.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="540" height="960" fill="#02091e"/>
+<ellipse cx="271" cy="474" rx="240" ry="389" fill="#243d88" opacity=".15"/>
+<g fill="none" stroke="url(#violet)" opacity=".54"><circle cx="270" cy="246" r="182" stroke-width="2.5"/><circle cx="270" cy="246" r="158" stroke-dasharray="5 12" stroke-width="1.9"/><ellipse cx="270" cy="246" rx="194" ry="74" transform="rotate(26 270 246)" stroke-width="1.5"/><ellipse cx="270" cy="246" rx="183" ry="82" transform="rotate(-30 270 246)" stroke-width="1.5"/></g>
+<path d="M268 65 L282 105 L269 135 L253 105Z" fill="url(#crystal)" stroke="#8cffff" stroke-width="2" filter="url(#glow)"/>
+<path d="M205 179 Q242 128 270 139 Q327 143 349 202 Q392 288 411 401 Q458 513 477 733 Q399 665 356 503 L320 346 L218 347 L180 510 Q139 655 70 731 Q94 497 130 384 Q141 281 205 179Z" fill="#092755" stroke="url(#hair)" stroke-width="6" opacity=".93"/>
+<path d="M216 191 Q225 149 270 146 Q309 147 328 191 L339 295 Q326 357 269 383 Q215 354 202 295Z" fill="url(#body)" stroke="url(#violet)" stroke-width="3.5"/>
+<path d="M204 214 Q244 190 270 155 Q291 186 339 213" fill="none" stroke="#a7f6ff" stroke-width="5" filter="url(#glow)"/>
+<path d="M214 265 Q241 249 260 263 Q236 280 216 275 M325 265 Q300 249 279 263 Q301 280 325 275" fill="#f0ffff" filter="url(#glow)"/>
+<path d="M268 178 L282 213 L270 235 L254 213Z" fill="url(#crystal)" filter="url(#glow)"/>
+<path d="M209 306 Q181 382 164 482 L126 636 Q110 716 107 840 M332 306 Q365 378 387 481 L414 641 Q438 730 433 840" stroke="url(#hair)" fill="none" stroke-width="8" opacity=".84" filter="url(#glow)"/>
+<path d="M187 222 Q151 295 162 385 Q164 505 111 626 M354 224 Q389 295 380 385 Q371 497 428 625 M201 206 Q181 323 202 403 Q179 511 142 606 M339 207 Q357 323 339 403 Q365 511 401 606" stroke="url(#violet)" stroke-width="3.5" fill="none" opacity=".87"/>
+<path d="M201 369 Q142 397 118 476 L79 911 L460 911 L422 476 Q393 393 340 369 L304 409 L273 435 L235 407Z" fill="url(#body)" stroke="url(#violet)" stroke-width="3.6"/>
+<path d="M200 367 Q219 401 270 430 Q322 399 340 367 L396 432 Q354 463 318 530 Q304 647 283 910 L252 910 Q235 654 222 530 Q190 463 143 432Z" fill="none" stroke="url(#violet)" stroke-width="4"/>
+<path d="M270 424 L300 469 L270 534 L239 469Z" fill="url(#crystal)" stroke="#b0faff" stroke-width="3.5" filter="url(#glow)"/>
+<g stroke="#62e8ff" stroke-width="2" opacity=".65" fill="none">
+ <path d="M160 470 Q196 522 208 598 L161 857 M380 470 Q347 525 332 598 L376 858"/>
+ <path d="M197 583 Q240 628 267 662 Q300 626 343 583"/>
+ <path d="M270 540 L270 635 M265 665 L226 845 M277 665 L310 845"/>
+</g>
+<path d="M120 735 Q164 757 184 793 Q222 831 267 820 Q314 831 357 793 Q380 757 424 735" stroke="url(#hair)" stroke-width="6" fill="none" opacity=".65"/>
+<g transform="translate(270 788)" opacity=".8"><ellipse rx="133" ry="44" fill="none" stroke="#76e9ff" stroke-width="3"/><ellipse rx="124" ry="29" fill="none" stroke="#de7aff" stroke-width="2" transform="rotate(-17)"/><circle r="48" fill="none" stroke="#a88fff" stroke-dasharray="3 8" stroke-width="2"/></g>
+</svg>

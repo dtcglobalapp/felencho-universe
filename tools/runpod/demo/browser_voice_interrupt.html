@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Felencho Mundial | Prueba aislada de interrupción</title>
+<style>
+  :root { color-scheme:dark; font:16px/1.5 system-ui,-apple-system,sans-serif; }
+  body { background:#111827; color:#f3f4f6; margin:0; padding:32px 16px; }
+  main { max-width:720px; margin:auto; }
+  h1 { font-size:1.8rem; }
+  .note { color:#cbd5e1; }
+  .panel { background:#1f2937; border:1px solid #475569; border-radius:16px; padding:24px; margin-top:18px; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; margin:20px 0; }
+  button { font:inherit; font-weight:700; border:0; border-radius:10px; padding:12px 18px; cursor:pointer; background:#e5e7eb; color:#111827; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.stop { background:#f87171; }
+  button:focus-visible { outline:3px solid #38bdf8; outline-offset:3px; }
+  #status { min-height:2rem; font-weight:700; }
+  .metrics { font-variant-numeric:tabular-nums; }
+  pre { white-space:pre-wrap; overflow-wrap:anywhere; color:#e2e8f0; font:0.85rem/1.5 ui-monospace,monospace; }
+</style>
+</head>
+<body>
+<main>
+<h1>Felencho Mundial — prueba de interrupción</h1>
+<p class="note">Sandbox independiente. Utiliza únicamente la voz disponible en tu navegador; no es la voz definitiva de Bob ni de Lina. No accede al micrófono, a la red, al estudio ni a ninguna GPU.</p>
+<div class="panel">
+<p id="status" role="status" aria-live="polite">Listo para probar.</p>
+<div class="controls">
+  <button id="lina">Escuchar a Lina (voz de prueba)</button>
+  <button id="bob">Escuchar a Bob (voz de prueba)</button>
+  <button id="stop" class="stop" disabled>¡Un momento! Interrumpir</button>
+  <button id="reset">Restablecer</button>
+</div>
+<p class="metrics">Tiempo hasta solicitar cancelación: <strong id="latency">—</strong></p>
+<p class="note">La cifra indica cuándo el navegador recibió la orden de cancelar, NO cuándo dejó de escucharse el sonido en los altavoces. Para medir silencio acústico hacen falta otras herramientas.</p>
+<p>Prueba recomendada: inicia a Lina, pulsa «¡Un momento!» mientras habla y después inicia a Bob.</p>
+<pre id="log" aria-label="Registro de eventos">Sin eventos.</pre>
+</div>
+<p class="note">Si no hay voces instaladas o el navegador no admite síntesis de voz, esta prueba no podrá reproducirse. No subas contenido personal: los diálogos son ejemplos fijos.</p>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const supported = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  const synth = supported ? window.speechSynthesis : null;
+  let generation = 0;
+  let active = null;
+  let events = [];
+  const messages = {
+    lina: 'Felencho, hoy vamos a conversar sobre cómo mejorar el transporte de Nueva York. Primero quiero explicar por qué los ciudadanos necesitan información clara y cómo pueden participar en las soluciones.',
+    bob: 'Felencho, yo recuerdo cuando viajar por la ciudad era distinto. Ahora quiero compartir una reflexión sobre seguridad, respeto y la responsabilidad que tenemos con nuestros vecinos.'
+  };
+  function log(message) {
+    const entry = new Date().toLocaleTimeString() + ' — ' + message;
+    events = [...events.slice(-9), entry];
+    $('log').textContent = events.join('\n');
+  }
+  function ui(message) {
+    $('status').textContent = message;
+    $('lina').disabled = !supported || active !== null;
+    $('bob').disabled = !supported || active !== null;
+    $('stop').disabled = !supported || active === null;
+  }
+  function cancel(reason) {
+    const hadTurn = active !== null;
+    const started = performance.now();
+    generation += 1;
+    active = null;
+    if (supported) synth.cancel();
+    const elapsed = performance.now() - started;
+    if (hadTurn) $('latency').textContent = elapsed.toFixed(3) + ' ms (orden de cancelación)';
+    ui('Interrupción solicitada. Se puede iniciar otro turno.');
+    log(reason + (hadTurn ? ' — voz anterior invalidada' : ' — no había voz activa'));
+  }
+  function speak(actor) {
+    if (!supported) { ui('Tu navegador no ofrece síntesis de voz.'); return; }
+    if (active !== null) { log('Turno rechazado: alguien está hablando'); return; }
+    const token = ++generation;
+    active = actor;
+    const utterance = new SpeechSynthesisUtterance(messages[actor]);
+    utterance.lang = 'es';
+    utterance.rate = actor === 'bob' ? 0.90 : 1.02;
+    utterance.pitch = actor === 'bob' ? 0.85 : 1.06;
+    // System voices are browser-dependent; this is NOT voice cloning.
+    const voices = synth.getVoices();
+    const spanish = voices.find(v => v.lang.toLowerCase().startsWith('es'));
+    if (spanish) utterance.voice = spanish;
+    const finish = (event) => {
+      if (token !== generation || active !== actor) return; // stale callback
+      active = null;
+      ui(actor.toUpperCase() + ': ' + (event === 'error' ? 'error de voz' : 'terminó de hablar'));
+      log(actor + ': ' + event);
+    };
+    utterance.onend = () => finish('fin');
+    utterance.onerror = () => finish('error');
+    ui(actor.toUpperCase() + ' está hablando. Puedes interrumpir.');
+    log(actor + ': turno iniciado');
+    try { synth.speak(utterance); } catch (error) { finish('error'); }
+  }
+  $('lina').addEventListener('click', () => speak('lina'));
+  $('bob').addEventListener('click', () => speak('bob'));
+  $('stop').addEventListener('click', () => cancel('presentador interrumpe'));
+  $('reset').addEventListener('click', () => {
+    cancel('reinicio manual');
+    $('latency').textContent = '—';
+  });
+  window.addEventListener('pagehide', () => { generation += 1; active = null; if (supported) synth.cancel(); });
+  if (!supported) ui('Síntesis de voz no disponible en este navegador.');
+  else ui('Listo para probar.');
+})();
+</script>
+</body>
+</html>
