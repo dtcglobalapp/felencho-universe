@@ -141,6 +141,22 @@ export default function HologramPortraitClient({ character }: { character: Actor
 
   useEffect(() => {
     let cancelled = false;
+    // Fallback packaged in the existing site: every television opens with a
+    // visible actor rather than a blank page. A locally approved portrait
+    // overrides this fallback whenever one has already been chosen.
+    const fallback = new Image();
+    fallback.onload = () => {
+      if (cancelled || imageRef.current) return;
+      imageRef.current = fallback;
+      setHasPortrait(true);
+      setNotice("Retrato provisional integrado. Puedes sustituirlo por el holograma aprobado.");
+    };
+    fallback.onerror = () => {
+      if (!cancelled) setNotice("No se encontró el retrato integrado: selecciona una imagen.");
+    };
+    fallback.src = character === "bob"
+      ? "/avatars/bob/bob-2x3.png"
+      : "/avatars/lina/lina-2x3.jpg";
     loadPortrait(character).then((blob) => {
       if (cancelled || !blob) return;
       const url = URL.createObjectURL(blob);
@@ -150,7 +166,7 @@ export default function HologramPortraitClient({ character }: { character: Actor
         portraitUrlRef.current = url;
         imageRef.current = img;
         setHasPortrait(true);
-        setNotice("Retrato restaurado desde este navegador.");
+        setNotice("Retrato holográfico restaurado desde este navegador.");
       };
       img.onerror = () => URL.revokeObjectURL(url);
       img.src = url;
