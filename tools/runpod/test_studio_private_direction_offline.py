@@ -22,7 +22,7 @@ class StudioPrivateDirectionTests(unittest.TestCase):
         self.assertIn("generation!==epoch", self.html)
 
     def test_sleep_preserves_visual_presence(self):
-        self.assertIn("mode==='dormido'?.22:1", self.html)
+        self.assertIn("mode==='dormido'?.43:1", self.html)
         self.assertIn("SUSPENDIDO", self.html)
         self.assertIn("requestAnimationFrame(loop)", self.html)
 
