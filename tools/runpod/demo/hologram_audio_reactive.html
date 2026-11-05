@@ -26,17 +26,18 @@ button:hover{background:#395578}button:disabled{opacity:.5;cursor:not-allowed}
 <canvas id="bob" width="540" height="960" aria-label="Bob: visual de energía azul y oro"></canvas>
 <div class="overlay"><strong>BOB</strong><small>Sabiduría · análisis</small></div>
 <div class="controls"><label for="bob-file">Audio de Bob</label><input id="bob-file" type="file" accept="audio/*">
-<button id="bob-play" disabled>Hablar</button><button id="bob-stop" disabled>Detener</button>
+<button id="bob-play" disabled>Hablar</button><button id="bob-stop" disabled>Detener</button><button id="bob-listen">Escuchar</button><button id="bob-think">Pensar</button><button id="bob-sleep">Suspender</button>
 <span id="bob-status" class="status">Reposo</span></div>
 </section>
 <section class="screen" aria-label="Holograma de Lina">
 <canvas id="lina" width="540" height="960" aria-label="Lina: visual de energía cyan y violeta"></canvas>
 <div class="overlay"><strong>LINA</strong><small>Investigación · datos</small></div>
 <div class="controls"><label for="lina-file">Audio de Lina</label><input id="lina-file" type="file" accept="audio/*">
-<button id="lina-play" disabled>Hablar</button><button id="lina-stop" disabled>Detener</button>
+<button id="lina-play" disabled>Hablar</button><button id="lina-stop" disabled>Detener</button><button id="lina-listen">Escuchar</button><button id="lina-think">Pensar</button><button id="lina-sleep">Suspender</button>
 <span id="lina-status" class="status">Reposo</span></div>
 </section>
 </main>
+<div style="max-width:1060px;margin:16px auto;text-align:center"><button id="presenter-interrupt">Interrupción prioritaria de Felencho</button><span id="presenter-status" aria-live="polite" style="margin-left:12px;color:#a9bdd7">Control privado de demostración</span></div>
 <p class="note">Privacidad: los archivos se leen exclusivamente en este navegador; no se envían a ningún servidor. Los clips no se guardan. Esto mide reactividad visual al audio local, no latencia de conversación ni calidad de síntesis. Cuando se conecte a Felencho Brain, la salida del proveedor de voz será el origen del audio.</p>
 <script>
 (() => {
@@ -53,8 +54,10 @@ const initialized=models.map(m=>{
  const canvas=document.getElementById(m.id),ctx=canvas.getContext('2d');
  const input=document.getElementById(m.id+'-file'),play=document.getElementById(m.id+'-play');
  const stop=document.getElementById(m.id+'-stop'),status=document.getElementById(m.id+'-status');
- const audio=new Audio();audio.preload='metadata';let url=null,source=null,analyser=null;
- function reset(){audio.pause();audio.currentTime=0;stop.disabled=true;play.disabled=!url;status.textContent='Reposo';if(active===m.id)active=null;}
+ const audio=new Audio();audio.preload='metadata';let url=null,source=null,analyser=null,mode='escuchando',epoch=0;
+ function reset(){epoch++;audio.pause();audio.currentTime=0;stop.disabled=true;play.disabled=!url||mode==='dormido';status.textContent=mode==='dormido'?'Suspendido':'Escuchando';if(active===m.id)active=null;}
+ function changeMode(next){if(!['escuchando','pensando','dormido'].includes(next))return;reset();mode=next;play.disabled=!url||mode==='dormido';status.textContent=next==='dormido'?'Suspendido':next==='pensando'?'Pensando':'Escuchando';}
+ for(const [suffix,next] of [['listen','escuchando'],['think','pensando'],['sleep','dormido']])document.getElementById(m.id+'-'+suffix).addEventListener('click',()=>changeMode(next));
  input.addEventListener('change',()=>{
    reset();if(url)URL.revokeObjectURL(url);url=null;
    const file=input.files&&input.files[0];if(!file)return;
@@ -63,14 +66,19 @@ const initialized=models.map(m=>{
  });
  play.addEventListener('click',async()=>{
   try{
+    if(mode==='dormido')return;
+    const generation=++epoch;
     const ac=ready();await ac.resume();
+    if(generation!==epoch)return;
     if(active && active!==m.id)initialized.find(s=>s.id===active).reset();
     if(!source){source=ac.createMediaElementSource(audio);analyser=ac.createAnalyser();analyser.fftSize=512;source.connect(analyser);analyser.connect(ac.destination);}
-    await audio.play();active=m.id;play.disabled=true;stop.disabled=false;status.textContent='Hablando';
+    await audio.play();
+    if(generation!==epoch){audio.pause();audio.currentTime=0;return;}
+    active=m.id;mode='hablando';play.disabled=true;stop.disabled=false;status.textContent='Hablando';
   }catch(_){status.textContent='Error de reproducción';reset();}
  });
  stop.addEventListener('click',reset);audio.addEventListener('ended',reset);
- return {...m,ctx,canvas,audio,reset,getLevel(){
+ return {...m,ctx,canvas,audio,reset,changeMode,getMode:()=>mode,getLevel(){
     if(audio.paused||!analyser)return 0;
     const data=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(data);
     let sum=0;for(let k=2;k<Math.min(95,data.length);k++)sum+=data[k];
@@ -79,11 +87,13 @@ const initialized=models.map(m=>{
 });
 function draw(m,time){
  const ctx=m.ctx,W=m.canvas.width,H=m.canvas.height,level=m.getLevel();
- const glow=clamp(level*.85,0,1),pulse=1+glow*.19;
+ const mode=m.getMode();
+ const glow=clamp(level*.85,0,1),pulse=(mode==='dormido'?.92:mode==='pensando'?1.07:1)+glow*.19;
+ const opacity=mode==='dormido'?.22:1;
  ctx.clearRect(0,0,W,H);
  const bg=ctx.createRadialGradient(W*.5,H*.46,4,W*.5,H*.5,H*.78);
  bg.addColorStop(0,rgba(m.color,.12+glow*.13));bg.addColorStop(.5,'#091429');bg.addColorStop(1,'#020611');
- ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);ctx.globalAlpha=opacity;
  // Slowly moving planetary orbit rings — no human face to animate.
  const cy=H*.47,cx=W*.5;
  ctx.save();ctx.translate(cx,cy);
@@ -134,10 +144,15 @@ function draw(m,time){
    ctx.fillStyle=rgba(i%4?m.color:m.accent,.45+glow*.50);
    ctx.fillRect(left+i*(barW+gap),H*.83-h,barW,h);
  }
- const text=level>.03?'HABLANDO':'PRESENCIA';
+ ctx.globalAlpha=1;
+ const text=mode==='dormido'?'SUSPENDIDO':mode==='pensando'?'PENSANDO':level>.03?'HABLANDO':'ESCUCHANDO';
  ctx.font='500 17px system-ui';ctx.textAlign='center';ctx.fillStyle=rgba(m.color,.8);
  ctx.fillText(text,W*.5,H*.90);
 }
+document.getElementById('presenter-interrupt').addEventListener('click',()=>{
+  for(const model of initialized)model.changeMode('escuchando');
+  document.getElementById('presenter-status').textContent='Voces detenidas; coanfitriones atentos';
+});
 function loop(t){for(const m of initialized)draw(m,t);frame=requestAnimationFrame(loop)}
 frame=requestAnimationFrame(loop);
 window.addEventListener('pagehide',()=>{cancelAnimationFrame(frame);for(const m of initialized)m.reset();if(audioContext)audioContext.suspend();});
