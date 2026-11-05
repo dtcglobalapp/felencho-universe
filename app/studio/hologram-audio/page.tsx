@@ -57,6 +57,10 @@ export default function HologramAudioSender() {
     if (!file || busy) return;
     setBusy(true);
     try {
+      // Start the sound graph in the button's activation gesture.
+      const ctx = new AudioContext();
+      contextRef.current = ctx;
+      await ctx.resume();
       const response = await fetch("/api/hologram-stage/live-token", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ character, role: "director" }), credentials: "same-origin",
@@ -72,8 +76,6 @@ export default function HologramAudioSender() {
       audio.src = URL.createObjectURL(file);
       urlRef.current = audio.src;
       audio.preload = "auto";
-      const ctx = new AudioContext();
-      contextRef.current = ctx;
       const source = ctx.createMediaElementSource(audio);
       const stream = ctx.createMediaStreamDestination();
       source.connect(stream);
