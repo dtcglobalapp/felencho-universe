@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import HologramVoiceDemo from "./HologramVoiceDemo";
 
 type Character = "bob" | "lina";
 
@@ -12,6 +13,8 @@ type Character = "bob" | "lina";
 export default function HologramPresence({ character }: { character: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
+  const activityRef = useRef(0);
+  const onActivity = useCallback((value: number) => { activityRef.current = value; }, []);
   const name = character.toLowerCase() === "lina" ? "Lina" : "Bob";
   const isLina = name === "Lina";
 
@@ -92,6 +95,15 @@ export default function HologramPresence({ character }: { character: string }) {
         ctx.fillRect(px, py, facing > 0.45 ? 1.5 : 1, facing > 0.45 ? 1.5 : 1);
       }
 
+      // Speaking response indicator (not phoneme-accurate lip sync).
+      const speaking = activityRef.current;
+      if (speaking > 0.06) {
+        ctx.fillStyle = `rgba(${color},${Math.min(0.75, speaking)})`;
+        ctx.beginPath();
+        ctx.ellipse(width / 2, horizon - scale * 0.93, scale * 0.12, scale * (0.024 + speaking * 0.074), 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       // Transparent-feeling scanning band and studio pedestal.
       const scan = (seconds * 54) % height;
       ctx.fillStyle = `rgba(${color},0.055)`;
@@ -113,6 +125,7 @@ export default function HologramPresence({ character }: { character: string }) {
   return (
     <main style={{ position: "relative", width: "100vw", height: "100dvh", overflow: "hidden", background: "#030911", color: "#dffaff", fontFamily: "Arial, sans-serif" }}>
       <canvas ref={canvasRef} aria-label={`Vista holográfica de prueba de ${name}`} style={{ display: "block", width: "100%", height: "100%" }} />
+      <HologramVoiceDemo character={character} onActivity={onActivity} />
       <div style={{ position: "absolute", top: 24, left: 22, letterSpacing: "0.24em", fontSize: 11, opacity: 0.7 }}>FELENCHO MUNDIAL · HOLOGRAM MODE</div>
       <div style={{ position: "absolute", bottom: 58, left: 0, width: "100%", textAlign: "center", pointerEvents: "none" }}>
         <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: "0.1em", textShadow: "0 0 22px #1a94ac" }}>{name.toUpperCase()}</div>
