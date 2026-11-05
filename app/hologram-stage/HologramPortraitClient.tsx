@@ -76,6 +76,11 @@ export default function HologramPortraitClient({ character }: { character: Actor
     if (roomRef.current || liveConnecting) return;
     setLiveConnecting(true);
     try {
+      // Create and resume while this click still has browser user activation.
+      // A later ontrack callback may not be allowed to resume an AudioContext.
+      const liveCtx = new AudioContext();
+      liveContextRef.current = liveCtx;
+      await liveCtx.resume();
       const response = await fetch("/api/hologram-stage/live-token", {
         method: "POST", headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
@@ -88,7 +93,8 @@ export default function HologramPortraitClient({ character }: { character: Actor
       room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _publication, participant: RemoteParticipant) => {
         if (track.kind !== Track.Kind.Audio || !participant.identity.startsWith("hologram-director-" + character + "-")) return;
         const media = track.mediaStreamTrack;
-        const ctx = new AudioContext();
+        const ctx = liveContextRef.current;
+        if (!ctx) return;
         const src = ctx.createMediaStreamSource(new MediaStream([media]));
         const analyzer = ctx.createAnalyser();
         analyzer.fftSize = 1024;
@@ -96,9 +102,7 @@ export default function HologramPortraitClient({ character }: { character: Actor
         src.connect(analyzer);
         // Intentionally do NOT attach speaker output: the RØDECaster is the
         // monitor source; TVs use audio only to illuminate the character.
-        liveContextRef.current = ctx;
         liveAnalyzerRef.current = analyzer;
-        void ctx.resume().catch(() => {});
         setStageMode("hablando");
         setLiveStatus("Audio de " + character.toUpperCase() + " recibido del estudio");
       });
@@ -122,6 +126,10 @@ export default function HologramPortraitClient({ character }: { character: Actor
       roomRef.current = room;
       setLiveStatus("Estudio conectado: esperando voz de " + character.toUpperCase());
     } catch (error) {
+      roomRef.current?.disconnect();
+      roomRef.current = null;
+      if (liveContextRef.current) void liveContextRef.current.close();
+      liveContextRef.current = null;
       setLiveStatus(error instanceof Error ? error.message : "No se pudo conectar");
     } finally { setLiveConnecting(false); }
   }
