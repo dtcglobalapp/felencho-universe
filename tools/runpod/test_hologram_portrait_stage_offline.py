@@ -18,8 +18,12 @@ class HologramStageTest(unittest.TestCase):
                        "URL.createObjectURL", "indexedDB.open", "requestAnimationFrame",
                        "canvasRef", "Interrumpir"):
             self.assertIn(symbol,self.code)
-        for forbidden in ("getUserMedia(", "fetch(", "WebSocket(", "LEMONSLICE_API_KEY", "CARTESIA_API_KEY"):
+        for forbidden in ("getUserMedia(", "WebSocket(", "LEMONSLICE_API_KEY", "CARTESIA_API_KEY"):
             self.assertNotIn(forbidden,self.code)
+    def test_studio_connection_requires_authorized_token(self):
+        self.assertIn('fetch("/api/hologram-stage/live-token"',self.code)
+        self.assertIn('role: "screen"',self.code)
+        self.assertIn("participant.identity.startsWith",self.code)
     def test_discloses_simulated_depth(self):
         self.assertIn("todavía no un modelo 3D GLB",self.code)
         self.assertIn("proyección 2.5D",self.code)
