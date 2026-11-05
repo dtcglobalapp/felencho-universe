@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 960">
+<defs>
+ <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2bd"/><stop offset=".48" stop-color="#f4af36"/><stop offset="1" stop-color="#9d6227"/></linearGradient>
+ <linearGradient id="cyan" x1=".1" y1="0" x2=".9" y2="1"><stop stop-color="#f2fcff"/><stop offset=".45" stop-color="#42cfff"/><stop offset="1" stop-color="#194ca8"/></linearGradient>
+ <radialGradient id="cloak"><stop stop-color="#225c9c"/><stop offset=".52" stop-color="#10275b"/><stop offset="1" stop-color="#03091b"/></radialGradient>
+ <radialGradient id="core"><stop stop-color="#ecffff"/><stop offset=".12" stop-color="#2bd3ff"/><stop offset=".5" stop-color="#1255c4"/><stop offset="1" stop-color="#050e32"/></radialGradient>
+ <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="540" height="960" fill="#020a1e"/>
+<ellipse cx="270" cy="478" rx="245" ry="370" fill="#134f90" opacity=".16"/>
+<g fill="none" stroke="url(#gold)" opacity=".64"><circle cx="270" cy="244" r="180" stroke-width="2.6"/><circle cx="270" cy="244" r="159" stroke-width="1"/><circle cx="270" cy="244" r="145" stroke-dasharray="1 12" stroke-width="5"/><ellipse cx="270" cy="244" rx="194" ry="70" transform="rotate(-20 270 244)" stroke-width="1.6"/><ellipse cx="270" cy="244" rx="193" ry="55" transform="rotate(29 270 244)" stroke-width="1.2"/></g>
+<path d="M259 72 L270 38 L281 72 L270 112 Z" fill="url(#gold)" filter="url(#glow)"/>
+<path d="M105 420 Q126 343 183 330 L215 288 Q206 246 221 198 Q235 154 270 145 Q310 152 327 198 Q338 250 323 287 L355 330 Q418 343 440 420 L510 914 L25 914Z" fill="url(#cloak)" stroke="#51b7ff" stroke-width="3" opacity=".95"/>
+<path d="M174 224 Q163 169 216 134 Q270 104 325 135 Q377 182 358 248 L345 315 Q322 360 317 420 Q298 473 268 522 Q240 470 220 420 Q215 368 194 316Z" fill="#06183d" stroke="url(#cyan)" stroke-width="3"/>
+<path d="M172 273 Q175 190 223 158 Q188 240 229 292 L235 365 L188 438 Q181 365 172 273ZM367 273 Q365 189 318 158 Q355 240 313 292 L305 365 L353 438 Q357 365 367 273Z" fill="none" stroke="#8ddefd" stroke-width="7" opacity=".85" filter="url(#glow)"/>
+<path d="M210 257 Q243 244 263 262 Q239 279 207 274ZM330 257 Q298 244 277 262 Q301 279 333 274Z" fill="#aaf8ff" filter="url(#glow)"/>
+<path d="M268 162 L281 187 L268 213 L255 187Z" fill="url(#gold)" filter="url(#glow)"/>
+<g fill="none" stroke-linecap="round" filter="url(#glow)">
+ <path d="M205 280 Q220 311 215 354 Q211 441 271 528 Q326 439 322 354 Q315 307 337 282" stroke="url(#cyan)" stroke-width="6"/>
+ <path d="M234 287 Q232 355 253 419 L271 540 L289 419 Q315 350 308 286" stroke="#e7faff" stroke-width="4"/>
+ <path d="M244 302 Q252 370 249 429 Q245 498 268 576 Q294 503 291 430 Q284 368 296 302" stroke="#b7eaff" stroke-width="2.7"/>
+ <path d="M218 329 Q192 375 211 450 Q222 513 251 545 M323 329 Q347 375 331 454 Q318 512 290 545" stroke="#57caff" stroke-width="3"/>
+ <path d="M202 346 Q174 431 222 526 M341 346 Q366 431 320 526" stroke="#70d6ff" stroke-width="1.5"/>
+</g>
+<path d="M146 380 Q198 328 226 398 L206 461 L118 494 L62 897 M396 380 Q344 328 316 398 L333 461 L423 494 L482 897" stroke="url(#gold)" stroke-width="9" fill="none" opacity=".9"/>
+<path d="M81 888 Q102 630 159 443 Q181 481 215 492 M459 888 Q440 630 380 443 Q359 481 327 492" stroke="#4bafff" stroke-width="2" fill="none" opacity=".86"/>
+<g transform="translate(270 627)">
+ <circle r="94" fill="url(#core)" opacity=".94" stroke="#84eaff" stroke-width="2.8" filter="url(#glow)"/>
+ <circle r="78" fill="none" stroke="#b7f7ff" stroke-dasharray="3 10" stroke-width="2"/>
+ <ellipse rx="97" ry="37" fill="none" stroke="url(#gold)" stroke-width="4" transform="rotate(-24)" filter="url(#glow)"/>
+ <ellipse rx="99" ry="27" fill="none" stroke="#72c9ff" stroke-width="2.5" transform="rotate(22)"/>
+ <path d="M-38 -58 Q-12 -67 8 -42 L-6 -20 L15 7 L-6 23 L-16 65 L-34 42 L-44 7 L-58 -8 L-46 -30Z M25 -49 Q48 -46 50 -24 L31 -7 L48 17 L22 31 L29 61 L50 35 L56 -9 L40 -49Z" fill="#a0edff" opacity=".78"/>
+</g>
+<path d="M111 739 Q159 760 196 815 L215 915 M430 739 Q390 760 345 815 L326 915" stroke="url(#gold)" fill="none" stroke-width="4" opacity=".76"/>
+<g opacity=".55" stroke="#60bfff" stroke-width="1.4" fill="none"><path d="M105 487 L66 657 L88 776 M436 487 L474 657 L453 776 M270 737 L270 900"/><circle cx="270" cy="738" r="7"/></g>
+</svg>
