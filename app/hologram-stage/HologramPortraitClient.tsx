@@ -49,7 +49,7 @@ async function storePortrait(character: Actor, blob: Blob): Promise<void> {
   }
 }
 
-export default function HologramPortraitClient({ character }: { character: Actor }) {
+export default function HologramPortraitClient({ character, controlMode = false }: { character: Actor; controlMode?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -67,7 +67,7 @@ export default function HologramPortraitClient({ character }: { character: Actor
   const [mode, setMode] = useState<StageMode>("escuchando");
   const [hasPortrait, setHasPortrait] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(controlMode);
   const [notice, setNotice] = useState("Selecciona una imagen de referencia del personaje");
   const [audioName, setAudioName] = useState("");
   // LIVE audio is a separate authenticated studio session; never autostart
@@ -372,11 +372,13 @@ export default function HologramPortraitClient({ character }: { character: Actor
       <div className="pointer-events-none absolute left-5 top-5 text-sm font-semibold tracking-[.28em] text-cyan-100/70">
         {character.toUpperCase()}
       </div>
-      <button className="absolute right-4 top-4 rounded bg-slate-900/80 px-3 py-2 text-xs text-cyan-100"
-        onClick={() => setShowControls(v => !v)} aria-label="Mostrar u ocultar controles privados">
-        {showControls ? "Ocultar control" : "Configurar"}
-      </button>
-      {showControls && (
+      {controlMode && (
+        <button className="absolute right-4 top-4 rounded bg-slate-900/80 px-3 py-2 text-xs text-cyan-100"
+          onClick={() => setShowControls(v => !v)} aria-label="Mostrar u ocultar controles privados">
+          {showControls ? "Ocultar control" : "Configurar"}
+        </button>
+      )}
+      {controlMode && showControls && (
         <section className="absolute bottom-4 left-1/2 z-10 w-[min(94vw,650px)] -translate-x-1/2 space-y-3 rounded-xl border border-cyan-500/35 bg-[#071328]/95 p-4 text-sm shadow-2xl">
           <div className="font-semibold">{character.toUpperCase()} · Pantalla de laboratorio independiente</div>
           <p className="text-xs text-slate-300">
