@@ -369,9 +369,11 @@ export default function HologramPortraitClient({ character, controlMode = false 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#020816] text-white">
       <canvas ref={canvasRef} className="h-full w-full object-contain" aria-label={character + " holograma audio reactivo"} />
-      <div className="pointer-events-none absolute left-5 top-5 text-sm font-semibold tracking-[.28em] text-cyan-100/70">
-        {character.toUpperCase()}
-      </div>
+      {controlMode && (
+        <div className="pointer-events-none absolute left-5 top-5 text-sm font-semibold tracking-[.28em] text-cyan-100/70">
+          {character.toUpperCase()}
+        </div>
+      )}
       {controlMode && (
         <button className="absolute right-4 top-4 rounded bg-slate-900/80 px-3 py-2 text-xs text-cyan-100"
           onClick={() => setShowControls(v => !v)} aria-label="Mostrar u ocultar controles privados">
