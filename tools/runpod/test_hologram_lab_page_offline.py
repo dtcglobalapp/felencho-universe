@@ -13,7 +13,7 @@ class HologramLabPageTests(unittest.TestCase):
         self.assertIn('sandbox="allow-scripts"', page)
         self.assertIn("buildHologramPreviewHtml()", page)
         helper = (ROOT / "lib/hologramPreviewHtml.ts").read_text()
-        self.assertIn('"hologram_audio_reactive.html"', helper)
+        self.assertIn('"tools/runpod/demo/hologram_audio_reactive.html"', helper)
         self.assertTrue(DEMO.is_file())
 
     def test_no_external_voice_or_provider_credentials(self):
