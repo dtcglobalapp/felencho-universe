@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import PresenceVideo from "./PresenceVideo";
 import PresenceLive from "./PresenceLive";
+import HologramPresence from "./HologramPresence";
 
 import StudioSync from "@/lib/StudioSync";
 import {
@@ -76,6 +77,12 @@ export default function PresenceAvatar({
       syncRef.current = null;
     };
   }, [character, studioId]);
+
+  // Explicit preview never mounts PresenceLive or requests a provider session.
+  const hologramPreview = typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("hologram") === "1";
+
+  if (hologramPreview) return <HologramPresence character={character} />;
 
   if (debug) {
     return (
