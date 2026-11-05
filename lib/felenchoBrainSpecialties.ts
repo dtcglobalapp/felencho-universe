@@ -7,7 +7,7 @@
  */
 export type SpecialtyKey =
   | "derecho" | "impuestos" | "religiones" | "medicina"
-  | "economia" | "historia" | "vida_extraterrestre";
+  | "economia" | "historia" | "vida_extraterrestre" | "conciencia_reencarnacion";
 
 export type EvidenceStatus =
   | "hecho_documentado"
@@ -81,6 +81,15 @@ export const SPECIALTIES: readonly Specialty[] = [
     sources: [
       { name: "National Archives", homepage: "https://www.archives.gov/", scope: "Documentos históricos", note: "Citar referencia y fecha del documento" },
       { name: "Library of Congress", homepage: "https://www.loc.gov/", scope: "Colecciones históricas", note: "Corroborar procedencia" },
+    ],
+  },
+  {
+    key: "conciencia_reencarnacion", name: "Conciencia, vidas pasadas y reencarnación",
+    editorialRule: "Diferenciar ideas religiosas sobre renacimiento, debates filosóficos de identidad personal y testimonios de recuerdos de vidas pasadas. No presentar un testimonio, una regresión hipnótica o un relato extraordinario como prueba de reencarnación.",
+    sources: [
+      { name: "Stanford Encyclopedia of Philosophy", homepage: "https://plato.stanford.edu/", scope: "Filosofía de la mente, identidad y religión", note: "Citar autores, edición y argumentos contrapuestos" },
+      { name: "University of Virginia Division of Perceptual Studies", homepage: "https://med.virginia.edu/perceptual-studies/", scope: "Investigación y publicaciones sobre experiencias extraordinarias", note: "Evaluar métodos, revisiones críticas y reproducibilidad; institución no valida automáticamente afirmaciones" },
+      { name: "Open Library", homepage: "https://openlibrary.org/", scope: "Catálogo de tradiciones sobre renacimiento", note: "Identificar tradiciones, autoría y contexto histórico" },
     ],
   },
   {
