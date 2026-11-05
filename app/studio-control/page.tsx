@@ -155,7 +155,7 @@ export default function StudioControlPage() {
                 );
               })}
             </div>
-            <p className="mt-3 text-xs text-zinc-500">Este panel cambia el estado visual mediante Supabase. No confirma por sí solo el consumo ni el cierre de una sesión del proveedor.</p>
+            <div className="mt-4 flex flex-wrap gap-4 text-sm text-violet-200">\n              <Link href="/hologram/bob" target="_blank" rel="noopener noreferrer" className="underline">Vista Hologram Bob (sin créditos)</Link>\n              <Link href="/hologram/lina" target="_blank" rel="noopener noreferrer" className="underline">Vista Hologram Lina (sin créditos)</Link>\n            </div>\n            <p className="mt-3 text-xs text-zinc-500">Este panel cambia el estado visual mediante Supabase. No confirma por sí solo el consumo ni el cierre de una sesión del proveedor.</p>
           </section>
 
           <section className="rounded-3xl border border-white/10 bg-[#111824] p-5">
