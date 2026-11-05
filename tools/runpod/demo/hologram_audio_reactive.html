@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Felencho Mundial — hologramas reactivos (sandbox)</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#080e1b;color:#eaf4ff}
+*{box-sizing:border-box}body{margin:0;padding:18px}
+header{text-align:center;max-width:880px;margin:0 auto 20px}h1{font-size:clamp(22px,4vw,32px);margin:8px 0}
+p{color:#a9bdd7;line-height:1.5}.screens{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:1060px;margin:auto}
+.screen{position:relative;border:1px solid #304765;border-radius:18px;overflow:hidden;background:#020917}
+canvas{display:block;width:100%;aspect-ratio:9/16}
+.overlay{position:absolute;left:12px;top:10px;pointer-events:none;text-shadow:0 2px 8px #000}
+.overlay strong{display:block;letter-spacing:.16em}.overlay small{color:#c5d5ec}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:12px;background:#121e33}
+label{font-size:13px}input[type=file]{width:min(100%,230px);font-size:12px}button{border:1px solid #45658b;border-radius:8px;background:#253851;color:white;padding:8px 12px;cursor:pointer}
+button:hover{background:#395578}button:disabled{opacity:.5;cursor:not-allowed}
+.status{font-size:12px;color:#8ddbc9;margin-left:auto}.note{max-width:900px;margin:18px auto;font-size:13px}
+@media(max-width:620px){.screens{grid-template-columns:1fr}.screen{max-width:440px;margin:auto;width:100%}}
+</style></head>
+<body>
+<header><div style="letter-spacing:.24em;color:#66d9ff">FELENCHO MUNDIAL</div>
+<h1>Bob y Lina · Hologramas de voz</h1>
+<p>Prueba visual aislada: sin rostros, sin GPU, sin micrófono y sin proveedor de voz. Puedes seleccionar archivos de audio propios para ver las luces reaccionar. No hay conversación ni inteligencia conectada todavía.</p></header>
+<main class="screens">
+<section class="screen" aria-label="Holograma de Bob">
+<canvas id="bob" width="540" height="960" aria-label="Bob: visual de energía azul y oro"></canvas>
+<div class="overlay"><strong>BOB</strong><small>Sabiduría · análisis</small></div>
+<div class="controls"><label for="bob-file">Audio de Bob</label><input id="bob-file" type="file" accept="audio/*">
+<button id="bob-play" disabled>Hablar</button><button id="bob-stop" disabled>Detener</button>
+<span id="bob-status" class="status">Reposo</span></div>
+</section>
+<section class="screen" aria-label="Holograma de Lina">
+<canvas id="lina" width="540" height="960" aria-label="Lina: visual de energía cyan y violeta"></canvas>
+<div class="overlay"><strong>LINA</strong><small>Investigación · datos</small></div>
+<div class="controls"><label for="lina-file">Audio de Lina</label><input id="lina-file" type="file" accept="audio/*">
+<button id="lina-play" disabled>Hablar</button><button id="lina-stop" disabled>Detener</button>
+<span id="lina-status" class="status">Reposo</span></div>
+</section>
+</main>
+<p class="note">Privacidad: los archivos se leen exclusivamente en este navegador; no se envían a ningún servidor. Los clips no se guardan. Esto mide reactividad visual al audio local, no latencia de conversación ni calidad de síntesis. Cuando se conecte a Felencho Brain, la salida del proveedor de voz será el origen del audio.</p>
+<script>
+(() => {
+'use strict';
+const models=[
+{id:'bob',color:[50,180,255],accent:[255,183,68],offset:1.2},
+{id:'lina',color:[80,230,255],accent:[212,81,255],offset:2.6}
+];
+let audioContext=null, active=null, frame=0;
+const ready=()=>{ if(!audioContext) audioContext=new (window.AudioContext||window.webkitAudioContext)();return audioContext; };
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rgba=(c,a)=>'rgba('+c.join(',')+','+a+')';
+const initialized=models.map(m=>{
+ const canvas=document.getElementById(m.id),ctx=canvas.getContext('2d');
+ const input=document.getElementById(m.id+'-file'),play=document.getElementById(m.id+'-play');
+ const stop=document.getElementById(m.id+'-stop'),status=document.getElementById(m.id+'-status');
+ const audio=new Audio();audio.preload='metadata';let url=null,source=null,analyser=null;
+ function reset(){audio.pause();audio.currentTime=0;stop.disabled=true;play.disabled=!url;status.textContent='Reposo';if(active===m.id)active=null;}
+ input.addEventListener('change',()=>{
+   reset();if(url)URL.revokeObjectURL(url);url=null;
+   const file=input.files&&input.files[0];if(!file)return;
+   if(!file.type.startsWith('audio/')){status.textContent='Formato no compatible';return;}
+   url=URL.createObjectURL(file);audio.src=url;play.disabled=false;status.textContent='Archivo listo';
+ });
+ play.addEventListener('click',async()=>{
+  try{
+    const ac=ready();await ac.resume();
+    if(active && active!==m.id)initialized.find(s=>s.id===active).reset();
+    if(!source){source=ac.createMediaElementSource(audio);analyser=ac.createAnalyser();analyser.fftSize=512;source.connect(analyser);analyser.connect(ac.destination);}
+    await audio.play();active=m.id;play.disabled=true;stop.disabled=false;status.textContent='Hablando';
+  }catch(_){status.textContent='Error de reproducción';reset();}
+ });
+ stop.addEventListener('click',reset);audio.addEventListener('ended',reset);
+ return {...m,ctx,canvas,audio,reset,getLevel(){
+    if(audio.paused||!analyser)return 0;
+    const data=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(data);
+    let sum=0;for(let k=2;k<Math.min(95,data.length);k++)sum+=data[k];
+    return clamp(sum/(Math.min(95,data.length)-2)/145,0,1);
+ }};
+});
+function draw(m,time){
+ const ctx=m.ctx,W=m.canvas.width,H=m.canvas.height,level=m.getLevel();
+ const glow=clamp(level*.85,0,1),pulse=1+glow*.19;
+ ctx.clearRect(0,0,W,H);
+ const bg=ctx.createRadialGradient(W*.5,H*.46,4,W*.5,H*.5,H*.78);
+ bg.addColorStop(0,rgba(m.color,.12+glow*.13));bg.addColorStop(.5,'#091429');bg.addColorStop(1,'#020611');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ // Slowly moving planetary orbit rings — no human face to animate.
+ const cy=H*.47,cx=W*.5;
+ ctx.save();ctx.translate(cx,cy);
+ for(let j=0;j<6;j++){
+   let r=(110+j*31)*pulse;
+   ctx.save();ctx.rotate(Math.sin(time*.00017+j)*.20+j*.12);
+   ctx.beginPath();ctx.ellipse(0,0,r*.95,r*.36,.2,0,Math.PI*2);
+   ctx.strokeStyle=rgba(j%2?m.accent:m.color,.25+glow*.33);
+   ctx.lineWidth=1.5+glow*2.5;ctx.shadowBlur=18+glow*28;
+   ctx.shadowColor=rgba(m.accent,.9);ctx.stroke();ctx.restore();
+ }
+ // Luminous intelligent energy core.
+ const core=ctx.createRadialGradient(0,0,3,0,0,155*pulse);
+ core.addColorStop(0,'rgba(255,255,255,.97)');
+ core.addColorStop(.15,rgba(m.accent,.80));
+ core.addColorStop(.38,rgba(m.color,.38+glow*.21));
+ core.addColorStop(1,rgba(m.color,0));
+ ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,155*pulse,0,Math.PI*2);ctx.fill();
+ // Non-human crystalline contours.
+ for(let j=0;j<5;j++){
+   const phase=time*.0005*(j%2?1:-1)+j*.74+m.offset;
+   const radius=65+j*30;
+   ctx.beginPath();
+   for(let i=0;i<=240;i++){
+     const a=i/240*Math.PI*2;
+     const rr=(radius+14*Math.sin(4*a+phase))*pulse;
+     const x=Math.cos(a)*rr*.73,y=Math.sin(a)*rr*1.22;
+     if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+   }
+   ctx.closePath();ctx.lineWidth=1.3+glow*2;ctx.strokeStyle=rgba(j%2?m.accent:m.color,.58+glow*.28);
+   ctx.shadowBlur=14+glow*25;ctx.shadowColor=rgba(m.color,.9);ctx.stroke();
+ }
+ ctx.restore();
+ // Energy filaments, audio reactive but calm during silence.
+ for(let j=0;j<70;j++){
+   const seed=j*2.399963,phase=time*.00025*(j%3+1)+seed;
+   const y=H*(.18+j/88),w=(.20+Math.sin(seed)*.1)*W;
+   const x=W*.5+Math.sin(phase)*w;
+   const alpha=.10+(j%7)/45+glow*.28;
+   ctx.fillStyle=rgba(j%3?m.color:m.accent,alpha);
+   ctx.fillRect(x,y,1.3+glow*3.4,4+glow*12);
+ }
+ // Audio spectrum below; never create fake sound.
+ const bars=41,barW=6,gap=5,left=(W-bars*(barW+gap))/2;
+ for(let i=0;i<bars;i++){
+   const shape=.2+.8*Math.sin(Math.PI*(i+.5)/bars);
+   const h=8+(glow*126*shape)+(1-glow)*4*Math.sin(time*.002+i*.4);
+   ctx.fillStyle=rgba(i%4?m.color:m.accent,.45+glow*.50);
+   ctx.fillRect(left+i*(barW+gap),H*.83-h,barW,h);
+ }
+ const text=level>.03?'HABLANDO':'PRESENCIA';
+ ctx.font='500 17px system-ui';ctx.textAlign='center';ctx.fillStyle=rgba(m.color,.8);
+ ctx.fillText(text,W*.5,H*.90);
+}
+function loop(t){for(const m of initialized)draw(m,t);frame=requestAnimationFrame(loop)}
+frame=requestAnimationFrame(loop);
+window.addEventListener('pagehide',()=>{cancelAnimationFrame(frame);for(const m of initialized)m.reset();if(audioContext)audioContext.suspend();});
+})();
+</script></body></html>
