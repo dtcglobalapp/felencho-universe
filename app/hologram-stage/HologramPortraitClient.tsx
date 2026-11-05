@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Room, RoomEvent, Track, RemoteTrack, RemoteParticipant } from "livekit-client";
 
 type Actor = "bob" | "lina";
 type StageMode = "escuchando" | "hablando" | "suspendido";
@@ -56,6 +57,11 @@ export default function HologramPortraitClient({ character }: { character: Actor
   const portraitUrlRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const liveAnalyzerRef = useRef<AnalyserNode | null>(null);
+  const liveContextRef = useRef<AudioContext | null>(null);
+  const roomRef = useRef<Room | null>(null);
+  const [liveStatus, setLiveStatus] = useState("Estudio sin conectar");
+  const [liveConnecting, setLiveConnecting] = useState(false);
   const rafRef = useRef<number>(0);
   const modeRef = useRef<StageMode>("escuchando");
   const [mode, setMode] = useState<StageMode>("escuchando");
@@ -64,6 +70,70 @@ export default function HologramPortraitClient({ character }: { character: Actor
   const [showControls, setShowControls] = useState(true);
   const [notice, setNotice] = useState("Selecciona una imagen de referencia del personaje");
   const [audioName, setAudioName] = useState("");
+  // LIVE audio is a separate authenticated studio session; never autostart
+  // an old avatar agent or request a public microphone.
+  async function connectStudio() {
+    if (roomRef.current || liveConnecting) return;
+    setLiveConnecting(true);
+    try {
+      const response = await fetch("/api/hologram-stage/live-token", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ character, role: "screen" }),
+      });
+      const auth: { serverUrl?: string; participantToken?: string; error?: string } = await response.json();
+      if (!response.ok || !auth.serverUrl || !auth.participantToken)
+        throw new Error(auth.error || "No hay sesión de estudio");
+      const room = new Room();
+      room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _publication, participant: RemoteParticipant) => {
+        if (track.kind !== Track.Kind.Audio || !participant.identity.startsWith("hologram-director-" + character + "-")) return;
+        const media = track.mediaStreamTrack;
+        const ctx = new AudioContext();
+        const src = ctx.createMediaStreamSource(new MediaStream([media]));
+        const analyzer = ctx.createAnalyser();
+        analyzer.fftSize = 1024;
+        analyzer.smoothingTimeConstant = .72;
+        src.connect(analyzer);
+        // Intentionally do NOT attach speaker output: the RØDECaster is the
+        // monitor source; TVs use audio only to illuminate the character.
+        liveContextRef.current = ctx;
+        liveAnalyzerRef.current = analyzer;
+        void ctx.resume().catch(() => {});
+        setStageMode("hablando");
+        setLiveStatus("Audio de " + character.toUpperCase() + " recibido del estudio");
+      });
+      room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+        if (track.kind !== Track.Kind.Audio) return;
+        liveAnalyzerRef.current = null;
+        if (liveContextRef.current) void liveContextRef.current.close();
+        liveContextRef.current = null;
+        setStageMode("escuchando");
+        setLiveStatus("Estudio conectado: escuchando");
+      });
+      room.on(RoomEvent.Disconnected, () => {
+        liveAnalyzerRef.current = null;
+        if (liveContextRef.current) void liveContextRef.current.close();
+        liveContextRef.current = null;
+        roomRef.current = null;
+        setStageMode("escuchando");
+        setLiveStatus("Estudio desconectado");
+      });
+      await room.connect(auth.serverUrl, auth.participantToken);
+      roomRef.current = room;
+      setLiveStatus("Estudio conectado: esperando voz de " + character.toUpperCase());
+    } catch (error) {
+      setLiveStatus(error instanceof Error ? error.message : "No se pudo conectar");
+    } finally { setLiveConnecting(false); }
+  }
+  function disconnectStudio() {
+    roomRef.current?.disconnect();
+    roomRef.current = null;
+    liveAnalyzerRef.current = null;
+    if (liveContextRef.current) void liveContextRef.current.close();
+    liveContextRef.current = null;
+    setStageMode("escuchando");
+    setLiveStatus("Estudio desconectado");
+  }
   const isBob = character === "bob";
   const accent = isBob ? [64, 178, 255] : [154, 96, 255];
   const secondary = isBob ? [255, 179, 70] : [48, 232, 255];
@@ -190,7 +260,7 @@ export default function HologramPortraitClient({ character }: { character: Actor
       rafRef.current = requestAnimationFrame(animate);
       if (now - last < 24) return; // ~40 fps on the studio TVs
       last = now;
-      const analyser = analyserRef.current;
+      const analyser = liveAnalyzerRef.current || analyserRef.current;
       let rms = 0, bass = 0;
       if (analyser && modeRef.current === "hablando") {
         analyser.getByteFrequencyData(values);
@@ -282,6 +352,8 @@ export default function HologramPortraitClient({ character }: { character: Actor
       if (audioObjectUrlRef.current) URL.revokeObjectURL(audioObjectUrlRef.current);
       if (portraitUrlRef.current) URL.revokeObjectURL(portraitUrlRef.current);
       if (audioContextRef.current) void audioContextRef.current.close();
+      roomRef.current?.disconnect();
+      if (liveContextRef.current) void liveContextRef.current.close();
       audioContextRef.current = null;
     };
   }, []);
@@ -310,6 +382,15 @@ export default function HologramPortraitClient({ character }: { character: Actor
             <label className="flex flex-col gap-1">Audio {hasAudio ? "✓" : ""}
               <input type="file" accept="audio/*" onChange={e => onAudio(e.target.files?.[0])}/>
             </label>
+          </div>
+          <div className="rounded border border-cyan-700/70 p-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <button className="rounded bg-sky-700 px-3 py-2 disabled:opacity-50" disabled={liveConnecting || !!roomRef.current}
+                onClick={()=>void connectStudio()}>Conectar al estudio</button>
+              <button className="rounded bg-slate-700 px-3 py-2" onClick={disconnectStudio}>Desconectar</button>
+              <span aria-live="polite">{liveStatus}</span>
+            </div>
+            <p className="mt-1 text-slate-400">Solo analiza audio recibido del estudio, sin reproducirlo en la TV. Acceso privado requerido.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button className="rounded bg-cyan-700 px-3 py-2 disabled:opacity-40" disabled={!hasAudio} onClick={()=>void play()}>Reproducir voz</button>
