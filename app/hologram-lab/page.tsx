@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { buildHologramPreviewHtml } from "@/lib/hologramPreviewHtml";
 
 export const dynamic = "force-dynamic";
 
@@ -9,14 +8,7 @@ export const dynamic = "force-dynamic";
  * The page exists in the feature branch and must not be merged without approval.
  */
 export default async function HologramLabPage() {
-  const demoPath = path.join(
-    process.cwd(),
-    "tools",
-    "runpod",
-    "demo",
-    "hologram_audio_reactive.html",
-  );
-  const html = await readFile(demoPath, "utf8");
+  const html = await buildHologramPreviewHtml();
 
   return (
     <main className="min-h-screen bg-slate-950 px-3 py-6 text-white sm:px-6">
@@ -27,7 +19,7 @@ export default async function HologramLabPage() {
           </p>
           <h1 className="mt-2 text-2xl font-bold">Hologram Mode — Laboratorio</h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
-            Prueba visual de Bob y Lina. Puedes seleccionar una grabación de audio
+            Prueba visual con ilustraciones independientes de Bob y Lina. Puedes seleccionar una grabación de audio
             desde el navegador para observar luces reactivas, probar los estados
             y detener las voces con prioridad del presentador.
           </p>
