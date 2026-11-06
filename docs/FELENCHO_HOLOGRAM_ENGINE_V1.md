@@ -79,3 +79,20 @@ Commit de desarrollo del engine: `bc0df456fbbd7fd19cf70ad1c71873a02af5b269`.
 - **Alerta**: validar permisos/autenticación de los canales Supabase Broadcast antes de uso en vivo. Los visemas estimados por bandas no sustituyen una alineación fonética verdadera.
 - **Alerta**: validar el contexto de audio WebAudio en el navegador del estudio: una política de autoplay podría impedir o silenciar audio al conectar MediaElementAudioSourceNode fuera de una interacción humana. Prueba obligatoria; si ocurre, rediseñar la captación sin afectar la voz del estudio.
 - **Bloqueador visual**: los GLB originales y riggeados de Bob y Lina aún no existen. No mostrar enlaces de prueba vacíos como si fueran personajes terminados.
+
+## Revisión técnica — 5 noviembre 2026
+
+**Referencia visual maestra**: imagen del estudio con Bob y Lina aprobados. Bob: rostro maduro, pelo largo y barba plateados, iluminación cian/dorada y anillos de energía. Lina: rostro femenino rubio, uniforme tecnológico oscuro, tonos magenta/violeta/cian. Los objetos 3D deben conservar **rasgos faciales y apariencia de la referencia**, no ser un personaje genérico ni una foto en un plano.
+
+**Inventario**: búsqueda en GitHub no encontró `bob.glb` ni `lina.glb`; el único `.glb` encontrado estaba en rutas de código, no era un activo real. No es posible validar lipsync o calidad visual sin modelos.
+
+**Correcciones de seguridad de audio**:
+- `StudioAudio.play()` ahora intenta reproducir la voz primero y conecta el análisis holográfico después. El análisis no debe interponerse en el audio que alimenta RØDECaster.
+- `StudioHologramVoiceSender.connect()` devuelve `false` si AudioContext queda suspendido en lugar de bloquear indefinidamente. Si falla, la voz del estudio continúa y solo la animación queda inactiva.
+- Queda pendiente verificar en navegador real que crear un `MediaElementAudioSourceNode` sobre un elemento ya iniciado preserve audio y no cause caída de volumen/latencia. No ejecutar en show en vivo sin esa prueba.
+- Validar que las emisiones Supabase Broadcast y su control de acceso funcionen entre La Bestia y PCs Windows, con canal autorizado y rechazo de frames obsoletos.
+- La estimación fonética por bandas es **aproximada**, no lipsync fonético profesional; integrar tiempos de visemas verdaderos al disponer del TTS adecuado.
+
+**Gate para modelos**: `python3 tools/hologram/check_character_glb.py public/holograms/lina.glb public/holograms/bob.glb` valida estructura GLB y nombres reconocibles de morph targets/jaw. No reemplaza inspección de identidad ni pruebas WebGL.
+
+**Estado honesto**: conexión prototipada; no hay modelo original 3D en el repositorio, ni build/render/voz real verificados. No subir cambios a `main` hasta pasar las pruebas y obtener recursos originales.
