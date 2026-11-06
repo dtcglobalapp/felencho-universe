@@ -24,6 +24,22 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Verify Three.js energy-display source contract
         run: node tools/hologram/check-webgl-contract.mjs
+      - name: Install browser QA runtime (ephemeral)
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Render portrait screenshots in actual Chromium WebGL
+        run: |
+          python3 -m http.server 8765 --directory public > /tmp/felencho-holo-server.log 2>&1 &
+          node tools/hologram/capture-light-preview.mjs
+      - name: Keep Bob and Lina QA images
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hologram-light-portrait-qa
+          path: artifacts/hologram-light/*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build isolated Next.js site
         run: npm run build
         env:
