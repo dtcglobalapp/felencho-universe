@@ -1,248 +1,101 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Felencho Hologram Engine</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Felencho Mundial · Hologram Engine</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020710;color:#e9f9ff;font:14px system-ui,Arial,sans-serif}
-#scene{position:fixed;inset:0}#scene canvas{display:block;width:100%;height:100%}
-#top{position:absolute;left:20px;top:20px;font-size:12px;letter-spacing:.18em;color:#bbdcfa;pointer-events:none}
-#status{position:absolute;top:50px;left:20px;max-width:min(390px,calc(100vw - 40px));background:#04101bc9;border:1px solid #25506a;border-radius:10px;padding:12px;line-height:1.55}
-#tools{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;width:min(900px,calc(100vw - 20px));background:#071525e8;border:1px solid #346580;border-radius:14px;padding:12px}
-button,.upload{font:inherit;cursor:pointer;color:#d8faff;background:#122b45;border:1px solid #367ca2;padding:9px 13px;border-radius:8px}
-button:hover,.upload:hover{background:#205176}input[type=file]{display:none}input[type=range]{width:90px;accent-color:#53deff}
-#label{position:absolute;bottom:102px;width:100%;text-align:center;pointer-events:none;font-size:27px;letter-spacing:.22em;font-weight:800;text-shadow:0 0 26px #58dffc}
-#meters{position:absolute;right:20px;top:20px;min-width:175px;background:#04101bbb;border:1px solid #25506a;padding:12px;border-radius:9px;font:11px ui-monospace,monospace}
-.bar{height:5px;background:#16344a;border-radius:4px;margin:8px 0 14px}.bar>i{display:block;background:#64dfff;height:100%;width:0%;transition:width .08s}
-#hint{font-size:11px;opacity:.75;max-width:280px}
-html.display-only #top,html.display-only #status,html.display-only #meters,html.display-only #label,html.display-only #tools{display:none!important}
-@media(max-width:750px){#meters{top:115px;right:12px;min-width:118px}#status{font-size:11px;max-width:60vw}#label{bottom:165px;font-size:22px}#tools{bottom:8px}}
+html,body{width:100%;height:100%;padding:0;margin:0;overflow:hidden;background:#010510}
+#scene{position:absolute;inset:0}
+canvas{width:100%;height:100%;display:block}
 </style>
-</head><body>
-<div id="scene"></div>
-<div id="top">FELENCHO MUNDIAL · HOLOGRAM ENGINE · THREE.JS</div>
-<div id="status" role="status">Inicializando motor 3D...</div>
-<div id="meters"><div>AUDIO REACTIVITY</div><div class="bar"><i id="level"></i></div><div>BASS</div><div class="bar"><i id="bass"></i></div><div>VOICE</div><div class="bar"><i id="voice"></i></div><div>VISeme: <b id="viseme">REST</b></div></div>
-<div id="label"></div>
-<div id="tools">
-<label class="upload">Cargar voz WAV/MP3<input type="file" id="audioFile" accept="audio/*"></label>
-<label class="upload">Visemas JSON<input type="file" id="visemeFile" accept=".json,application/json"></label>
-<button id="play" type="button">▶ Reproducir</button>
-<label>Brillo <input id="glow" type="range" min="0.3" max="2" step=".1" value="1"></label>
-<span id="hint">Sin servicios de avatar. Audio solo tras pulsar reproducir.</span>
-</div>
+</head>
+<body><div id="scene" aria-label="Holographic character display"></div>
 <script type="module">
-const params=new URLSearchParams(location.search);
-const displayOnly=params.get("mode")!=="control";
-if(displayOnly) document.documentElement.classList.add("display-only");
-const character=params.get("character")==="lina"?"lina":"bob";
-const palette=character==="lina"?{a:0xa474ff,b:0xff52ce,c:0x36cfff}:{a:0x27d7ff,b:0xffc764,c:0x549bff};
-const status=document.getElementById("status");
-document.getElementById("label").textContent=character.toUpperCase();
-const setStatus=(text)=>{status.textContent=text};
-try{
-  // Only the open-source renderer is fetched from a version-pinned CDN.
-  // All character, audio, material and orchestration logic below is original.
+const query=new URLSearchParams(location.search);
+const character=query.get("character")==="lina"?"lina":"bob";
+const panel=document.getElementById("scene");
+const state={level:0,bass:0,mid:0,treble:0,weight:0,viseme:"REST",updated:0,session:"",sequence:-1};
+try {
   const THREE=await import("https://esm.sh/three@0.180.0");
-  const {GLTFLoader}=await import("https://esm.sh/three@0.180.0/examples/jsm/loaders/GLTFLoader.js");
-  const {applyHologramMaterials}=await import("./hologram-materials.js");
-  const {createVisemeRig}=await import("./viseme-rig.js");
+  const {buildEnergyEntity}=await import("./energy-entity.js");
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x030813);
-  scene.fog=new THREE.FogExp2(0x030813,.025);
-  const camera=new THREE.PerspectiveCamera(37,innerWidth/innerHeight,.1,100);
-  camera.position.set(0,0.15,10);
+  scene.background=new THREE.Color("#010510");
+  scene.fog=new THREE.FogExp2("#010510",.022);
+  const camera=new THREE.PerspectiveCamera(34,window.innerWidth/window.innerHeight,.1,100);
   const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:"high-performance"});
-  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
-  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.7));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.3;
-  document.getElementById("scene").appendChild(renderer.domElement);
-  scene.add(new THREE.AmbientLight(0xacc9ff,.65));
-  const light1=new THREE.PointLight(palette.a,45,16); light1.position.set(-3,2,3);scene.add(light1);
-  const light2=new THREE.PointLight(palette.b,32,13); light2.position.set(3,-1,2);scene.add(light2);
-  const characterGroup=new THREE.Group();scene.add(characterGroup);
-  const effects=new THREE.Group();scene.add(effects);
-  const mat=(hex,opacity=1)=>new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity,depthWrite:false,side:THREE.DoubleSide});
-  const rings=[];
-  for(let i=0;i<7;i++){
-    const radius=1.8+i*.12;
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.007+i*.0015,7,240),mat(i%2?palette.b:palette.a,.34));
-    ring.rotation.set(.45+i*.3,.2+i*.38,i*.4);
-    ring.position.y=(i-3)*.17;
-    effects.add(ring);rings.push(ring);
+  renderer.toneMappingExposure=1.48;
+  renderer.setSize(innerWidth,innerHeight);
+  panel.appendChild(renderer.domElement);
+  const entity=buildEnergyEntity(THREE,character);
+  scene.add(entity.root);
+  const color=character==="lina"?0xa46dff:0x31dfff;
+  const accent=character==="lina"?0xf557d6:0xffc268;
+  scene.add(new THREE.AmbientLight(0x8d9dcb,.26));
+  const key=new THREE.PointLight(color,42,12,1.35);
+  key.position.set(-2.2,2.7,3.7);scene.add(key);
+  const fill=new THREE.PointLight(accent,28,11,1.15);
+  fill.position.set(2,-.5,2.5);scene.add(fill);
+  const back=new THREE.PointLight(color,22,10,1.2);
+  back.position.set(0,1.1,-2.2);scene.add(back);
+  const dustCount=950,points=new Float32Array(dustCount*3);
+  for(let i=0;i<dustCount;i++){
+    const phi=i*2.39996323;
+    const radius=2.45+(i%31)/31*4.1;
+    points[i*3]=Math.cos(phi)*radius;
+    points[i*3+1]=((i*31)%601)/601*8-4;
+    points[i*3+2]=Math.sin(phi)*radius-1.7;
   }
-  const floor=new THREE.Mesh(new THREE.TorusGeometry(1.55,.018,10,160),mat(palette.a,.86));
-  floor.rotation.x=Math.PI/2;floor.position.y=-2.45;effects.add(floor);
-  const spriteCount=1400;
-  const positions=new Float32Array(spriteCount*3);
-  for(let i=0;i<spriteCount;i++){
-    const angle=i*2.399963;
-    const radius=2.3+((i*17)%37)/37*6.2;
-    positions[i*3]=Math.cos(angle)*radius;
-    positions[i*3+1]=((i*67)%997)/997*10-5;
-    positions[i*3+2]=Math.sin(angle)*radius-3;
+  const dustGeo=new THREE.BufferGeometry();
+  dustGeo.setAttribute("position",new THREE.BufferAttribute(points,3));
+  const dust=new THREE.Points(dustGeo,new THREE.PointsMaterial({
+    color,transparent:true,opacity:.35,size:.014,depthWrite:false,sizeAttenuation:true
+  }));
+  scene.add(dust);
+  function resize(){
+    camera.aspect=innerWidth/innerHeight;
+    // Portrait TVs keep character framed center to upper body.
+    camera.position.set(0,0,innerWidth<innerHeight?10.9:9.4);
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
   }
-  const geometry=new THREE.BufferGeometry();geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
-  const stars=new THREE.Points(geometry,new THREE.PointsMaterial({color:palette.c,size:.022,transparent:true,opacity:.6,sizeAttenuation:true}));
-  scene.add(stars);
-  const centerGlow=new THREE.PointLight(palette.a,19,12);centerGlow.position.set(0,0,0);scene.add(centerGlow);
-
-  let model=null;
-  let mouthTargets=[];
-  let jaw=null;
-  let fallback=null;
-  let sourceType="none";
-  let hologramMaterials=null;
-  let visemeRig=null;
-  const requested='/holograms/'+character+'.glb';
-  // GLB files are supplied separately. We never disguise geometry as a finished face.
-  const loadModel=()=>new Promise((resolve,reject)=>{
-    new GLTFLoader().load(requested,gltf=>{
-      model=gltf.scene;
-      const box=new THREE.Box3().setFromObject(model);
-      const bounds=box.getSize(new THREE.Vector3());
-      const center=box.getCenter(new THREE.Vector3());
-      model.position.sub(center);
-      model.scale.multiplyScalar(3.5/Math.max(bounds.y,.01));
-      model.traverse(node=>{
-        if(node.isSkinnedMesh||node.isMesh){
-          if(node.morphTargetDictionary&&node.morphTargetInfluences){
-            mouthTargets.push(node);
-          }
-        }
-        if(node.isBone&&/jaw|mandib/i.test(node.name))jaw=node;
-      });
-      hologramMaterials=applyHologramMaterials(THREE,model,character);
-      visemeRig=createVisemeRig(model);
-      characterGroup.add(model);sourceType="glb";resolve();
-    },undefined,reject);
+  addEventListener("resize",resize);resize();
+  addEventListener("message",(event)=>{
+    if(event.origin!==location.origin || event.source!==window.parent)return;
+    if(event.data?.type!=="felencho-hologram-frame")return;
+    const f=event.data.frame;
+    if(!f||f.character!==character||typeof f.timestamp!=="number"||Math.abs(Date.now()-f.timestamp)>5000)return;
+    const finiteUnit=x=>typeof x==="number"&&Number.isFinite(x)&&x>=0&&x<=1;
+    if(!["level","bass","mid","treble","weight"].every(k=>finiteUnit(f[k])))return;
+    if(!["REST","A","E","I","O","U","M","F","L","S"].includes(f.viseme))return;
+    if(typeof f.session!=="string"||typeof f.sequence!=="number")return;
+    if(state.session===f.session&&f.sequence<=state.sequence)return;
+    Object.assign(state,{level:f.active?f.level:0,bass:f.bass,mid:f.mid,
+      treble:f.treble,weight:f.active?f.weight:0,viseme:f.active?f.viseme:"REST",
+      updated:performance.now(),session:f.session,sequence:f.sequence});
   });
-  try{
-    await loadModel();
-    setStatus("Modelo 3D: "+requested+" · material holográfico en "+(hologramMaterials?.count??0)+" mallas · controles faciales: "+(visemeRig?.channels??0)+" morph targets y "+(visemeRig?.jawBones??0)+" huesos mandibulares.");
-  }catch(error){
-    // No 2D video substitute; displays only an approved, rigged 3D model.
-    sourceType="missing";
-    effects.visible=false;
-    stars.visible=false;
-    console.error("Felencho: approved rigged GLB not installed", requested, error);
-    setStatus("El modelo GLB auténtico de "+character+" aún no está instalado.");
-  }
-
-  const audio=new Audio();audio.preload="auto";
-  let context=null,analyser=null,frequency=null,waveform=null,source=null;
-  let currentUrl=null,timeline=[];
-  let activity=0,bass=0,mids=0,treble=0,activeViseme="REST",weight=0;
-  const validVisemes=["REST","A","E","I","O","U","M","F","L","S"];
-  document.getElementById("audioFile").addEventListener("change",event=>{
-    const file=event.target.files?.[0];
-    if(!file||!file.type.startsWith("audio/")){setStatus("Selecciona WAV o MP3.");return}
-    audio.pause();
-    if(currentUrl)URL.revokeObjectURL(currentUrl);
-    currentUrl=URL.createObjectURL(file);audio.src=currentUrl;
-    timeline=[];document.getElementById("play").textContent="▶ Reproducir";
-    setStatus("Audio cargado: "+file.name+". Pulsa reproducir.");
-  });
-  document.getElementById("visemeFile").addEventListener("change",async event=>{
-    const file=event.target.files?.[0];if(!file)return;
-    try{
-      const values=JSON.parse(await file.text());
-      if(!Array.isArray(values)||values.length>20000)throw Error();
-      timeline=values.map(x=>{
-        if(typeof x?.time!=="number"||x.time<0||!Number.isFinite(x.time)||!validVisemes.includes(x.viseme))throw Error();
-        return {time:x.time,viseme:x.viseme,weight:typeof x.weight==="number"?Math.max(0,Math.min(1,x.weight)):1};
-      }).sort((a,b)=>a.time-b.time);
-      setStatus("Visemas cargados: "+timeline.length+" eventos con marcas de tiempo.");
-    }catch{setStatus("Formato JSON inválido. Ejemplo: [{\"time\":0,\"viseme\":\"A\"}]");}
-  });
-  document.getElementById("play").addEventListener("click",async()=>{
-    try{
-      if(!audio.src){setStatus("Carga primero un archivo de voz.");return}
-      if(!context){
-        context=new AudioContext();analyser=context.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=.65;
-        source=context.createMediaElementSource(audio);source.connect(analyser);analyser.connect(context.destination);
-        frequency=new Uint8Array(analyser.frequencyBinCount);
-        waveform=new Uint8Array(analyser.fftSize);
-      }
-      await context.resume();
-      if(audio.paused){await audio.play();document.getElementById("play").textContent="■ Pausar";}
-      else{audio.pause();document.getElementById("play").textContent="▶ Reproducir";}
-    }catch(err){setStatus("Error reproduciendo audio: "+String(err.message||err));}
-  });
-  audio.onended=()=>{document.getElementById("play").textContent="▶ Reproducir"};
-  const mean=(a,b)=>{
-    if(!frequency)return 0;
-    let sum=0;const lo=Math.floor(frequency.length*a);const hi=Math.max(lo+1,Math.floor(frequency.length*b));
-    for(let i=lo;i<hi;i++)sum+=frequency[i];
-    return sum/((hi-lo)*255);
-  };
-  function sample(){
-    if(!analyser||audio.paused||audio.ended){activity*=.72;bass*=.75;mids*=.75;treble*=.75;weight*=.7;if(weight<.03)activeViseme="REST";return}
-    analyser.getByteFrequencyData(frequency);
-    analyser.getByteTimeDomainData(waveform);
-    let energy=0;for(const v of waveform){const x=(v-128)/128;energy+=x*x}
-    activity=Math.min(1,Math.sqrt(energy/waveform.length)*3.5);
-    bass=mean(0,.08);mids=mean(.08,.32);treble=mean(.32,.8);
-    let latest=null;
-    for(const item of timeline){if(item.time>audio.currentTime)break;latest=item;}
-    if(latest){activeViseme=latest.viseme;weight=Math.min(1,latest.weight*Math.max(activity,.2))}
-    else if(activity<.04){activeViseme="REST";weight=0}
-    else{
-      // Frequency-only classification is an expressive approximation, not true phoneme alignment.
-      activeViseme=treble>mids*1.45?"S":bass>mids*1.4?"O":mids>bass*1.22?"E":Math.sin(audio.currentTime*12)>.3?"A":"U";
-      weight=Math.min(1,activity*2.4);
-    }
-  }
-  const morphKeys={
-    REST:[],A:["viseme_aa","aa","a","mouthopen","jawopen","viseme_a"],
-    E:["viseme_e","e","mouthsmile","viseme_ee"],I:["viseme_i","i","viseme_ih"],
-    O:["viseme_o","o","mouthfunnel","viseme_oh"],U:["viseme_u","u","mouthpucker","viseme_ou"],
-    M:["viseme_pp","viseme_m","m","mouthclose"],F:["viseme_ff","f","viseme_f"],
-    L:["viseme_l","l"],S:["viseme_ss","s","viseme_s"]
-  };
-  function applyMouth(){ if(sourceType==="glb") visemeRig?.update(activeViseme,weight); }
-
-  let last=performance.now();
   const clock=new THREE.Clock();
-  function animate(now){
+  let stopped=false;
+  function animate(){
+    if(stopped)return;
     requestAnimationFrame(animate);
-    const dt=Math.min(.05,(now-last)/1000);last=now;
     const t=clock.getElapsedTime();
-    sample();applyMouth();
-    hologramMaterials?.update(t,activity,Math.min(1,Number(document.getElementById("glow").value)*0.8));
-    const glow=Number(document.getElementById("glow").value);
-    rings.forEach((ring,i)=>{
-      ring.rotation.y+=dt*(i%2?-.25:.22);
-      ring.rotation.z+=dt*.08*(i%3-1);
-      ring.scale.setScalar(1+activity*.07);
-      ring.material.opacity=Math.min(.9,.2+activity*.42*glow);
-    });
-    floor.scale.setScalar(1+activity*.09);
-    stars.rotation.y=t*.004;
-    characterGroup.position.y=Math.sin(t*.75)*.045;
-    characterGroup.rotation.y=Math.sin(t*.24)*.065;
-    light1.intensity=22+activity*40*glow;
-    light2.intensity=17+activity*31*glow;
-    centerGlow.intensity=8+activity*35*glow;
-    document.getElementById("level").style.width=(activity*100).toFixed(0)+"%";
-    document.getElementById("bass").style.width=(bass*100).toFixed(0)+"%";
-    document.getElementById("voice").style.width=(mids*100).toFixed(0)+"%";
-    document.getElementById("viseme").textContent=activeViseme;
+    if(performance.now()-state.updated>380){
+      state.level*=.75;state.bass*=.75;state.mid*=.75;state.treble*=.75;
+      state.weight*=.7;if(state.weight<.02)state.viseme="REST";
+    }
+    entity.update(t,state.level,state.bass,state.mid,state.treble,state.viseme,state.weight);
+    dust.rotation.y=t*.006;
+    key.intensity=38+state.level*38;
+    fill.intensity=22+state.level*25;
     renderer.render(scene,camera);
   }
   requestAnimationFrame(animate);
-  window.addEventListener("resize",()=>{
-    camera.aspect=innerWidth/innerHeight;
-    camera.position.z=innerWidth<innerHeight?12:10;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth,innerHeight);
-  });
-  window.addEventListener("pagehide",()=>{
-    audio.pause();if(currentUrl)URL.revokeObjectURL(currentUrl);void context?.close();
-
-    hologramMaterials?.dispose();
-  });
-}catch(error){setStatus("No se pudo iniciar Three.js/WebGL. Revisa acceso a CDN o aceleración gráfica: "+String(error?.message||error))}
+  addEventListener("pagehide",()=>{stopped=true;entity.dispose();dustGeo.dispose();dust.material.dispose();renderer.dispose()},{once:true});
+}catch(error){
+  // Silent, TV-safe failure; diagnose in browser console, never place debug text on TV.
+  console.error("[Felencho Hologram Engine] WebGL render initialization failed",error);
+}
 </script></body></html>
