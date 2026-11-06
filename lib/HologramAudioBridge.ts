@@ -63,13 +63,26 @@ export class StudioHologramVoiceSender {
   private bands = new Uint8Array<ArrayBuffer>(1024);
   private wave = new Uint8Array<ArrayBuffer>(2048);
 
-  async connect(audio: HTMLAudioElement, character: HologramCharacter): Promise<void> {
+  async connect(audio: HTMLAudioElement, character: HologramCharacter): Promise<boolean> {
     this.disconnect();
     this.audio = audio;
     this.character = character;
     this.session = [Date.now(), Math.random().toString(36).slice(2)].join("-");
+    // Do not route the studio voice through a suspended context: that
+    // would mute the sound feeding RODECaster. Preserve HTMLAudioElement
+    // playback when the browser disallows background Web Audio.
     const ctx = new AudioContext();
     this.context = ctx;
+    if (ctx.state !== "running") {
+      try { await Promise.race([
+        ctx.resume(),
+        new Promise<void>((resolve) => setTimeout(resolve, 250)),
+      ]); } catch { /* Fall through: studio audio must still play. */ }
+    }
+    if (ctx.state !== "running") {
+      this.disconnect();
+      return false;
+    }
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.66;
@@ -81,8 +94,8 @@ export class StudioHologramVoiceSender {
       config: { broadcast: { self: false } },
     });
     this.channel.subscribe();
-    await ctx.resume();
     this.ticker = setInterval(() => this.publish(), 65);
+    return true;
   }
 
   private mean(a: number, b: number): number {
