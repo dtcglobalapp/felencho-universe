@@ -55,3 +55,12 @@ Prototipo experimental solo en rama; no fusionar ni promocionar
 a producción sin revisión. Evitar subir imágenes privadas o voces
 sin autorización. La fotografía del estudio se usa como referencia
 de diseño, no como malla 3D ni activo redistribuido.
+
+## Avance del 5 de noviembre de 2026 — materiales holográficos
+- Nuevo módulo `public/hologram-engine/hologram-materials.js` con shader original sobre `MeshStandardMaterial`: Fresnel de borde, líneas dinámicas, pulsaciones dependientes del audio, tonos propios para Bob y Lina.
+- El módulo se aplica automáticamente al GLB original al cargarlo en `engine.html`; conserva texturas, mallas, esqueletos y `morphTargetInfluences` del modelo. No convierte una foto en geometría 3D.
+- El shader no está probado visualmente en navegador real. Revisar compilación GLSL, incluyendo normales transformadas, con GLB de prueba antes de anunciar calidad.
+- El motor mantiene bloqueo visual explícito si faltan `bob.glb` y `lina.glb`. No reemplazar las identidades por formas genéricas.
+- Vercel auto-generó previews, pero los previews previos terminaron en `ERROR`; la última revisión estaba `QUEUED` cuando se consultó. La API de eventos devolvió 404 y no permitió confirmar causa ni build exitoso. Requiere depuración.
+- Próximo objetivo: corregir el build, crear/importar geometría 3D auténtica de Bob y Lina según fotografía aprobada, asignar blendshapes para visemas y ejecutar prueba real de audio y render.
+- No se realizaron cambios a producción, ni se utilizó LemonSlice, RunPod o servicios de avatares.
