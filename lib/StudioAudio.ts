@@ -1,3 +1,5 @@
+import { StudioHologramVoiceSender, type HologramCharacter } from "@/lib/HologramAudioBridge";
+
 export type StudioAudioOptions = {
   onLog?: (message: string) => void;
 };
@@ -6,13 +8,14 @@ class StudioAudioEngine {
   private currentAudio: HTMLAudioElement | null = null;
   private finishCurrent: (() => void) | null = null;
   private hasStarted = false;
+  private hologramSender: StudioHologramVoiceSender | null = null;
   private onLog?: (message: string) => void;
 
   configure(options: StudioAudioOptions = {}) {
     this.onLog = options.onLog;
   }
 
-  async play(audioUrl: string) {
+  async play(audioUrl: string, character?: HologramCharacter) {
     this.stop();
     this.hasStarted = false;
 
@@ -52,7 +55,21 @@ class StudioAudioEngine {
         reject(new Error("No se pudo iniciar el audio."));
       };
 
-      audio.play().catch((error) => {
+      const startPlayback = async () => {
+        if (character) {
+          const sender = new StudioHologramVoiceSender();
+          this.hologramSender = sender;
+          try { await sender.connect(audio, character); }
+          catch (error) {
+            sender.disconnect();
+            if (this.hologramSender === sender) this.hologramSender = null;
+            this.log("⚠️ Señal holográfica no disponible; continúa la voz del estudio.");
+          }
+        }
+        await audio.play();
+      };
+
+      startPlayback().catch((error) => {
         if (this.currentAudio !== audio) return;
         this.cleanup();
 
@@ -81,6 +98,8 @@ class StudioAudioEngine {
   }
 
   private cleanup() {
+    this.hologramSender?.disconnect();
+    this.hologramSender = null;
     if (!this.currentAudio) return;
 
     this.currentAudio.onplay = null;
