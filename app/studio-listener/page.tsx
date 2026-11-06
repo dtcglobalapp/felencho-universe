@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import StudioSync from "@/lib/StudioSync";
 import StudioAudio from "@/lib/StudioAudio";
+import { alignmentToVisemes, validateVisemeTimeline } from "@/lib/HologramVisemeTimeline";
 import { detectDirectedTurn, StudioCharacter } from "@/lib/StudioDirector";
 
 const studioId = "new_york_physical";
@@ -171,12 +172,14 @@ export default function StudioListenerPage() {
     await sleepCharacter(character);
   }
 
-  async function playAudioFromUrl(audioUrl: string, character: StudioCharacter) {
+  async function playAudioFromUrl(audioUrl: string, character: StudioCharacter, timing?: unknown, alignment?: unknown) {
     StudioAudio.configure({
       onLog: addLog,
     });
 
-    await StudioAudio.play(audioUrl, character === "bob" || character === "lina" ? character : undefined);
+    const timed = validateVisemeTimeline(timing);
+    const aligned = timed.length ? timed : alignmentToVisemes(alignment);
+    await StudioAudio.play(audioUrl, character === "bob" || character === "lina" ? character : undefined, aligned);
   }
 
   async function sendToGateway(character: StudioCharacter, question: string) {
@@ -216,7 +219,7 @@ export default function StudioListenerPage() {
       }
 
       if (data?.audioUrl) {
-        await playAudioFromUrl(data.audioUrl, character);
+        await playAudioFromUrl(data.audioUrl, character, data.visemeTimeline, data.alignment);
       } else {
         addLog("⚠️ FelenchoGateway respondió sin audioUrl.");
       }
