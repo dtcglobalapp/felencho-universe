@@ -42,6 +42,7 @@ try{
   // All character, audio, material and orchestration logic below is original.
   const THREE=await import("https://esm.sh/three@0.180.0");
   const {GLTFLoader}=await import("https://esm.sh/three@0.180.0/examples/jsm/loaders/GLTFLoader.js");
+  const {applyHologramMaterials}=await import("./hologram-materials.js");
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x030813);
   scene.fog=new THREE.FogExp2(0x030813,.025);
@@ -89,6 +90,7 @@ try{
   let jaw=null;
   let fallback=null;
   let sourceType="none";
+  let hologramMaterials=null;
   const requested='/holograms/'+character+'.glb';
   // GLB files are supplied separately. We never disguise geometry as a finished face.
   const loadModel=()=>new Promise((resolve,reject)=>{
@@ -107,6 +109,7 @@ try{
         }
         if(node.isBone&&/jaw|mandib/i.test(node.name))jaw=node;
       });
+      hologramMaterials=applyHologramMaterials(THREE,model,character);
       characterGroup.add(model);sourceType="glb";resolve();
     },undefined,reject);
   });
@@ -134,7 +137,7 @@ try{
   }
   try{
     await loadModel();
-    setStatus("Modelo 3D cargado: "+requested+". Visemas y análisis real de voz disponibles.");
+    setStatus("Modelo 3D cargado: "+requested+". Materiales holográficos en "+(hologramMaterials?.count??0)+" mallas; visemas y audio preparados.");
   }catch{
     try{
       await fallbackVideo();
@@ -237,6 +240,7 @@ try{
     const dt=Math.min(.05,(now-last)/1000);last=now;
     const t=clock.getElapsedTime();
     sample();applyMouth();
+    hologramMaterials?.update(t,activity,Math.min(1,Number(document.getElementById("glow").value)*0.8));
     const glow=Number(document.getElementById("glow").value);
     rings.forEach((ring,i)=>{
       ring.rotation.y+=dt*(i%2?-.25:.22);
@@ -267,6 +271,7 @@ try{
   window.addEventListener("pagehide",()=>{
     audio.pause();if(currentUrl)URL.revokeObjectURL(currentUrl);void context?.close();
     fallback?.video.pause();
+    hologramMaterials?.dispose();
   });
 }catch(error){setStatus("No se pudo iniciar Three.js/WebGL. Revisa acceso a CDN o aceleración gráfica: "+String(error?.message||error))}
 </script></body></html>
