@@ -16,7 +16,17 @@ const character=query.get("character")==="lina"?"lina":"bob";
 const panel=document.getElementById("scene");
 const state={level:0,bass:0,mid:0,treble:0,weight:0,viseme:"REST",updated:0,session:"",sequence:-1};
 try {
-  const THREE=await import("https://esm.sh/three@0.180.0");
+  let THREE;
+  try { THREE=await import("https://esm.sh/three@0.180.0"); }
+  catch(error) {
+    console.warn("[Hologram Engine] Three.js CDN unavailable; enabling independent WebGL energy renderer",error);
+    const {startFallbackEnergy}=await import("./fallback-energy.js");
+    const canvas=document.createElement("canvas");
+    panel.appendChild(canvas);
+    startFallbackEnergy(canvas,character);
+    // This is an intentional fallback completion; stop Three.js initialization.
+    throw {fallbackActive:true};
+  }
   const {buildEnergyEntity}=await import("./energy-entity.js");
   const scene=new THREE.Scene();
   scene.background=new THREE.Color("#010510");
@@ -96,6 +106,19 @@ try {
   addEventListener("pagehide",()=>{stopped=true;entity.dispose();dustGeo.dispose();dust.material.dispose();renderer.dispose()},{once:true});
 }catch(error){
   // Silent, TV-safe failure; diagnose in browser console, never place debug text on TV.
-  console.error("[Felencho Hologram Engine] WebGL render initialization failed",error);
+  if(!error?.fallbackActive){
+    console.error("[Felencho Hologram Engine] WebGL render initialization failed",error);
+    // Handle failures beyond the CDN (e.g. Three.js construction errors).
+    if(!panel.querySelector("canvas")){
+      try {
+        const {startFallbackEnergy}=await import("./fallback-energy.js");
+        const canvas=document.createElement("canvas");
+        panel.appendChild(canvas);
+        startFallbackEnergy(canvas,character);
+      }catch(fallbackError){
+        console.error("[Felencho Hologram Engine] Independent WebGL fallback failed",fallbackError);
+      }
+    }
+  }
 }
 </script></body></html>
