@@ -4,14 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 
 export default function FixedStudioDisplay({ character }: { character: "bob" | "lina" }) {
-  const [pin, setPin] = useState("");
-  const [active, setActive] = useState(false);
-  const [message, setMessage] = useState("Introduce la clave de pantalla del estudio.");
+  const [message, setMessage] = useState("Esperando al estudio...");
   const videoRef = useRef<HTMLDivElement>(null);
   const roomRef = useRef<Room | null>(null);
 
   useEffect(() => {
-    if (!active) return;
+
     let stopped = false;
     let busy = false;
     const check = async () => {
@@ -20,12 +18,12 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
       try {
         const response = await fetch("/api/studio/display", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ character, pin }), cache: "no-store",
+          body: JSON.stringify({ character }), cache: "no-store",
         });
         const data = await response.json();
         if (!response.ok) {
           setMessage(data.error || "Error de conexión.");
-          if (response.status === 403 || response.status === 503) setActive(false);
+
           return;
         }
         if (data.waiting) {
@@ -79,7 +77,7 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
     void check();
     const timer = setInterval(() => void check(), 5000);
     return () => { stopped = true; clearInterval(timer); void roomRef.current?.disconnect(); roomRef.current = null; };
-  }, [active, character, pin]);
+  }, [character]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-black text-white">
@@ -87,10 +85,7 @@ export default function FixedStudioDisplay({ character }: { character: "bob" | "
         <div ref={videoRef} className="h-full w-full" />
         {message && <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black p-6 text-center">
           <p className="text-xl">{message}</p>
-          {!active && <form onSubmit={(event) => { event.preventDefault(); if (pin.length >= 8) setActive(true); }} className="flex flex-col gap-3">
-            <input type="password" autoComplete="off" value={pin} onChange={(event) => setPin(event.target.value)} placeholder="Clave del estudio" className="rounded-lg border border-white/30 bg-zinc-900 p-3 text-white" />
-            <button className="rounded-lg bg-white px-6 py-3 font-semibold text-black" type="submit">Conectar pantalla</button>
-          </form>}
+
         </div>}
       </div>
     </main>
