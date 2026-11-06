@@ -109,8 +109,9 @@ try {
   if(!error?.fallbackActive){
     console.error("[Felencho Hologram Engine] WebGL render initialization failed",error);
     // Handle failures beyond the CDN (e.g. Three.js construction errors).
-    if(!panel.querySelector("canvas")){
+    {
       try {
+        panel.replaceChildren();
         const {startFallbackEnergy}=await import("./fallback-energy.js");
         const canvas=document.createElement("canvas");
         panel.appendChild(canvas);
