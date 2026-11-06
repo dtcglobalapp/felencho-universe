@@ -15,6 +15,7 @@ button:hover,.upload:hover{background:#205176}input[type=file]{display:none}inpu
 #meters{position:absolute;right:20px;top:20px;min-width:175px;background:#04101bbb;border:1px solid #25506a;padding:12px;border-radius:9px;font:11px ui-monospace,monospace}
 .bar{height:5px;background:#16344a;border-radius:4px;margin:8px 0 14px}.bar>i{display:block;background:#64dfff;height:100%;width:0%;transition:width .08s}
 #hint{font-size:11px;opacity:.75;max-width:280px}
+html.display-only #top,html.display-only #status,html.display-only #meters,html.display-only #label,html.display-only #tools{display:none!important}
 @media(max-width:750px){#meters{top:115px;right:12px;min-width:118px}#status{font-size:11px;max-width:60vw}#label{bottom:165px;font-size:22px}#tools{bottom:8px}}
 </style>
 </head><body>
@@ -32,6 +33,8 @@ button:hover,.upload:hover{background:#205176}input[type=file]{display:none}inpu
 </div>
 <script type="module">
 const params=new URLSearchParams(location.search);
+const displayOnly=params.get("mode")!=="control";
+if(displayOnly) document.documentElement.classList.add("display-only");
 const character=params.get("character")==="lina"?"lina":"bob";
 const palette=character==="lina"?{a:0xa474ff,b:0xff52ce,c:0x36cfff}:{a:0x27d7ff,b:0xffc764,c:0x549bff};
 const status=document.getElementById("status");
@@ -116,40 +119,30 @@ try{
       characterGroup.add(model);sourceType="glb";resolve();
     },undefined,reject);
   });
-  function fallbackVideo(){
-    return new Promise((resolve,reject)=>{
-      const video=document.createElement("video");
-      video.src="/videos/"+character+".mp4";
-      video.muted=true;video.loop=true;video.playsInline=true;video.autoplay=true;video.preload="auto";
-      video.onloadeddata=async()=>{
-        const texture=new THREE.VideoTexture(video);
-        texture.colorSpace=THREE.SRGBColorSpace;
-        texture.minFilter=THREE.LinearFilter;
-        const aspect=video.videoWidth/Math.max(1,video.videoHeight);
-        const height=3.8;
-        const mesh=new THREE.Mesh(
-          new THREE.PlaneGeometry(height*aspect,height,20,20),
-          new THREE.MeshBasicMaterial({map:texture,transparent:true,side:THREE.DoubleSide,depthWrite:false})
-        );
-        characterGroup.add(mesh);fallback={video,mesh};sourceType="video";
-        try{await video.play()}catch{}
-        resolve();
-      };
-      video.onerror=()=>reject(new Error("No existe video local para "+character));
-    });
-  }
   try{
     await loadModel();
     setStatus("Modelo 3D: "+requested+" · material holográfico en "+(hologramMaterials?.count??0)+" mallas · controles faciales: "+(visemeRig?.channels??0)+" morph targets y "+(visemeRig?.jawBones??0)+" huesos mandibulares.");
-  }catch{
-    try{
-      await fallbackVideo();
-      setStatus("Modo de compatibilidad: video original de "+character+". Para boca articulada real instala /public/holograms/"+character+".glb con morph targets o hueso jaw.");
-    }catch{
-      setStatus("Falta el personaje original: añade /public/holograms/"+character+".glb o /public/videos/"+character+".mp4. El motor 3D está activo, pero no se mostrará un rostro inventado.");
-    }
+  }catch(error){
+    // No 2D video substitute; displays only an approved, rigged 3D model.
+    sourceType="missing";
+    effects.visible=false;
+    stars.visible=false;
+    console.error("Felencho: approved rigged GLB not installed", requested, error);
+    setStatus("El modelo GLB auténtico de "+character+" aún no está instalado.");
   }
 
+  // Only the studio machine plays audio; TV receives visual animation frames.
+  let remoteFrame=null;
+  let remoteAt=0;
+  window.addEventListener("message",event=>{
+    if(event.origin!==location.origin||event.source!==window.parent)return;
+    if(event.data?.type!=="felencho-hologram-frame")return;
+    const frame=event.data.frame;
+    if(!frame||frame.character!==character||typeof frame.timestamp!=="number")return;
+    if(Math.abs(Date.now()-frame.timestamp)>5000)return;
+    if(typeof frame.level!=="number"||frame.level<0||frame.level>1)return;
+    remoteFrame=frame;remoteAt=performance.now();
+  });
   const audio=new Audio();audio.preload="auto";
   let context=null,analyser=null,frequency=null,waveform=null,source=null;
   let currentUrl=null,timeline=[];
@@ -229,7 +222,20 @@ try{
     requestAnimationFrame(animate);
     const dt=Math.min(.05,(now-last)/1000);last=now;
     const t=clock.getElapsedTime();
-    sample();applyMouth();
+    if(displayOnly){
+      if(remoteFrame && performance.now()-remoteAt < 350 && remoteFrame.active){
+        activity=remoteFrame.level;
+        bass=remoteFrame.bass;
+        mids=remoteFrame.mid;
+        treble=remoteFrame.treble;
+        activeViseme=remoteFrame.viseme;
+        weight=remoteFrame.weight;
+      }else{
+        activity*=.65;bass*=.65;mids*=.65;treble*=.65;weight*=.65;
+        if(weight<.02)activeViseme="REST";
+      }
+    }else{sample();}
+    applyMouth();
     hologramMaterials?.update(t,activity,Math.min(1,Number(document.getElementById("glow").value)*0.8));
     const glow=Number(document.getElementById("glow").value);
     rings.forEach((ring,i)=>{
@@ -260,7 +266,7 @@ try{
   });
   window.addEventListener("pagehide",()=>{
     audio.pause();if(currentUrl)URL.revokeObjectURL(currentUrl);void context?.close();
-    fallback?.video.pause();
+
     hologramMaterials?.dispose();
   });
 }catch(error){setStatus("No se pudo iniciar Three.js/WebGL. Revisa acceso a CDN o aceleración gráfica: "+String(error?.message||error))}
