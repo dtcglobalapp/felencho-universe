@@ -15,7 +15,7 @@ const out=resolve("artifacts/hologram-light");
 await mkdir(out,{recursive:true});
 const browser=await chromium.launch({headless:true,args:[
   "--enable-webgl","--use-gl=angle","--use-angle=swiftshader",
-  "--enable-unsafe-swiftshader","--disable-web-security"
+  "--enable-unsafe-swiftshader"
 ]});
 let errors=0;
 try{
