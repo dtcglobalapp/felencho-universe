@@ -1,4 +1,5 @@
 import { StudioHologramVoiceSender, type HologramCharacter } from "@/lib/HologramAudioBridge";
+import { type TimedStudioViseme } from "@/lib/HologramVisemeTimeline";
 
 export type StudioAudioOptions = {
   onLog?: (message: string) => void;
@@ -15,7 +16,7 @@ class StudioAudioEngine {
     this.onLog = options.onLog;
   }
 
-  async play(audioUrl: string, character?: HologramCharacter) {
+  async play(audioUrl: string, character?: HologramCharacter, timedVisemes?: TimedStudioViseme[]) {
     this.stop();
     this.hasStarted = false;
 
@@ -64,7 +65,7 @@ class StudioAudioEngine {
         const sender = new StudioHologramVoiceSender();
         this.hologramSender = sender;
         try {
-          const connected = await sender.connect(audio, character);
+          const connected = await sender.connect(audio, character, timedVisemes);
           if (!connected) {
             sender.disconnect();
             if (this.hologramSender === sender) this.hologramSender = null;
