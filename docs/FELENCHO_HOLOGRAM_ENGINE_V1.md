@@ -127,3 +127,12 @@ Este apartado **sustituye** cualquier instrucción anterior que supusiera la obl
 - Ningún recurso fue copiado desde Nexus Node/Sylenia. El motor es independiente.
 
 Próximos pasos, en ese orden: (1) renderizar y validar calidad del nuevo volumen en navegador (sin puntos ni figuras genéricas), (2) perfeccionar estética Bob/Lina según referencia, (3) conectar audio activo de LiveKit/Cartesia con señales hacia las PCs Windows, (4) prueba de estudio y control centralizado desde Studio Control, (5) publicar solo tras aprobación.
+
+## Auditoría de continuidad — 6 noviembre 2026
+
+- Inspección de GitHub confirmó `energy-entity.js` y `engine.html` de la rama; no se alteró producción.
+- Estado del preview Vercel para `15929d42`: **ERROR**. GitHub Combined Status marcó `Vercel: failure`. La API de eventos de Vercel devolvió 404 anteriormente; todavía no hay diagnóstico fiable de construcción.
+- Se incorporó `tools/hologram/check-webgl-contract.mjs` para bloquear regresiones por GLB, loops de video, audios locales o controles en la TV. Incluye comprobaciones de sintaxis `node --check`. **El script quedó guardado en GitHub; no se ha ejecutado en un clon real.**
+- No se ha realizado QA visual con un navegador WebGL ejecutando el código exacto de la rama. No compartir una demo ni promoverla sin evidencia visual satisfactoria y compilación válida.
+- El puente `lib/HologramAudioBridge.ts` es experimental y aún **no está conectado** a la ruta activa LiveKit/Cartesia.
+- La fotografía maestra implica exigencias artísticas altas; el diseño procedural no garantiza fidelidad facial exacta, por lo que requiere evaluación visual.
