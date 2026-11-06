@@ -43,6 +43,7 @@ try{
   const THREE=await import("https://esm.sh/three@0.180.0");
   const {GLTFLoader}=await import("https://esm.sh/three@0.180.0/examples/jsm/loaders/GLTFLoader.js");
   const {applyHologramMaterials}=await import("./hologram-materials.js");
+  const {createVisemeRig}=await import("./viseme-rig.js");
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x030813);
   scene.fog=new THREE.FogExp2(0x030813,.025);
@@ -91,6 +92,7 @@ try{
   let fallback=null;
   let sourceType="none";
   let hologramMaterials=null;
+  let visemeRig=null;
   const requested='/holograms/'+character+'.glb';
   // GLB files are supplied separately. We never disguise geometry as a finished face.
   const loadModel=()=>new Promise((resolve,reject)=>{
@@ -110,6 +112,7 @@ try{
         if(node.isBone&&/jaw|mandib/i.test(node.name))jaw=node;
       });
       hologramMaterials=applyHologramMaterials(THREE,model,character);
+      visemeRig=createVisemeRig(model);
       characterGroup.add(model);sourceType="glb";resolve();
     },undefined,reject);
   });
@@ -137,7 +140,7 @@ try{
   }
   try{
     await loadModel();
-    setStatus("Modelo 3D cargado: "+requested+". Materiales holográficos en "+(hologramMaterials?.count??0)+" mallas; visemas y audio preparados.");
+    setStatus("Modelo 3D: "+requested+" · material holográfico en "+(hologramMaterials?.count??0)+" mallas · controles faciales: "+(visemeRig?.channels??0)+" morph targets y "+(visemeRig?.jawBones??0)+" huesos mandibulares.");
   }catch{
     try{
       await fallbackVideo();
@@ -218,21 +221,8 @@ try{
     M:["viseme_pp","viseme_m","m","mouthclose"],F:["viseme_ff","f","viseme_f"],
     L:["viseme_l","l"],S:["viseme_ss","s","viseme_s"]
   };
-  function applyMouth(){
-    if(sourceType!=="glb")return;
-    for(const mesh of mouthTargets){
-      const dict=mesh.morphTargetDictionary,values=mesh.morphTargetInfluences;
-      const allNames=Object.keys(dict);
-      const selected=morphKeys[activeViseme]||[];
-      for(const [key,index] of Object.entries(dict)){
-        const norm=key.toLowerCase().replace(/[^a-z0-9]/g,"");
-        const wanted=selected.some(v=>v.replace(/[^a-z0-9]/g,"")===norm);
-        const managed=Object.values(morphKeys).flat().some(v=>v.replace(/[^a-z0-9]/g,"")===norm);
-        if(managed)values[index]+=( (wanted?weight:0)-values[index])*.34;
-      }
-    }
-    if(jaw){jaw.rotation.x+=(weight*.23-jaw.rotation.x)*.28}
-  }
+  function applyMouth(){ if(sourceType==="glb") visemeRig?.update(activeViseme,weight); }
+
   let last=performance.now();
   const clock=new THREE.Clock();
   function animate(now){
