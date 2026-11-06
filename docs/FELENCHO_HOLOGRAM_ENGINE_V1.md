@@ -111,3 +111,19 @@ Se comprobó una desconexión importante entre el prototipo anterior y la arquit
 - Aceptación antes de publicar: modelo GLB con rostro aprobado, morph targets validados, prueba de voz desde el camino activo LiveKit, permisos de transporte, `next build` y prueba visible en pantalla vertical 55 pulgadas.
 
 Estado: **solo código experimental en rama**. Ninguna demostración del personaje se considera lista para felencho.ai.
+
+## DIRECCIÓN DEFINITIVA — ENTIDADES DE LUZ (6 noviembre 2026)
+
+Este apartado **sustituye** cualquier instrucción anterior que supusiera la obligación de crear muñecos GLB o boca anatómica. Es la decisión explícita del creador.
+
+- Bob y Lina deben ser **presencias tridimensionales de energía** y filamentos volumétricos, nunca `bob.glb`/`lina.glb` obligatorios, caras humanas de videojuegos, un video en loop, puntos que dibujan siluetas o una fotografía colocada en un plano.
+- **Nuevo motor procedural propio**: `public/hologram-engine/energy-entity.js` exporta `buildEnergyEntity(THREE,character)`. Usa superficies 3D con shaders aditivos, campo de energía, filamentos tubulares, corona, campos luminosos de ojos, apertura facial abstracta que cambia con la voz, y anillos de energía.
+- `public/hologram-engine/engine.html` reescrito para cargar el motor procedural directamente, sin dependencias de GLB/VideoTexture, sin letras ni botones en las TVs. Recibe únicamente señales `felencho-hologram-frame` a través del puente existente y decae a silencio cuando se corta la voz.
+- Paletas: Bob azul eléctrico/cian y dorado; Lina violeta/magenta/cian. La identidad final es **artística, no reproducción facial exacta**: la imagen maestra orienta el acabado, y el nuevo volumen de luz debe revisarse visualmente con el creador.
+- **La boca NO es lipsync anatómico**: apertura de luz sincronizada al nivel/visema; nada de prometer articulación humana fotorrealista.
+- **Fuente de voz real**: el camino activo que se encontró en el repositorio es Felencho Brain + LiveKit TTS Cartesia. El puente StudioAudio anterior **NO está enlazado a esta sesión activa**. Aislar un worker experimental sin LemonSlice para leer el audio de salida LiveKit y distribuir señales sin duplicar la reproducción; no alterar el worker de producción ni crear sesiones cobrables.
+- **QA pendiente:** el código `energy-entity.js` y el script del visor pasan verificación sintáctica JS aislada, pero todavía no hay verificación de imagen renderizada en WebGL real, `next build` exitoso, sesión LiveKit ni prueba en televisión vertical. No anunciar ni promover el resultado como listo.
+- Vercel deja su preview en ERROR/QUEUED y no devuelve logs por API (404); no se envió ningún enlace de prueba ni se tocó `main`.
+- Ningún recurso fue copiado desde Nexus Node/Sylenia. El motor es independiente.
+
+Próximos pasos, en ese orden: (1) renderizar y validar calidad del nuevo volumen en navegador (sin puntos ni figuras genéricas), (2) perfeccionar estética Bob/Lina según referencia, (3) conectar audio activo de LiveKit/Cartesia con señales hacia las PCs Windows, (4) prueba de estudio y control centralizado desde Studio Control, (5) publicar solo tras aprobación.
