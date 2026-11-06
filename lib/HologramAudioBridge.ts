@@ -8,6 +8,7 @@
  * Preliminary expressive visemes: true phoneme alignment is a separate step.
  */
 import { supabase } from "@/lib/supabase";
+import { sampleTimedViseme, validateVisemeTimeline, type TimedStudioViseme } from "@/lib/HologramVisemeTimeline";
 
 export type HologramCharacter = "bob" | "lina";
 export type HologramSignal = {
@@ -62,12 +63,14 @@ export class StudioHologramVoiceSender {
   private audio: HTMLAudioElement | null = null;
   private bands = new Uint8Array<ArrayBuffer>(1024);
   private wave = new Uint8Array<ArrayBuffer>(2048);
+  private timeline: TimedStudioViseme[] = [];
 
-  async connect(audio: HTMLAudioElement, character: HologramCharacter): Promise<boolean> {
+  async connect(audio: HTMLAudioElement, character: HologramCharacter, timedVisemes?: TimedStudioViseme[]): Promise<boolean> {
     this.disconnect();
     this.audio = audio;
     this.character = character;
     this.session = [Date.now(), Math.random().toString(36).slice(2)].join("-");
+    this.timeline = validateVisemeTimeline(timedVisemes ?? []);
     // Do not route the studio voice through a suspended context: that
     // would mute the sound feeding RODECaster. Preserve HTMLAudioElement
     // playback when the browser disallows background Web Audio.
@@ -127,7 +130,10 @@ export class StudioHologramVoiceSender {
       bass = this.mean(0, 0.08);
       mid = this.mean(0.08, 0.34);
       treble = this.mean(0.34, 0.82);
-      if (level > 0.04) {
+      const timed = sampleTimedViseme(this.timeline, audio.currentTime);
+      if (timed !== null) {
+        viseme = timed;
+      } else if (level > 0.04) {
         // Spectral movement cue; NOT accurate letter/phoneme detection.
         viseme = treble > mid * 1.4 ? "S"
           : bass > mid * 1.33 ? "O"
@@ -159,6 +165,7 @@ export class StudioHologramVoiceSender {
     this.channel = null;
     this.analyser = null;
     this.audio = null;
+    this.timeline = [];
     if (this.context) void this.context.close().catch(() => undefined);
     this.context = null;
   }
