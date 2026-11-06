@@ -171,12 +171,12 @@ export default function StudioListenerPage() {
     await sleepCharacter(character);
   }
 
-  async function playAudioFromUrl(audioUrl: string) {
+  async function playAudioFromUrl(audioUrl: string, character: StudioCharacter) {
     StudioAudio.configure({
       onLog: addLog,
     });
 
-    await StudioAudio.play(audioUrl);
+    await StudioAudio.play(audioUrl, character === "bob" || character === "lina" ? character : undefined);
   }
 
   async function sendToGateway(character: StudioCharacter, question: string) {
@@ -216,7 +216,7 @@ export default function StudioListenerPage() {
       }
 
       if (data?.audioUrl) {
-        await playAudioFromUrl(data.audioUrl);
+        await playAudioFromUrl(data.audioUrl, character);
       } else {
         addLog("⚠️ FelenchoGateway respondió sin audioUrl.");
       }
