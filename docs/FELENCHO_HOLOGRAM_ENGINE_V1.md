@@ -64,3 +64,18 @@ de diseño, no como malla 3D ni activo redistribuido.
 - Vercel auto-generó previews, pero los previews previos terminaron en `ERROR`; la última revisión estaba `QUEUED` cuando se consultó. La API de eventos devolvió 404 y no permitió confirmar causa ni build exitoso. Requiere depuración.
 - Próximo objetivo: corregir el build, crear/importar geometría 3D auténtica de Bob y Lina según fotografía aprobada, asignar blendshapes para visemas y ejecutar prueba real de audio y render.
 - No se realizaron cambios a producción, ni se utilizó LemonSlice, RunPod o servicios de avatares.
+
+## Bridge experimental StudioAudio -> TV (5 Nov 2026)
+
+Commit de desarrollo del engine: `bc0df456fbbd7fd19cf70ad1c71873a02af5b269`.
+
+- `lib/HologramAudioBridge.ts`: el navegador del estudio analiza la señal de voz de `StudioAudio` con `AudioContext` / `AnalyserNode` y emite frames transitorios con Supabase Realtime Broadcast (no MP3, no audio duplicado).
+- `lib/StudioAudio.ts`: nueva firma `play(audioUrl, character?)`; el camino del audio de la voz sigue siendo el reproductor del estudio.
+- `app/studio-listener/page.tsx`: pasa la identidad del personaje del Gateway al reproductor.
+- `components/hologram/HologramScreenBridge.tsx`: suscribe Bob y Lina a su propia señal y la transmite al iframe mediante `postMessage` al mismo origen.
+- `/hologram-engine/bob` y `/hologram-engine/lina`: TV con solo el lienzo visual; motor Three.js ahora escucha frames del estudio. El fallback del video 2D se eliminó.
+- Las señales llevan `studioId`, personaje, sesión, secuencia, tiempo, nivel, bandas y visema **aproximado**; caducan visualmente si la transmisión se interrumpe.
+- **No se ha probado** entre La Bestia y PCs Windows, ni se ha verificado el `next build`. No fusionar hasta hacer pruebas.
+- **Alerta**: validar permisos/autenticación de los canales Supabase Broadcast antes de uso en vivo. Los visemas estimados por bandas no sustituyen una alineación fonética verdadera.
+- **Alerta**: validar el contexto de audio WebAudio en el navegador del estudio: una política de autoplay podría impedir o silenciar audio al conectar MediaElementAudioSourceNode fuera de una interacción humana. Prueba obligatoria; si ocurre, rediseñar la captación sin afectar la voz del estudio.
+- **Bloqueador visual**: los GLB originales y riggeados de Bob y Lina aún no existen. No mostrar enlaces de prueba vacíos como si fueran personajes terminados.
