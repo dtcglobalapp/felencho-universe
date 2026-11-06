@@ -96,3 +96,18 @@ Commit de desarrollo del engine: `bc0df456fbbd7fd19cf70ad1c71873a02af5b269`.
 **Gate para modelos**: `python3 tools/hologram/check_character_glb.py public/holograms/lina.glb public/holograms/bob.glb` valida estructura GLB y nombres reconocibles de morph targets/jaw. No reemplaza inspección de identidad ni pruebas WebGL.
 
 **Estado honesto**: conexión prototipada; no hay modelo original 3D en el repositorio, ni build/render/voz real verificados. No subir cambios a `main` hasta pasar las pruebas y obtener recursos originales.
+
+## Revisión del sistema activo y lipsync — 5 Nov 2026
+
+Se comprobó una desconexión importante entre el prototipo anterior y la arquitectura real del podcast:
+
+- `app/api/felencho-gateway/route.ts` **retorna 503 por defecto**; solo usa el pipeline ElevenLabs antiguo si `STUDIO_ENABLE_LEGACY_ELEVENLABS=true`. NO activar el antiguo servicio para solucionar este prototipo.
+- El worker en `agents/lina/src/main.ts` usa Felencho Brain para el texto, **LiveKit inference TTS con Cartesia sonic-3** para voz, y **actualmente instancia un plugin LemonSlice para video de avatar**. Este plugin no forma parte de nuestra arquitectura holográfica final y NO se ha retirado ni modificado en producción; el cambio debe hacerse en un worker experimental, sin generar sesiones cobrables.
+- Por tanto, el puente `StudioAudio`/Gateway programado previamente no es aún un puente comprobado a la voz activa de LiveKit/Cartesia. Una prueba real requiere escuchar el audio publicado en LiveKit y obtener su temporización, sin duplicar reproducción ni depender de LemonSlice.
+- Se creó `lib/HologramVisemeTimeline.ts` como API independiente del TTS: acepta `TimedStudioViseme[]`, convierte `character_alignment` con marcas de inicio/fin a movimientos **aproximados de grafemas**, permite `sampleTimedViseme` sobre `audio.currentTime`, y retorna REST entre intervalos.
+- `HologramAudioBridge` prioriza una línea de visemas cronometrados cuando se le proporciona; `StudioAudio` y `studio-listener` pasan opcionalmente `visemeTimeline` o `alignment` sin romper respuestas antiguas. **No implica que LiveKit ya entregue esos datos.**
+- La calidad exacta del movimiento de labios necesita mapeo de fonemas, no solo grafemas escritos.
+- No hay modelos GLB aprobados en GitHub, ni herramientas de captura 3D dedicadas verificadas; la referencia de imagen no es malla 3D. No producir un busto procedimental genérico o un video en su lugar.
+- Aceptación antes de publicar: modelo GLB con rostro aprobado, morph targets validados, prueba de voz desde el camino activo LiveKit, permisos de transporte, `next build` y prueba visible en pantalla vertical 55 pulgadas.
+
+Estado: **solo código experimental en rama**. Ninguna demostración del personaje se considera lista para felencho.ai.
