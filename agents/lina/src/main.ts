@@ -56,11 +56,12 @@ function getLatestUserText(chatCtx: llm.ChatContext): string {
   return "";
 }
 
-async function askFelenchoBrain(characterKey: string, message: string): Promise<string> {
+type DialogueTurn = { user: string; assistant: string };
+async function askFelenchoBrain(characterKey: string, message: string, conversationContext: DialogueTurn[]): Promise<string> {
   const response = await fetch(FELENCHO_BRAIN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ character_key: characterKey, message, include_audio: false }),
+    body: JSON.stringify({ character_key: characterKey, message, include_audio: false, conversation_context: conversationContext }),
   });
 
   if (!response.ok) {
@@ -85,6 +86,8 @@ class FelenchoBrainNodeMarker extends llm.LLM {
 }
 
 class FelenchoBrainAgent extends voice.Agent {
+  // Rolling context is isolated to this active character/session.
+  private recentTurns: DialogueTurn[] = [];
   constructor(private readonly characterKey: string, instructions: string) {
     // AgentSession 1.8.1 requires an LLM instance before it schedules a custom llmNode.
     super({ instructions, llm: new FelenchoBrainNodeMarker() });
@@ -99,7 +102,9 @@ class FelenchoBrainAgent extends voice.Agent {
     if (!userText) return null;
     const brainStartedAt = performance.now();
     console.log(`[felencho-universe] brain input (${this.characterKey}) length=${userText.length}`);
-    const answer = await askFelenchoBrain(this.characterKey, userText);
+    const answer = await askFelenchoBrain(this.characterKey, userText, this.recentTurns.slice(-4));
+    this.recentTurns.push({ user: userText.slice(0, 1500), assistant: answer.slice(0, 1500) });
+    if (this.recentTurns.length > 6) this.recentTurns.shift();
     console.log(`[felencho-universe] brain response ready (${this.characterKey}) brainMs=${Math.round(performance.now() - brainStartedAt)}`);
 
     return new ReadableStream<llm.ChatChunk | string>({

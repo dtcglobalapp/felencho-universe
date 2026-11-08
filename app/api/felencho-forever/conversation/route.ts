@@ -69,6 +69,18 @@ export async function POST(request: Request) {
     const rawCharacterKey = body.character_key || "bob";
     const userMessage = body.message || body.user_message || "";
     const includeAudio = body.include_audio !== false;
+    const conversationContext = Array.isArray(body.conversation_context)
+      ? body.conversation_context.slice(-4).filter(
+          (turn: unknown): turn is { user: string; assistant: string } => (
+            typeof turn === "object" && turn !== null &&
+            typeof (turn as { user?: unknown }).user === "string" &&
+            typeof (turn as { assistant?: unknown }).assistant === "string"
+          )
+        ).map((turn: { user: string; assistant: string }) => ({
+          user: turn.user.slice(0, 1500),
+          assistant: turn.assistant.slice(0, 1500),
+        }))
+      : [];
 
     if (!userMessage.trim()) {
       return NextResponse.json(
@@ -92,6 +104,7 @@ export async function POST(request: Request) {
     const brain = await askFelenchoBrain({
       characterKey,
       question: userMessage,
+      conversationContext,
     });
 
     const answerText =
