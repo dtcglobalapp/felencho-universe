@@ -1,0 +1,54 @@
+name: Validate Hologram + Voice (no deploy)
+
+on:
+  push:
+    branches:
+      - feature/lovable-hologram-studio-v1
+  pull_request:
+    paths:
+      - 'agents/lina/**'
+      - 'src/hologram/**'
+      - 'app/hologram-preview/**'
+      - 'src/hologram-config.ts'
+      - '.github/workflows/check-hologram-voice.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: agents/lina
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install voice worker dependencies
+        run: npm install --no-audit --no-fund
+      - name: Verify TypeScript and removal of hosted avatar
+        run: |
+          npm run typecheck
+          if grep -Rni -E 'lemonslice|avatar\.start|waitForJoin' src package.json; then
+            echo "Hosted avatar dependency still present in voice worker."
+            exit 1
+          fi
+      - name: Bundle voice worker
+        run: npm run build
+
+  check-hologram:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Next.js dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check Next.js and Hologram TypeScript
+        run: npx tsc --noEmit
