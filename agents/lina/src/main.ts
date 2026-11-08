@@ -17,7 +17,8 @@ import { getCharacterConfig, isCharacterKey } from "./characters.js";
 initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
-const SESSION_TIMEOUT_MS = 900_000;
+// Adjustable safety cap: 60 minutes by default; prevents unbounded sessions and costs.
+const SESSION_TIMEOUT_MS = Math.max(300_000, Math.min(7_200_000, Number(process.env.STUDIO_SESSION_MAX_MS) || 3_600_000));
 const TRANSCRIPTION_TIMEOUT_MS = 5_000;
 const FELENCHO_BRAIN_URL =
   process.env.FELENCHO_BRAIN_URL ||
@@ -98,9 +99,10 @@ class FelenchoBrainAgent extends voice.Agent {
   ): Promise<ReadableStream<llm.ChatChunk | string> | null> {
     const userText = getLatestUserText(chatCtx);
     if (!userText) return null;
-    console.log(`[felencho-universe] brain input (${this.characterKey}): ${userText}`);
+    const brainStartedAt = performance.now();
+    console.log(`[felencho-universe] brain input (${this.characterKey}) length=${userText.length}`);
     const answer = await askFelenchoBrain(this.characterKey, userText);
-    console.log(`[felencho-universe] brain response ready (${this.characterKey})`);
+    console.log(`[felencho-universe] brain response ready (${this.characterKey}) brainMs=${Math.round(performance.now() - brainStartedAt)}`);
 
     return new ReadableStream<llm.ChatChunk | string>({
       start(controller) {
@@ -179,14 +181,16 @@ export default defineAgent({
       });
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (event) => {
         console.log(
-          `[felencho-universe] stt transcript final=${event.isFinal} language=${event.language ?? "unknown"} text=${event.transcript}`,
+          `[felencho-universe] stt transcript final=${event.isFinal} language=${event.language ?? "unknown"} length=${event.transcript.length}`,
         );
       });
       session.on(voice.AgentSessionEventTypes.UserTranscriptionTimeout, (event) => {
         console.error(
           `[felencho-universe] stt transcript timeout speechMs=${event.speechDuration}`,
         );
-        void closeSession("stt transcript timeout");
+        // A single recognizer timeout must not drop the entire room or erase the
+        // ongoing conversational context. Subsequent speech turns may recover.
+        console.warn("[felencho-universe] keeping voice session open after STT timeout");
       });
       session.on(voice.AgentSessionEventTypes.AgentStateChanged, (event) => {
         console.log(
