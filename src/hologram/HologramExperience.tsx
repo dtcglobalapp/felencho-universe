@@ -41,7 +41,7 @@ export function HologramExperience({ initialPersona = 'lina', characters, storag
     window.addEventListener('felencho:display', sync);
     return () => { off(); window.removeEventListener('keydown', onKey); window.removeEventListener('felencho:display', sync); };
   }, [configs, storage]);
-  return <main className="h-[100dvh] w-full overflow-hidden bg-background">
+  return <main className="felencho-hologram h-[100dvh] w-full overflow-hidden bg-background">
     {ready && <HologramStage portraitDisplay fixedPersona={persona} palette={configs[persona].palette} />}
     {!display && !panel && <Button variant="ghost" className="dev-fab fixed bottom-4 right-4 z-10" aria-label="Open dev panel" onClick={() => setPanel(true)}>◈</Button>}
     {!display && panel && <DevPanel onClose={() => setPanel(false)} screenPaths={screenPaths} names={{ lina: configs.lina.name, bob: configs.bob.name }} />}

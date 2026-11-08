@@ -57,7 +57,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-:root {
+.felencho-hologram {
   --radius: 0.5rem;
   --background: oklch(0 0 0);
   --foreground: oklch(0.95 0.02 280);
@@ -84,11 +84,11 @@
 }
 
 @layer base {
-  * {
+  .felencho-hologram, .felencho-hologram * {
     border-color: var(--color-border);
   }
 
-  body {
+  .felencho-hologram {
     background-color: var(--color-background);
     color: var(--color-foreground);
   }

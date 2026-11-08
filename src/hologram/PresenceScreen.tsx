@@ -7,7 +7,7 @@ export interface ScreenProps { config?: CharacterOverrides; storage?: PhotoStora
 export function PresenceScreen({ persona, config, storage = 'local' }: ScreenProps & { persona: Persona }) {
   const character = useMemo(() => resolveCharacter(persona, config), [persona, config]);
   const ready = useHologram(persona, character, storage);
-  return <main className="presence-screen bg-background" aria-label={`${character.name} Studio Display`}>
+  return <main className="felencho-hologram presence-screen bg-background" aria-label={`${character.name} Studio Display`}>
     {ready && <HologramStage portraitDisplay fixedPersona={persona} palette={character.palette} />}
   </main>;
 }
