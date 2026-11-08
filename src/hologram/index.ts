@@ -1,0 +1,18 @@
+'use client';
+export { HologramStage } from './HologramStage';
+export { HologramExperience } from './HologramExperience';
+export type { ExperienceProps } from './HologramExperience';
+export { LinaScreen } from './LinaScreen';
+export { BobScreen } from './BobScreen';
+export type { ScreenProps } from './PresenceScreen';
+export { LinaEntity } from './LinaEntity';
+export { BobEntity } from './BobEntity';
+export { DevPanel } from './DevPanel';
+export { PhotoCore, photoCoreStore, PhotoCoreStore } from './PhotoCore';
+export { HologramEngine, hologram, installGlobalAPI, HOLO_STATES } from './HologramEngine';
+export type { Persona, HoloState, AudioFrame, WatchEvent, FelenchoHologramAPI } from './HologramEngine';
+export { CHARACTERS, resolveCharacter } from './characters';
+export type { CharacterConfig, CharacterOverrides, HologramPalette, PhotoStorage } from './characters';
+export { ProfilePanel } from './ProfilePanel';
+export { CharacterProfileStore, profileStore, createProfile, photoForState, profilePhotoUrls } from './profiles';
+export type { CharacterProfile, ProfilePhotos, ProfileVisual } from './profiles';
