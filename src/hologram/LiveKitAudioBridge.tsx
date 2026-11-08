@@ -136,7 +136,11 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
         setConnected(false);
         setAudioDetected(false);
         setLastDisconnect(String(reason ?? 'motivo no disponible'));
-        setStatus('La sala se cerró. LiveKit recupera cortes breves automáticamente, pero una sala eliminada necesita nueva autorización desde el estudio.');
+        // Release the terminally disconnected Room so the Connect button can
+        // retry the same (still valid) display token. Never dispatch agents here.
+        disposeRef.current?.();
+        disposeRef.current = null;
+        setStatus('La sala se cerró. Puedes pulsar Conectar para intentar recuperar esta pantalla. Si la sala terminó, crea otra desde el estudio.');
       }
     };
     // A data event from the studio can represent only what was actually
