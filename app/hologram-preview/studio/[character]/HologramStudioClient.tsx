@@ -73,6 +73,14 @@ export default function HologramStudioClient({ character }: { character: Charact
         void element.play().catch(() => setStatus('Audio conectado; revisa permiso de reproducción del navegador.'));
         setStatus('Audio de ' + character.toUpperCase() + ' recibido. Felencho Brain y Cartesia deben responder.');
       });
+      room.on(RoomEvent.Reconnecting, () => {
+        if (roomRef.current === room) setStatus('Reconectando al estudio… LiveKit intenta recuperar la misma sala y el mismo hilo de conversación.');
+      });
+      room.on(RoomEvent.Reconnected, () => {
+        if (roomRef.current === room) {
+          setStatus('Conexión recuperada. Misma sala y mismo agente; no se inició otra sesión.');
+        }
+      });
       room.on(RoomEvent.Disconnected, () => {
         if (roomRef.current === room) {
           stopRef.current();
@@ -193,7 +201,7 @@ export default function HologramStudioClient({ character }: { character: Charact
       </div>
       {displayUrl && <div className="space-y-2 rounded-lg border border-cyan-500/30 p-3">
         <p className="font-semibold">Enlace temporal para la TV vertical</p>
-        <p className="text-xs text-zinc-400">Es un enlace con autorización temporal: no lo compartas públicamente. Usa la misma red o la dirección accesible del servidor.</p>
+        <p className="text-xs text-zinc-400">Es un enlace con autorización temporal: no lo compartas públicamente. Usa la misma red o la dirección accesible del servidor. LiveKit intentará recuperar automáticamente cortes breves en esta misma sala.</p>
         <div className="flex flex-wrap gap-3">
           <button className="rounded bg-cyan-500 px-4 py-2 text-black" onClick={() => void navigator.clipboard.writeText(displayUrl)}>Copiar enlace</button>
           <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="rounded border border-cyan-400 px-4 py-2">Abrir holograma</a>
