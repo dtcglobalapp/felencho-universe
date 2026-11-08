@@ -23,7 +23,10 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     idle: 'EN ESPERA', listening: 'ESCUCHANDO', thinking: 'PENSANDO',
     speaking: 'HABLANDO', watching: 'OBSERVANDO', sleep: 'DESCANSANDO',
   };
-  useEffect(() => hologram.onState(state => setSense(senseNames[state] ?? state)), []);
+  useEffect(() => {
+    const unsubscribe = hologram.onState(state => setSense(senseNames[state] ?? state));
+    return () => { unsubscribe(); };
+  }, []);
   const [monitor, setMonitor] = useState(false);
   const [config, setConfig] = useState<{ server: string; token: string } | null>(null);
   const roomRef = useRef<Room | null>(null);
