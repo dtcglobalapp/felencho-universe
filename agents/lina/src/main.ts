@@ -17,8 +17,6 @@ import { getCharacterConfig, isCharacterKey } from "./characters.js";
 initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
-// Adjustable safety cap: 60 minutes by default; prevents unbounded sessions and costs.
-const SESSION_TIMEOUT_MS = Math.max(300_000, Math.min(7_200_000, Number(process.env.STUDIO_SESSION_MAX_MS) || 3_600_000));
 const TRANSCRIPTION_TIMEOUT_MS = 5_000;
 const FELENCHO_BRAIN_URL =
   process.env.FELENCHO_BRAIN_URL ||
@@ -120,13 +118,11 @@ export default defineAgent({
 
   entry: async (ctx: JobContext) => {
     let session: voice.AgentSession | undefined;
-    let failSafe: ReturnType<typeof setTimeout> | undefined;
     let closing: Promise<void> | undefined;
 
     const closeSession = (reason: string) => {
       if (closing) return closing;
       closing = (async () => {
-        if (failSafe) clearTimeout(failSafe);
         await session?.close().catch((error) =>
           console.error("[felencho-universe] session cleanup failed", error),
         );
@@ -152,11 +148,6 @@ export default defineAgent({
 
       await ctx.connect();
       console.log(`[felencho-universe] worker connected identity=${ctx.agent?.identity}`);
-
-      failSafe = setTimeout(() => {
-        console.error("[felencho-universe] interactive hard timeout");
-        void closeSession("interactive hard timeout");
-      }, SESSION_TIMEOUT_MS);
 
       const agent = new FelenchoBrainAgent(character.key, character.instructions);
 
@@ -224,10 +215,11 @@ export default defineAgent({
 
       const greeting = session.say(`Hola, soy ${character.displayName}. Estoy listo para escucharte.`);
       await greeting.waitForPlayout();
-      console.log("[felencho-universe] interactive greeting played; keeping job alive");
-
-      await new Promise<void>((resolve) => setTimeout(resolve, SESSION_TIMEOUT_MS));
-      if (!closing) await closeSession("interactive session timeout");
+      console.log("[felencho-universe] interactive greeting played; no arbitrary session timer");
+      // Returning the job entrypoint is safe: LiveKit manages the active room's
+      // lifecycle until the linked studio participant leaves. closeOnDisconnect
+      // and deleteRoomOnClose tear down the agent when the operator ends the session.
+      // Never schedule a wall-clock timeout or a second paid dispatch here.
     } catch (error) {
       console.error("[felencho-universe] interactive startup error", error);
       await closeSession("interactive failed");
