@@ -9,6 +9,8 @@ type DispatchResponse = { ok?: boolean; error?: string; details?: string };
 
 export default function HologramStudioClient({ character }: { character: Character }) {
   const roomRef = useRef<Room | null>(null);
+  const dispatchStartedRef = useRef(false);
+  const [dispatched, setDispatched] = useState(false);
   const stopRef = useRef<() => void>(() => {});
   const [status, setStatus] = useState('STUDIO OFF · No se consume audio ni se ha creado una sesión.');
   const [busy, setBusy] = useState(false);
@@ -23,12 +25,16 @@ export default function HologramStudioClient({ character }: { character: Charact
     setBusy(false);
     setStatus('STUDIO OFF · Sesión desconectada.');
     setDisplayUrl('');
+    dispatchStartedRef.current = false;
+    setDispatched(false);
   }, []);
 
   useEffect(() => () => { stopRef.current(); }, []);
 
   const start = async () => {
     if (busy || roomRef.current) return;
+    dispatchStartedRef.current = false;
+    setDispatched(false);
     setBusy(true);
     setStatus('Creando sala independiente para ' + character.toUpperCase() + '…');
     let room: Room | null = null;
@@ -99,7 +105,8 @@ export default function HologramStudioClient({ character }: { character: Charact
 
   const dispatch = async () => {
     const room = roomRef.current;
-    if (!room || !microphone) return;
+    if (!room || !microphone || dispatchStartedRef.current) return;
+    dispatchStartedRef.current = true;
     setBusy(true);
     setStatus('Iniciando solo el agente de ' + character.toUpperCase() + '…');
     try {
@@ -111,8 +118,12 @@ export default function HologramStudioClient({ character }: { character: Charact
       });
       const payload = await response.json() as DispatchResponse;
       if (!response.ok) throw new Error(payload.details || payload.error || 'Error al iniciar el agente.');
+      setDispatched(true);
       setStatus('Agente iniciado. Abre el holograma y conversa con ' + character.toUpperCase() + '.');
-    } catch (error) { setStatus(error instanceof Error ? error.message : 'Error al iniciar el agente.'); }
+    } catch (error) {
+      // Do not automatically retry a possibly accepted dispatch: it can create paid duplicate jobs.
+      setStatus((error instanceof Error ? error.message : 'Error al iniciar el agente.') + ' Reinicia la sala para repetir de forma segura.');
+    }
     finally { setBusy(false); }
   };
 
@@ -123,7 +134,7 @@ export default function HologramStudioClient({ character }: { character: Charact
       <div className="flex flex-wrap gap-3">
         <button onClick={() => void start()} disabled={busy || active} className="rounded-lg bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">1. Crear sala</button>
         <button onClick={() => void enableMic()} disabled={busy || !active || microphone} className="rounded-lg bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">2. Activar micrófono</button>
-        <button onClick={() => void dispatch()} disabled={busy || !microphone} className="rounded-lg bg-amber-300 px-4 py-3 font-semibold text-black disabled:opacity-40">3. Iniciar agente</button>
+        <button onClick={() => void dispatch()} disabled={busy || !microphone || dispatchStartedRef.current || dispatched} className="rounded-lg bg-amber-300 px-4 py-3 font-semibold text-black disabled:opacity-40">3. Iniciar agente</button>
         <button onClick={stop} disabled={!active && !busy} className="rounded-lg border border-red-400 px-4 py-3 font-semibold text-red-300 disabled:opacity-40">Apagar y desconectar</button>
       </div>
       {displayUrl && <div className="space-y-2 rounded-lg border border-cyan-500/30 p-3">
