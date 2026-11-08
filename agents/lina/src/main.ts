@@ -9,7 +9,6 @@ import {
   llm,
   voice,
 } from "@livekit/agents";
-import * as lemonslice from "@livekit/agents-plugin-lemonslice";
 import * as silero from "@livekit/agents-plugin-silero";
 import { fileURLToPath } from "node:url";
 import { ReadableStream } from "node:stream/web";
@@ -18,7 +17,6 @@ import { getCharacterConfig, isCharacterKey } from "./characters.js";
 initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
-const AVATAR_JOIN_TIMEOUT_MS = 60_000;
 const SESSION_TIMEOUT_MS = 900_000;
 const TRANSCRIPTION_TIMEOUT_MS = 5_000;
 const FELENCHO_BRAIN_URL =
@@ -46,9 +44,6 @@ function getCharacter(metadata: JobMetadata) {
 
   const character = getCharacterConfig(key);
   if (!character.enabled) throw new Error(`${character.displayName} is not enabled.`);
-  if (!character.lemonsliceAgentId) {
-    throw new Error(`Missing LemonSlice agent ID for ${character.displayName}.`);
-  }
   return character;
 }
 
@@ -122,7 +117,6 @@ export default defineAgent({
   },
 
   entry: async (ctx: JobContext) => {
-    let avatar: lemonslice.AvatarSession | undefined;
     let session: voice.AgentSession | undefined;
     let failSafe: ReturnType<typeof setTimeout> | undefined;
     let closing: Promise<void> | undefined;
@@ -131,9 +125,6 @@ export default defineAgent({
       if (closing) return closing;
       closing = (async () => {
         if (failSafe) clearTimeout(failSafe);
-        await avatar?.aclose().catch((error) =>
-          console.error("[felencho-universe] avatar cleanup failed", error),
-        );
         await session?.close().catch((error) =>
           console.error("[felencho-universe] session cleanup failed", error),
         );
@@ -211,18 +202,6 @@ export default defineAgent({
         console.error(`[felencho-universe] voice pipeline error: ${detail}`);
       });
 
-      avatar = new lemonslice.AvatarSession({
-        agentId: character.lemonsliceAgentId,
-        apiKey: process.env.LEMONSLICE_API_KEY,
-        agentPrompt: character.avatarPrompt,
-        idleTimeout: 900,
-        connOptions: { maxRetry: 2, retryIntervalMs: 2_000, timeoutMs: 20_000 },
-      });
-
-      console.log(`[felencho-universe] starting LemonSlice avatar character=${character.key} agentId=${character.lemonsliceAgentId} apiKeyConfigured=${Boolean(process.env.LEMONSLICE_API_KEY)}`);
-      await avatar.start(session, ctx.room);
-      console.log(`[felencho-universe] LemonSlice session created id=${avatar.sessionId}`);
-
       await session.start({
         agent,
         room: ctx.room,
@@ -232,14 +211,12 @@ export default defineAgent({
           closeOnDisconnect: true,
           deleteRoomOnClose: true,
         },
-        outputOptions: { syncTranscription: false },
+        // Send voice audio directly into LiveKit; no video avatar required.
+        outputOptions: { audioEnabled: true, syncTranscription: false },
       });
       console.log(
         `[felencho-universe] interactive voice session listening to participant=${participantIdentity}`,
       );
-
-      await avatar.waitForJoin({ timeout: AVATAR_JOIN_TIMEOUT_MS });
-      console.log("[felencho-universe] avatar video track published");
 
       const greeting = session.say(`Hola, soy ${character.displayName}. Estoy listo para escucharte.`);
       await greeting.waitForPlayout();
