@@ -146,7 +146,7 @@ export default function HologramStudioClient({ character }: { character: Charact
         </div>
       </div>}
       <p className="text-sm text-zinc-300" role="status">{status}</p>
-      <p className="text-xs text-amber-300">Esta prueba crea una sesión facturable solo al pulsar «Iniciar agente». Apaga al terminar. Aún requiere instalar el worker actualizado de la rama; el worker antiguo seguiría buscando LemonSlice.</p>
+      <p className="text-xs text-amber-300">La sala y el agente pueden generar consumo de LiveKit; apaga al terminar. Aún requiere instalar el worker actualizado de esta rama: el worker antiguo seguiría buscando LemonSlice.</p>
     </section>
   </main>;
 }
