@@ -16,6 +16,14 @@ import { hologram, type Persona } from './engine';
 export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
   const [status, setStatus] = useState('Desconectado');
   const [connected, setConnected] = useState(false);
+  const [sense, setSense] = useState('DESCANSANDO');
+  const [audioDetected, setAudioDetected] = useState(false);
+  const [lastDisconnect, setLastDisconnect] = useState('');
+  const senseNames: Record<string, string> = {
+    idle: 'EN ESPERA', listening: 'ESCUCHANDO', thinking: 'PENSANDO',
+    speaking: 'HABLANDO', watching: 'OBSERVANDO', sleep: 'DESCANSANDO',
+  };
+  useEffect(() => hologram.onState(state => setSense(senseNames[state] ?? state)), []);
   const [monitor, setMonitor] = useState(false);
   const [config, setConfig] = useState<{ server: string; token: string } | null>(null);
   const roomRef = useRef<Room | null>(null);
@@ -47,7 +55,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     disposeRef.current?.();
     disposeRef.current = null;
     setConnected(false);
-    setStatus('Desconectado');
+    setStatus('Desconectado por el usuario');
   }, []);
 
   const connect = useCallback(async () => {
@@ -55,6 +63,8 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     setStatus('Conectando al audio de ' + persona.toUpperCase() + '…');
     let disposed = false;
     const room = new Room({ adaptiveStream: true });
+    setAudioDetected(false);
+    setLastDisconnect('');
     roomRef.current = room;
     const ctx = new AudioContext();
     contextRef.current = ctx;
@@ -115,15 +125,18 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       const source = ctx.createMediaElementSource(element);
       source.connect(analyser);
       didReceiveAudio.current = true;
+      setAudioDetected(true);
       setStatus('Audio recibido de ' + participant.identity + ' · holograma reactivo');
       void element.play().catch(() => setStatus('Audio conectado. Pulsa Conectar otra vez si el navegador bloquea reproducción.'));
       if (frameRef.current === null) frameRef.current = requestAnimationFrame(animate);
     };
-    const onDisconnect = () => {
+    const onDisconnect = (reason?: unknown) => {
       if (!disposed) {
         hologram.setState('sleep');
         setConnected(false);
-        setStatus('La sala de audio terminó.');
+        setAudioDetected(false);
+        setLastDisconnect(String(reason ?? 'motivo no disponible'));
+        setStatus('La sala se cerró. LiveKit recupera cortes breves automáticamente, pero una sala eliminada necesita nueva autorización desde el estudio.');
       }
     };
     // A data event from the studio can represent only what was actually
@@ -137,6 +150,24 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       if (message.state !== 'idle' && message.state !== 'listening' && message.state !== 'thinking') return;
       requestedState.current = message.state;
       if (!speakingRef.current) hologram.setState(message.state);
+    });
+    room.on(RoomEvent.Reconnecting, () => {
+      if (!disposed) setStatus('Recuperando conexión con LiveKit…');
+    });
+    room.on(RoomEvent.Reconnected, () => {
+      if (!disposed) {
+        setConnected(true);
+        setStatus(didReceiveAudio.current ? 'Conexión recuperada; audio listo.' : 'Conexión recuperada; esperando pista de voz.');
+      }
+    });
+    room.on(RoomEvent.TrackUnsubscribed, track => {
+      if (track.kind !== Track.Kind.Audio) return;
+      didReceiveAudio.current = false;
+      speakingRef.current = false;
+      setAudioDetected(false);
+      setAudioDetected(false);
+      hologram.setState(requestedState.current);
+      setStatus('La pista de audio desapareció. Esperando su publicación de nuevo…');
     });
     room.on(RoomEvent.TrackSubscribed, attach);
     room.on(RoomEvent.Disconnected, onDisconnect);
@@ -166,7 +197,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       await room.connect(config.server, config.token);
       if (disposed) return;
       setConnected(true);
-      setStatus('Conectado. Esperando audio del agente ' + persona.toUpperCase() + '…');
+      if (!didReceiveAudio.current) setStatus('Conectado. Esperando pista de audio del agente ' + persona.toUpperCase() + '…');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo conectar';
       disposeRef.current?.();
@@ -177,7 +208,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
 
   return <aside className="fixed bottom-3 left-3 right-3 z-20 mx-auto max-w-xl rounded-xl border border-white/20 bg-black/85 p-3 text-xs text-white backdrop-blur">
     <div className="flex flex-wrap items-center gap-3">
-      <strong>{persona.toUpperCase()} · LiveKit audio</strong>
+      <strong>{persona.toUpperCase()} · Sentidos: {sense}</strong>
       <button type="button" disabled={!config || connected} onClick={() => void connect()} className="rounded bg-cyan-500 px-3 py-2 font-semibold text-black disabled:opacity-50">Conectar</button>
       <button type="button" disabled={!connected} onClick={disconnect} className="rounded border border-white/30 px-3 py-2 disabled:opacity-50">Desconectar</button>
       <label className="ml-auto flex items-center gap-2">
@@ -186,6 +217,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       </label>
     </div>
     <p className="mt-2 text-zinc-300" role="status">{status}</p>
+    <p className="mt-1 text-zinc-400">Pista de voz: {audioDetected ? 'RECIBIDA' : 'NO RECIBIDA'} · {connected ? 'SALA CONECTADA' : 'SALA DESCONECTADA'}{lastDisconnect ? ' · cierre: ' + lastDisconnect : ''}</p>
     <p className="mt-1 text-zinc-500">Los estados se actualizan desde el micrófono del estudio y la pista Cartesia; THINKING es una estimación, SPEAKING se detecta por audio. Esta pantalla no publica micrófono ni inicia agentes. Audio silenciado por defecto.</p>
   </aside>;
 }
