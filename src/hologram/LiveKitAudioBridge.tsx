@@ -25,6 +25,8 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
   const gainRef = useRef<GainNode | null>(null);
   const disposeRef = useRef<(() => void) | null>(null);
   const didReceiveAudio = useRef(false);
+  const requestedState = useRef<'idle' | 'listening' | 'thinking'>('idle');
+  const speakingRef = useRef(false);
 
   useEffect(() => {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -68,6 +70,8 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     analyser.connect(gain);
     const bins = new Uint8Array(analyser.frequencyBinCount);
     let lastSpeech = 0;
+    speakingRef.current = false;
+    requestedState.current = 'idle';
 
     const animate = () => {
       if (disposed) return;
@@ -88,9 +92,11 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       hologram.pushAudio({ level, bass, mids, treble });
       if (didReceiveAudio.current && level > 0.055) {
         lastSpeech = performance.now();
+        speakingRef.current = true;
         if (hologram.state !== 'speaking') hologram.setState('speaking');
-      } else if (hologram.state === 'speaking' && performance.now() - lastSpeech > 900) {
-        hologram.setState('idle');
+      } else if (speakingRef.current && performance.now() - lastSpeech > 700) {
+        speakingRef.current = false;
+        hologram.setState(requestedState.current);
       }
       frameRef.current = requestAnimationFrame(animate);
     };
@@ -120,6 +126,18 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
         setStatus('La sala de audio terminó.');
       }
     };
+    // A data event from the studio can represent only what was actually
+    // observed: microphone activity or a pause (estimated thinking).
+    // Never claim to know Felencho Brain's internal processing state.
+    room.on(RoomEvent.DataReceived, (payload, participant) => {
+      if (!participant?.identity.startsWith('studio-')) return;
+      let message: { source?: string; character?: string; state?: string };
+      try { message = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (message.source !== 'felencho-studio' || message.character !== persona) return;
+      if (message.state !== 'idle' && message.state !== 'listening' && message.state !== 'thinking') return;
+      requestedState.current = message.state;
+      if (!speakingRef.current) hologram.setState(message.state);
+    });
     room.on(RoomEvent.TrackSubscribed, attach);
     room.on(RoomEvent.Disconnected, onDisconnect);
     disposeRef.current = () => {
@@ -129,6 +147,9 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       frameRef.current = null;
       hologram.pushAudio({ level: 0, bass: 0, mids: 0, treble: 0 });
       hologram.setState('sleep');
+      didReceiveAudio.current = false;
+      speakingRef.current = false;
+      requestedState.current = 'idle';
       mediaRef.current?.pause();
       mediaRef.current?.remove();
       mediaRef.current = null;
@@ -141,7 +162,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     try {
       hologram.setPersona(persona);
       hologram.setSimulator(false);
-      hologram.setState('listening');
+      hologram.setState('idle');
       await room.connect(config.server, config.token);
       if (disposed) return;
       setConnected(true);
@@ -165,6 +186,6 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       </label>
     </div>
     <p className="mt-2 text-zinc-300" role="status">{status}</p>
-    <p className="mt-1 text-zinc-500">Solo escucha la pista de voz remota; no publica micrófono ni crea agentes ni sesiones de pago. El audio está silenciado en esta pantalla por defecto.</p>
+    <p className="mt-1 text-zinc-500">Los estados se actualizan desde el micrófono del estudio y la pista Cartesia; THINKING es una estimación, SPEAKING se detecta por audio. Esta pantalla no publica micrófono ni inicia agentes. Audio silenciado por defecto.</p>
   </aside>;
 }
