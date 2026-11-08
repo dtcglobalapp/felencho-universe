@@ -18,8 +18,12 @@ export default function HologramStudioClient({ character }: { character: Charact
   const [microphone, setMicrophone] = useState(false);
   const [displayUrl, setDisplayUrl] = useState('');
   const audioElements = useRef<HTMLAudioElement[]>([]);
+  const micAnalyzerCleanupRef = useRef<(() => void) | null>(null);
+  const lastStudioStateRef = useRef('');
   const stop = useCallback(() => {
     stopRef.current();
+    micAnalyzerCleanupRef.current?.();
+    micAnalyzerCleanupRef.current = null;
     setActive(false);
     setMicrophone(false);
     setBusy(false);
@@ -52,6 +56,8 @@ export default function HologramStudioClient({ character }: { character: Charact
         stopped = true;
         for (const element of audioElements.current) { element.pause(); element.remove(); }
         audioElements.current = [];
+        micAnalyzerCleanupRef.current?.();
+        micAnalyzerCleanupRef.current = null;
         const current = roomRef.current;
         roomRef.current = null;
         void current?.localParticipant.setMicrophoneEnabled(false).catch(() => {});
@@ -97,8 +103,56 @@ export default function HologramStudioClient({ character }: { character: Charact
     setBusy(true);
     try {
       await room.localParticipant.setMicrophoneEnabled(true, undefined, { dtx: false });
+      const track = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack;
+      if (track) {
+        // Read only the already published studio microphone, never request another one.
+        const ctx = new AudioContext();
+        await ctx.resume();
+        const source = ctx.createMediaStreamSource(new MediaStream([track]));
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser); // no connection to speakers, avoids acoustic feedback
+        const waveform = new Uint8Array(analyser.fftSize);
+        let raf = 0;
+        let lastVoiceAt = 0;
+        let wasSpeaking = false;
+        let currentState = '';
+        const broadcast = (state: 'idle' | 'listening' | 'thinking') => {
+          if (currentState === state) return;
+          currentState = state;
+          lastStudioStateRef.current = state;
+          void room.localParticipant.publishData(
+            new TextEncoder().encode(JSON.stringify({ source: 'felencho-studio', character, state, at: Date.now() })),
+            { reliable: true },
+          ).catch(() => {});
+        };
+        const monitorMic = () => {
+          if (roomRef.current !== room) return;
+          analyser.getByteTimeDomainData(waveform);
+          let sum = 0;
+          for (const sample of waveform) {
+            const n = (sample - 128) / 128;
+            sum += n * n;
+          }
+          const rms = Math.sqrt(sum / waveform.length);
+          const now = performance.now();
+          const speechDetected = rms > 0.028;
+          if (speechDetected) { lastVoiceAt = now; wasSpeaking = true; broadcast('listening'); }
+          else if (wasSpeaking && now - lastVoiceAt > 550) { wasSpeaking = false; broadcast('thinking'); }
+          else if (!wasSpeaking && now - lastVoiceAt > 12000 && currentState === 'thinking') { broadcast('idle'); }
+          raf = requestAnimationFrame(monitorMic);
+        };
+        broadcast('idle');
+        raf = requestAnimationFrame(monitorMic);
+        micAnalyzerCleanupRef.current = () => {
+          cancelAnimationFrame(raf);
+          source.disconnect();
+          analyser.disconnect();
+          void ctx.close().catch(() => {});
+        };
+      }
       setMicrophone(true);
-      setStatus('Micrófono activo; puedes iniciar el agente.');
+      setStatus('Micrófono activo; detector de escucha y pensamiento preparado. Puedes iniciar el agente.');
     } catch (error) { setStatus(error instanceof Error ? error.message : 'No se pudo abrir el micrófono.'); }
     finally { setBusy(false); }
   };
@@ -146,7 +200,7 @@ export default function HologramStudioClient({ character }: { character: Charact
         </div>
       </div>}
       <p className="text-sm text-zinc-300" role="status">{status}</p>
-      <p className="text-xs text-amber-300">La sala y el agente pueden generar consumo de LiveKit; apaga al terminar. Aún requiere instalar el worker actualizado de esta rama: el worker antiguo seguiría buscando LemonSlice.</p>
+      <p className="text-xs text-amber-300">La sala y el agente pueden generar consumo de LiveKit; apaga al terminar. Los estados LISTENING y THINKING se estiman desde la voz del estudio; no miden todavía el tiempo interno de Felencho Brain.</p>
     </section>
   </main>;
 }
