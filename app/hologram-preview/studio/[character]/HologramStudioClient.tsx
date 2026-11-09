@@ -131,8 +131,13 @@ export default function HologramStudioClient({ character }: { character: Charact
         let lastVoiceAt = 0;
         let wasSpeaking = false;
         let currentState = '';
+        let lastBroadcastAt = 0;
         const broadcast = (state: 'idle' | 'listening' | 'thinking') => {
-          if (currentState === state) return;
+          // Repeat the current state periodically so a TV that joins later
+          // receives it without requiring another microphone transition.
+          const now = performance.now();
+          if (currentState === state && now - lastBroadcastAt < 2500) return;
+          lastBroadcastAt = now;
           currentState = state;
           lastStudioStateRef.current = state;
           void room.localParticipant.publishData(
@@ -154,6 +159,7 @@ export default function HologramStudioClient({ character }: { character: Charact
           if (speechDetected) { lastVoiceAt = now; wasSpeaking = true; broadcast('listening'); }
           else if (wasSpeaking && now - lastVoiceAt > 550) { wasSpeaking = false; broadcast('thinking'); }
           else if (!wasSpeaking && now - lastVoiceAt > 12000 && currentState === 'thinking') { broadcast('idle'); }
+          else if (currentState === 'idle' || currentState === 'listening' || currentState === 'thinking') { broadcast(currentState); }
           raf = requestAnimationFrame(monitorMic);
         };
         broadcast('idle');
