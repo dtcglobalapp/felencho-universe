@@ -59,8 +59,20 @@ export function ProfilePanel({ persona }: { persona: Persona }) {
     try {
       const text = await file.text();
       const imported = profileStore.import(text);
-      persist();
-      setMessage(`Importados ${imported.length} perfil(es).`);
+      // A gallery imported from Lovable must immediately become the active
+      // identity, otherwise the studio keeps showing the old seed/main image.
+      const activated: string[] = [];
+      for (const targetPersona of ['lina', 'bob'] as const) {
+        const candidates = imported.filter(profile => profile.persona === targetPersona);
+        const complete = candidates.find(profile => Boolean(profile.photos.main) && Object.values(profile.photos).filter(Boolean).length > 1);
+        const chosen = complete ?? candidates.find(profile => Boolean(profile.photos.main));
+        if (chosen) {
+          await profileStore.select(chosen.id);
+          activated.push(targetPersona.toUpperCase());
+        }
+      }
+      await profileStore.persist();
+      setMessage(`Importados ${imported.length} perfil(es). Activos: ${activated.join(', ') || 'ninguno con foto principal'}.`);
     } catch (e) { setMessage(e instanceof Error ? e.message : 'No se pudo importar.'); }
     finally { if (importInput.current) importInput.current.value = ''; }
   }
