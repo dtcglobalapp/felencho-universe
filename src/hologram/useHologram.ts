@@ -13,8 +13,20 @@ export function useHologram(persona: Persona, config: CharacterConfig, storage: 
     hologram.setPersona(persona);
     lipSync.configure(false);
     photoCoreStore.configure(persona, config, storage);
-    void profileStore.load();
-    void photoCoreStore.load().then(() => { if (active) setReady(true); });
+    void Promise.all([profileStore.load(), photoCoreStore.load()]).then(async () => {
+      if (!active) return;
+      // A saved gallery may have a complete identity but no selected profile.
+      // Prefer its existing photograph rather than silently falling back to pure energy.
+      if (!profileStore.selectedProfile(persona)) {
+        const candidate = profileStore.forPersona(persona).find(profile =>
+          Boolean(profile.photos.main || Object.values(profile.photos).some(Boolean))
+        );
+        if (candidate) {
+          await profileStore.select(candidate.id).catch(() => {});
+        }
+      }
+      if (active) setReady(true);
+    }).catch(() => { if (active) setReady(true); });
     return () => { active = false; hologram.setSimulator(false); release?.(); };
   }, [persona, config, storage]);
   return ready;
