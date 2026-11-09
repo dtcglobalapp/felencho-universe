@@ -97,7 +97,13 @@ export default function HologramStudioClient({ character }: { character: Charact
       setDisplayUrl(url.toString());
       // Microphone is published only after a separate user action.
       setActive(true);
-      setStatus('Sala creada. Activa micrófono, luego inicia el agente y abre el enlace de holograma.');
+      setStatus('Sala creada. Solicitando permiso del micrófono…');
+      const micOk = await enableMic(room);
+      if (!micOk || roomRef.current !== room) {
+        setStatus('Sala creada, pero falta autorizar el micrófono. Abre Opciones técnicas para reintentarlo.');
+        return;
+      }
+      await dispatch(room, true);
     } catch (error) {
       stopRef.current();
       setStatus(error instanceof Error ? error.message : 'Error de conexión LiveKit.');
@@ -105,9 +111,9 @@ export default function HologramStudioClient({ character }: { character: Charact
     } finally { setBusy(false); }
   };
 
-  const enableMic = async () => {
-    const room = roomRef.current;
-    if (!room || microphone) return;
+  const enableMic = async (selectedRoom?: Room): Promise<boolean> => {
+    const room = selectedRoom ?? roomRef.current;
+    if (!room || microphone) return false;
     setBusy(true);
     try {
       await room.localParticipant.setMicrophoneEnabled(true, undefined, { dtx: false });
@@ -160,14 +166,17 @@ export default function HologramStudioClient({ character }: { character: Charact
         };
       }
       setMicrophone(true);
-      setStatus('Micrófono activo; detector de escucha y pensamiento preparado. Puedes iniciar el agente.');
-    } catch (error) { setStatus(error instanceof Error ? error.message : 'No se pudo abrir el micrófono.'); }
-    finally { setBusy(false); }
+      setStatus('Micrófono activo; detector de escucha y pensamiento preparado.');
+      return true;
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'No se pudo abrir el micrófono.');
+      return false;
+    } finally { setBusy(false); }
   };
 
-  const dispatch = async () => {
-    const room = roomRef.current;
-    if (!room || !microphone || dispatchStartedRef.current) return;
+  const dispatch = async (selectedRoom?: Room, micConfirmed = false): Promise<boolean> => {
+    const room = selectedRoom ?? roomRef.current;
+    if (!room || (!micConfirmed && !microphone) || dispatchStartedRef.current) return false;
     dispatchStartedRef.current = true;
     setBusy(true);
     setStatus('Iniciando solo el agente de ' + character.toUpperCase() + '…');
@@ -182,29 +191,38 @@ export default function HologramStudioClient({ character }: { character: Charact
       if (!response.ok) throw new Error(payload.details || payload.error || 'Error al iniciar el agente.');
       setDispatched(true);
       setStatus('Agente iniciado. Abre el holograma y conversa con ' + character.toUpperCase() + '.');
+      return true;
     } catch (error) {
       // Do not automatically retry a possibly accepted dispatch: it can create paid duplicate jobs.
-      setStatus((error instanceof Error ? error.message : 'Error al iniciar el agente.') + ' Reinicia la sala para repetir de forma segura.');
-    }
-    finally { setBusy(false); }
+      setStatus((error instanceof Error ? error.message : 'Error al iniciar el agente.') + ' No se hará un segundo despacho automático; apaga y reinicia cuando lo decidas.');
+      return false;
+    } finally { setBusy(false); }
   };
 
   return <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-white">
     <section className="w-full max-w-2xl space-y-5 rounded-3xl border border-white/15 bg-black p-6">
       <h1 className="text-2xl font-bold">Felencho Studio · {character.toUpperCase()}</h1>
-      <p className="text-sm text-zinc-400">Prueba de audio real con Felencho Brain, Cartesia Sonic 3 y LiveKit. El holograma va en otra pantalla; esta página controla el micrófono desde La Bestia.</p>
+      <p className="text-sm text-zinc-400">Prueba de audio real con Felencho Brain, Cartesia Sonic 3 y LiveKit. Un solo botón prepara la conversación; la pantalla holográfica se abre aparte, sin publicar micrófono.</p>
       <div className="rounded-xl border border-cyan-400/30 bg-zinc-950 p-3 text-sm">
         <p className="font-semibold text-cyan-300">Pantalla del estudio y Sentidos</p>
-        <p className="mt-1 text-zinc-400">La vista previa muestra solo la energía. Para recibir los Sentidos ESCUCHANDO, PENSANDO y HABLANDO, crea una sala y abre el enlace temporal «Abrir holograma». Los Sentidos cambian con los eventos del micrófono y la pista de voz real.</p>
+        <p className="mt-1 text-zinc-400">Para recibir los Sentidos ESCUCHANDO, PENSANDO y HABLANDO, pulsa ENCENDER y después abre el enlace temporal «Abrir holograma». Los Sentidos cambian con los eventos del micrófono y la pista de voz real.</p>
         <p className="mt-2 text-zinc-400">Las fotografías de Lovable o localhost no viajan automáticamente a Vercel porque estaban guardadas en el navegador. Debes importar los perfiles en la configuración de esta dirección online o publicar sus fotos originales como recursos del proyecto.</p>
         <a href="/hologram-preview?dev=1" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-cyan-300 underline underline-offset-2">Configurar perfiles y fotografías de Bob y Lina</a>
       </div>
       <div className="flex flex-wrap gap-3">
-        <button onClick={() => void start()} disabled={busy || active} className="rounded-lg bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">1. Crear sala</button>
-        <button onClick={() => void enableMic()} disabled={busy || !active || microphone} className="rounded-lg bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">2. Activar micrófono</button>
-        <button onClick={() => void dispatch()} disabled={busy || !microphone || dispatchStartedRef.current || dispatched} className="rounded-lg bg-amber-300 px-4 py-3 font-semibold text-black disabled:opacity-40">3. Iniciar agente</button>
-        <button onClick={stop} disabled={!active && !busy} className="rounded-lg border border-red-400 px-4 py-3 font-semibold text-red-300 disabled:opacity-40">Apagar y desconectar</button>
+        <button onClick={() => void start()} disabled={busy || active} className="rounded-lg bg-cyan-400 px-5 py-4 text-lg font-bold text-black disabled:opacity-40">
+          {busy ? 'Conectando…' : 'ENCENDER ' + character.toUpperCase()}
+        </button>
+        <button onClick={stop} disabled={!active && !busy} className="rounded-lg border border-red-400 px-5 py-4 font-semibold text-red-300 disabled:opacity-40">APAGAR Y DESCONECTAR</button>
       </div>
+      <p className="text-xs text-zinc-400">Un solo encendido: conecta la sala LiveKit, pide acceso al micrófono y despacha un agente de voz. Al pulsarlo autorizas el inicio de la sesión, que puede generar consumo. Si el micrófono falla, no se inicia el agente.</p>
+      <details className="rounded-lg border border-white/10 p-3 text-sm text-zinc-400">
+        <summary className="cursor-pointer">Opciones técnicas y recuperación manual</summary>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={() => void enableMic()} disabled={busy || !active || microphone} className="rounded border border-white/20 px-3 py-2 disabled:opacity-40">Reintentar micrófono</button>
+          <button onClick={() => void dispatch()} disabled={busy || !microphone || dispatchStartedRef.current || dispatched} className="rounded border border-white/20 px-3 py-2 disabled:opacity-40">Iniciar agente manualmente</button>
+        </div>
+      </details>
       {displayUrl && <div className="space-y-2 rounded-lg border border-cyan-500/30 p-3">
         <p className="font-semibold">Enlace temporal para la TV vertical</p>
         <p className="text-xs text-zinc-400">Es un enlace con autorización temporal: no lo compartas públicamente. Usa la misma red o la dirección accesible del servidor. LiveKit intentará recuperar automáticamente cortes breves en esta misma sala.</p>
