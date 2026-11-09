@@ -193,6 +193,12 @@ export default function HologramStudioClient({ character }: { character: Charact
     <section className="w-full max-w-2xl space-y-5 rounded-3xl border border-white/15 bg-black p-6">
       <h1 className="text-2xl font-bold">Felencho Studio · {character.toUpperCase()}</h1>
       <p className="text-sm text-zinc-400">Prueba de audio real con Felencho Brain, Cartesia Sonic 3 y LiveKit. El holograma va en otra pantalla; esta página controla el micrófono desde La Bestia.</p>
+      <div className="rounded-xl border border-cyan-400/30 bg-zinc-950 p-3 text-sm">
+        <p className="font-semibold text-cyan-300">Pantalla del estudio y Sentidos</p>
+        <p className="mt-1 text-zinc-400">La vista previa muestra solo la energía. Para recibir los Sentidos ESCUCHANDO, PENSANDO y HABLANDO, crea una sala y abre el enlace temporal «Abrir holograma». Los Sentidos cambian con los eventos del micrófono y la pista de voz real.</p>
+        <p className="mt-2 text-zinc-400">Las fotografías de Lovable o localhost no viajan automáticamente a Vercel porque estaban guardadas en el navegador. Debes importar los perfiles en la configuración de esta dirección online o publicar sus fotos originales como recursos del proyecto.</p>
+        <a href="/hologram-preview?dev=1" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-cyan-300 underline underline-offset-2">Configurar perfiles y fotografías de Bob y Lina</a>
+      </div>
       <div className="flex flex-wrap gap-3">
         <button onClick={() => void start()} disabled={busy || active} className="rounded-lg bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">1. Crear sala</button>
         <button onClick={() => void enableMic()} disabled={busy || !active || microphone} className="rounded-lg bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">2. Activar micrófono</button>
