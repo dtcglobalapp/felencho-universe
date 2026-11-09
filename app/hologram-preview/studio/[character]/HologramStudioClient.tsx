@@ -16,17 +16,11 @@ export default function HologramStudioClient({ character }: { character: Charact
   const [busy, setBusy] = useState(false);
   const [active, setActive] = useState(false);
   const [microphone, setMicrophone] = useState(false);
-  const [authorized, setAuthorized] = useState(false);
-  const authorizedRef = useRef(false);
-  const sessionGenerationRef = useRef(0);
   const [displayUrl, setDisplayUrl] = useState('');
   const audioElements = useRef<HTMLAudioElement[]>([]);
   const micAnalyzerCleanupRef = useRef<(() => void) | null>(null);
   const lastStudioStateRef = useRef('');
   const stop = useCallback(() => {
-    sessionGenerationRef.current++;
-    authorizedRef.current = false;
-    setAuthorized(false);
     stopRef.current();
     micAnalyzerCleanupRef.current?.();
     micAnalyzerCleanupRef.current = null;
@@ -46,13 +40,11 @@ export default function HologramStudioClient({ character }: { character: Charact
     dispatchStartedRef.current = false;
     setDispatched(false);
     setBusy(true);
-    const generation = ++sessionGenerationRef.current;
     setStatus('Creando sala independiente para ' + character.toUpperCase() + '…');
     let room: Room | null = null;
     try {
       const result = await fetch('/api/live/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character }) });
       const session = await result.json() as SessionResponse;
-      if (generation !== sessionGenerationRef.current) return;
       if (!result.ok || !session.serverUrl || !session.participantToken || !session.displayToken || !session.roomName) {
         throw new Error(session.error ?? 'No se pudo obtener la sala LiveKit.');
       }
@@ -91,8 +83,6 @@ export default function HologramStudioClient({ character }: { character: Charact
       });
       room.on(RoomEvent.Disconnected, () => {
         if (roomRef.current === room) {
-          authorizedRef.current = false;
-          setAuthorized(false);
           stopRef.current();
           setActive(false);
           setMicrophone(false);
@@ -100,7 +90,6 @@ export default function HologramStudioClient({ character }: { character: Charact
         }
       });
       await room.connect(session.serverUrl, session.participantToken);
-      if (generation !== sessionGenerationRef.current) { await room.disconnect(); return; }
       const target = '/hologram-preview/live/' + character;
       const fragment = new URLSearchParams({ server: session.serverUrl, token: session.displayToken });
       const url = new URL(target, window.location.origin);
@@ -114,20 +103,12 @@ export default function HologramStudioClient({ character }: { character: Charact
         setStatus('Sala creada, pero falta autorizar el micrófono. Abre Opciones técnicas para reintentarlo.');
         return;
       }
-      const dispatchedOk = await dispatch(room, true);
-      if (generation !== sessionGenerationRef.current || roomRef.current !== room) return;
-      if (dispatchedOk) {
-        await room.localParticipant.setMicrophoneEnabled(false);
-        authorizedRef.current = false;
-        setAuthorized(false);
-        setStatus(character.toUpperCase() + ' permanece presente, sin escuchar tu micrófono. Pulsa DAR LA PALABRA cuando quieras intervenir.');
-      }
+      await dispatch(room, true);
     } catch (error) {
-      if (generation !== sessionGenerationRef.current) return;
       stopRef.current();
       setStatus(error instanceof Error ? error.message : 'Error de conexión LiveKit.');
       setActive(false);
-    } finally { if (generation === sessionGenerationRef.current) setBusy(false); }
+    } finally { setBusy(false); }
   };
 
   const enableMic = async (selectedRoom?: Room): Promise<boolean> => {
@@ -166,11 +147,6 @@ export default function HologramStudioClient({ character }: { character: Charact
         };
         const monitorMic = () => {
           if (roomRef.current !== room) return;
-          if (!authorizedRef.current) {
-            broadcast('idle');
-            raf = requestAnimationFrame(monitorMic);
-            return;
-          }
           analyser.getByteTimeDomainData(waveform);
           let sum = 0;
           for (const sample of waveform) {
@@ -229,34 +205,6 @@ export default function HologramStudioClient({ character }: { character: Charact
     } finally { setBusy(false); }
   };
 
-  const togglePermission = async () => {
-    const room = roomRef.current;
-    if (!room || !microphone || !dispatched || busy) return;
-    setBusy(true);
-    const next = !authorizedRef.current;
-    try {
-      // Muting the studio microphone is the hard privacy/intervention gate:
-      // when OFF, the voice worker does not receive Felencho's audio.
-      await room.localParticipant.setMicrophoneEnabled(next);
-      authorizedRef.current = next;
-      setAuthorized(next);
-      if (!next) {
-        lastStudioStateRef.current = 'idle';
-        void room.localParticipant.publishData(
-          new TextEncoder().encode(JSON.stringify({ source: 'felencho-studio', character, state: 'idle', at: Date.now() })),
-          { reliable: true },
-        ).catch(() => {});
-      }
-      setStatus(next
-        ? 'PALABRA AUTORIZADA: ' + character.toUpperCase() + ' puede escuchar y responder. Pulsa VOLVER A ESPERA para silenciar el micrófono.'
-        : character.toUpperCase() + ' permanece en el estudio, con tu micrófono silenciado.');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'No se pudo cambiar la autorización.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-white">
     <section className="w-full max-w-2xl space-y-5 rounded-3xl border border-white/15 bg-black p-6">
       <h1 className="text-2xl font-bold">Felencho Studio · {character.toUpperCase()}</h1>
@@ -271,10 +219,9 @@ export default function HologramStudioClient({ character }: { character: Charact
         <button onClick={() => void start()} disabled={busy || active} className="rounded-lg bg-cyan-400 px-5 py-4 text-lg font-bold text-black disabled:opacity-40">
           {busy ? 'Conectando…' : 'ENCENDER ' + character.toUpperCase()}
         </button>
-        <button onClick={() => void togglePermission()} disabled={busy || !active || !microphone || !dispatched} className="rounded-lg bg-amber-300 px-5 py-4 text-lg font-bold text-black disabled:opacity-40">{authorized ? 'VOLVER A ESPERA' : 'DAR LA PALABRA A ' + character.toUpperCase()}</button>
-        <button onClick={stop} disabled={!active && !busy} className="rounded-lg border border-red-400 px-5 py-4 font-semibold text-red-300 disabled:opacity-40">FINALIZAR SESIÓN</button>
+        <button onClick={stop} disabled={!active && !busy} className="rounded-lg border border-red-400 px-5 py-4 font-semibold text-red-300 disabled:opacity-40">APAGAR Y DESCONECTAR</button>
       </div>
-      <p className="text-xs text-zinc-400">Al encender, la sesión se inicia con el micrófono silenciado al finalizar la conexión. DAR LA PALABRA abre el micrófono; VOLVER A ESPERA lo silencia sin desconectar la sala. FINALIZAR SESIÓN cierra el estudio. LiveKit y el agente pueden seguir generando consumo mientras permanezcan conectados.</p>
+      <p className="text-xs text-zinc-400">Un solo encendido: conecta la sala LiveKit, pide acceso al micrófono y despacha un agente de voz. Al pulsarlo autorizas el inicio de la sesión, que puede generar consumo. Si el micrófono falla, no se inicia el agente.</p>
       <details className="rounded-lg border border-white/10 p-3 text-sm text-zinc-400">
         <summary className="cursor-pointer">Opciones técnicas y recuperación manual</summary>
         <div className="mt-3 flex flex-wrap gap-2">
