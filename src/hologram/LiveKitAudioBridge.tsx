@@ -38,6 +38,8 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
   const didReceiveAudio = useRef(false);
   const requestedState = useRef<'idle' | 'listening' | 'thinking'>('idle');
   const speakingRef = useRef(false);
+  const agentStateRef = useRef<'idle' | 'listening' | 'thinking' | 'speaking' | null>(null);
+  const [signalSource, setSignalSource] = useState('MICRÓFONO / AUDIO (estimado)');
 
   useEffect(() => {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -85,6 +87,8 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     let lastSpeech = 0;
     speakingRef.current = false;
     requestedState.current = 'idle';
+    agentStateRef.current = null;
+    setSignalSource('MICRÓFONO / AUDIO (estimado)');
 
     const animate = () => {
       if (disposed) return;
@@ -109,7 +113,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
         if (hologram.state !== 'speaking') hologram.setState('speaking');
       } else if (speakingRef.current && performance.now() - lastSpeech > 700) {
         speakingRef.current = false;
-        hologram.setState(requestedState.current);
+        hologram.setState(agentStateRef.current === 'thinking' || agentStateRef.current === 'speaking' ? agentStateRef.current : requestedState.current);
       }
       frameRef.current = requestAnimationFrame(animate);
     };
@@ -146,6 +150,25 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
         setStatus('La sala se cerró. Puedes pulsar Conectar para intentar recuperar esta pantalla. Si la sala terminó, crea otra desde el estudio.');
       }
     };
+    // LiveKit Agents publishes its true state as participant attribute
+    // lk.agent.state. Unlike microphone silence, THINKING here reflects the
+    // actual agent pipeline (when the deployed worker supports the attribute).
+    const receiveAgentState = (participant: RemoteParticipant) => {
+      if (participant.identity.startsWith('studio-') || participant.identity.startsWith('display-')) return;
+      const state = participant.attributes?.['lk.agent.state'];
+      if (state !== 'idle' && state !== 'listening' && state !== 'thinking' && state !== 'speaking') return;
+      agentStateRef.current = state;
+      setSignalSource('LIVEKIT AGENT (real)');
+      if (state === 'thinking' || state === 'speaking') {
+        hologram.setState(state);
+      } else if (!speakingRef.current) {
+        hologram.setState(requestedState.current === 'listening' ? 'listening' : 'idle');
+      }
+    };
+    room.on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => {
+      if (participant) receiveAgentState(participant);
+    });
+    room.on(RoomEvent.ParticipantConnected, receiveAgentState);
     // A data event from the studio can represent only what was actually
     // observed: microphone activity or a pause (estimated thinking).
     // Never claim to know Felencho Brain's internal processing state.
@@ -156,7 +179,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       if (message.source !== 'felencho-studio' || message.character !== persona) return;
       if (message.state !== 'idle' && message.state !== 'listening' && message.state !== 'thinking') return;
       requestedState.current = message.state;
-      if (!speakingRef.current) hologram.setState(message.state);
+      if (!speakingRef.current && agentStateRef.current !== 'thinking' && agentStateRef.current !== 'speaking') hologram.setState(message.state);
     });
     room.on(RoomEvent.Reconnecting, () => {
       if (!disposed) setStatus('Recuperando conexión con LiveKit…');
@@ -164,6 +187,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     room.on(RoomEvent.Reconnected, () => {
       if (!disposed) {
         setConnected(true);
+        for (const participant of room.remoteParticipants.values()) receiveAgentState(participant);
         setStatus(didReceiveAudio.current ? 'Conexión recuperada; audio listo.' : 'Conexión recuperada; esperando pista de voz.');
       }
     });
@@ -174,7 +198,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       didReceiveAudio.current = false;
       speakingRef.current = false;
       setAudioDetected(false);
-      hologram.setState(requestedState.current);
+      hologram.setState(agentStateRef.current === 'thinking' || agentStateRef.current === 'speaking' ? agentStateRef.current : requestedState.current);
       setStatus('La pista de audio desapareció. Esperando su publicación de nuevo…');
     });
     room.on(RoomEvent.TrackSubscribed, attach);
@@ -189,6 +213,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       didReceiveAudio.current = false;
       speakingRef.current = false;
       requestedState.current = 'idle';
+      agentStateRef.current = null;
       sourceRef.current?.disconnect();
       sourceRef.current = null;
       room.disconnect();
@@ -204,6 +229,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       await room.connect(config.server, config.token);
       if (disposed) return;
       setConnected(true);
+      for (const participant of room.remoteParticipants.values()) receiveAgentState(participant);
       if (!didReceiveAudio.current) setStatus('Conectado. Esperando pista de audio del agente ' + persona.toUpperCase() + '…');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo conectar';
@@ -224,7 +250,8 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       </label>
     </div>
     <p className="mt-2 text-zinc-300" role="status">{status}</p>
+    <p className="mt-1 text-cyan-300">Origen de Sentidos: {signalSource}</p>
     <p className="mt-1 text-zinc-400">Pista de voz: {audioDetected ? 'RECIBIDA' : 'NO RECIBIDA'} · {connected ? 'SALA CONECTADA' : 'SALA DESCONECTADA'}{lastDisconnect ? ' · cierre: ' + lastDisconnect : ''}</p>
-    <p className="mt-1 text-zinc-500">Los estados se actualizan desde el micrófono del estudio y la pista Cartesia; THINKING es una estimación, SPEAKING se detecta por audio. Esta pantalla no publica micrófono ni inicia agentes. Audio silenciado por defecto.</p>
+    <p className="mt-1 text-zinc-500">Los estados reales del agente LiveKit tienen prioridad cuando el worker los publica; mientras tanto, micrófono y audio sirven de estimación. OBSERVANDO necesita señal de cámara autorizada. Esta pantalla no publica micrófono ni inicia agentes. Audio silenciado por defecto.</p>
   </aside>;
 }
