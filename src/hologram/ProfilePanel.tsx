@@ -96,6 +96,15 @@ export function ProfilePanel({ persona }: { persona: Persona }) {
       <Button size="sm" variant="ghost" aria-label="Nuevo personaje" onClick={() => { profileStore.add(persona, `Nuevo ${persona.toUpperCase()}`); persist(); }}><Plus /></Button>
     </div>
 
+    <div className="flex flex-wrap items-center gap-2">
+      <Button size="sm" variant="outline" onClick={() => importInput.current?.click()}>
+        <Upload /> Importar galería desde Lovable
+      </Button>
+      <input ref={importInput} type="file" accept="application/json,.json" aria-label="Importar galería de Bob y Lina" className="hidden" onChange={e => void importProfiles(e.target.files?.[0])} />
+      <Button size="sm" variant="outline" onClick={() => download('felencho-profiles.json', profileStore.export())}>
+        <Download /> Exportar galería
+      </Button>
+    </div>
     {selected && <div className="space-y-3 rounded-md border border-border p-3">
       <div className="flex items-center justify-between gap-2">
         <strong className="text-xs text-foreground">{selected.name}</strong>
@@ -139,13 +148,10 @@ export function ProfilePanel({ persona }: { persona: Persona }) {
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" onClick={() => download(`felencho-profile-${selected.name.toLowerCase().replace(/\s+/g, '-')}.json`, profileStore.export(selected.id))}><Download />Exportar perfil</Button>
-        <Button size="sm" variant="outline" onClick={() => download('felencho-profiles.json', profileStore.export())}><Download />Exportar galería</Button>
-        <Button size="sm" variant="outline" onClick={() => importInput.current?.click()}><Upload />Importar</Button>
-        <input ref={importInput} type="file" accept="application/json,.json" aria-label="Importar perfiles" className="hidden" onChange={e => void importProfiles(e.target.files?.[0])} />
       </div>
     </div>}
 
-    {!selected && <p className="text-xs text-muted-foreground">Selecciona un perfil para editarlo. Sin perfil activo se usa la configuración de Photo Core.</p>}
+    {!selected && <p className="text-xs text-muted-foreground">No hay perfil activo. Importa la galería de Lovable aquí; se activarán automáticamente Bob y Lina con sus fotografías por Sentido.</p>}
     {message && <p role="alert" className="text-xs text-destructive">{message}</p>}
   </section>;
 }
