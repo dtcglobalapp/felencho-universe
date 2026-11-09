@@ -31,7 +31,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
   const [config, setConfig] = useState<{ server: string; token: string } | null>(null);
   const roomRef = useRef<Room | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
-  const mediaRef = useRef<HTMLAudioElement | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const frameRef = useRef<number | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const disposeRef = useRef<(() => void) | null>(null);
@@ -119,18 +119,18 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       // Display-only rooms: remote voice must belong to a worker/agent, never
       // feed a studio microphone or another display back into the hologram.
       if (participant.identity.startsWith('studio-') || participant.identity.startsWith('display-')) return;
-      const element = track.attach() as HTMLAudioElement;
-      element.autoplay = false; // WebAudio is the only playback path.
-      element.muted = false;
-      element.style.display = 'none';
-      document.body.appendChild(element);
-      mediaRef.current = element;
-      const source = ctx.createMediaElementSource(element);
+      // Analyze the remote audio MediaStream directly. An HTMLMediaElement can
+      // be bound to createMediaElementSource only once across AudioContexts;
+      // reconnecting a LiveKit track may reuse its element and throw.
+      // A fresh MediaStreamAudioSourceNode per subscription avoids that failure.
+      sourceRef.current?.disconnect();
+      const source = ctx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
       source.connect(analyser);
+      sourceRef.current = source;
       didReceiveAudio.current = true;
       setAudioDetected(true);
       setStatus('Audio recibido de ' + participant.identity + ' · holograma reactivo');
-      void element.play().catch(() => setStatus('Audio conectado. Pulsa Conectar otra vez si el navegador bloquea reproducción.'));
+      void ctx.resume().catch(() => setStatus('Audio recibido; el navegador bloqueó AudioContext. Pulsa Conectar tras autorizar el audio.'));
       if (frameRef.current === null) frameRef.current = requestAnimationFrame(animate);
     };
     const onDisconnect = (reason?: unknown) => {
@@ -169,9 +169,10 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     });
     room.on(RoomEvent.TrackUnsubscribed, track => {
       if (track.kind !== Track.Kind.Audio) return;
+      sourceRef.current?.disconnect();
+      sourceRef.current = null;
       didReceiveAudio.current = false;
       speakingRef.current = false;
-      setAudioDetected(false);
       setAudioDetected(false);
       hologram.setState(requestedState.current);
       setStatus('La pista de audio desapareció. Esperando su publicación de nuevo…');
@@ -188,9 +189,8 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
       didReceiveAudio.current = false;
       speakingRef.current = false;
       requestedState.current = 'idle';
-      mediaRef.current?.pause();
-      mediaRef.current?.remove();
-      mediaRef.current = null;
+      sourceRef.current?.disconnect();
+      sourceRef.current = null;
       room.disconnect();
       roomRef.current = null;
       void ctx.close().catch(() => {});
