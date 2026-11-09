@@ -60,7 +60,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     disposeRef.current?.();
     disposeRef.current = null;
     setConnected(false);
-    setStatus('Pantalla desconectada. La sesión del agente continúa hasta finalizarla desde Studio Control.');
+    setStatus('Desconectado por el usuario');
   }, []);
 
   const connect = useCallback(async () => {
@@ -243,7 +243,7 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     <div className="flex flex-wrap items-center gap-3">
       <strong>{persona.toUpperCase()} · Sentidos: {sense}</strong>
       <button type="button" disabled={!config || connected} onClick={() => void connect()} className="rounded bg-cyan-500 px-3 py-2 font-semibold text-black disabled:opacity-50">Conectar</button>
-      <button type="button" disabled={!connected} onClick={disconnect} className="rounded border border-white/30 px-3 py-2 disabled:opacity-50">Desconectar pantalla</button>
+      <button type="button" disabled={!connected} onClick={disconnect} className="rounded border border-white/30 px-3 py-2 disabled:opacity-50">Desconectar</button>
       <label className="ml-auto flex items-center gap-2">
         <input type="checkbox" checked={monitor} onChange={e => setMonitor(e.target.checked)} />
         Escuchar en este equipo
