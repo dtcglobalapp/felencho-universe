@@ -1,6 +1,6 @@
 # FELENCHO MUNDIAL — DOC MASTER / STUDIO HOLOGRAM MODE
 
-**Actualizado:** 2026-11-09 · **Estado:** integración de prueba, NO producción · **Repositorio:** dtcglobalapp/felencho-universe · **Rama:** `feature/lovable-hologram-studio-v1` · **PR:** #30 (borrador)
+**Actualizado:** 2026-11-10 · **Estado:** integración de prueba, NO producción · **Repositorio:** dtcglobalapp/felencho-universe · **Rama:** `feature/lovable-hologram-studio-v1` · **PR:** #30 (borrador)
 
 > Este documento complementa `project-memory/current.json` y sustituye sus prioridades operativas obsoletas de octubre (LiveAvatar/ElevenLabs/avatar de video). No borrar la historia técnica previa. La prioridad es conservar la versión funcional y evolucionar por pruebas verificadas, no volver a empezar.
 
@@ -35,6 +35,19 @@
 2. **Regresión**: se añadieron botones «DAR LA PALABRA», «VOLVER A ESPERA» y lógica de silenciamiento no solicitada (commits `e586601`, `746b575`), interfiriendo con el flujo probado; usuario observó Sentidos DESCANSANDO, PISTA NO RECIBIDA, SALA DESCONECTADA al abrir la pantalla.
 3. **Restaurado en rama** el controlador `HologramStudioClient.tsx` a la versión del commit `12445a5`, y el puente `LiveKitAudioBridge.tsx` a la misma versión (reverts posteriores). Esto NO equivale a ensayo end-to-end posterior; ejecutar prueba antes de marcar corregido.
 4. **No fusionar ni publicar** PR #30 sin restauración funcional, build y prueba de los dos hologramas. No perder el JSON de las fotografías de Lina; está en almacenamiento local del navegador.
+
+## Diagnóstico 2026-11-10: TV de Lina con voz, sin Sentidos visuales
+
+**Observado por Felencho:** Lina ya aparece en la pantalla física de NY, habla y escucha, pero el rostro no pasa a PENSANDO/HABLANDO. **No se ha confirmado qué URL exacta abre esa pantalla.**
+
+**Hallazgo verificable en el código:**
+- `app/presence/lina/page.tsx` todavía usa `PresenceAvatar` (sistema legado, no el nuevo puente de LiveKit).
+- `/hologram-preview/lina` muestra el holograma pero NO monta `LiveKitAudioBridge`; sirve para previsualización.
+- `/hologram-preview/live/lina` sí monta `LiveKitAudioBridge`, pero debe recibir un enlace temporal con token de la misma sala LiveKit. La pantalla debe conectarse y mostrar `Pista de voz: RECIBIDA` y `SALA CONECTADA` para poder reaccionar al audio.
+- Las seis fotografías por estado fueron importadas al almacenamiento local del navegador de La Bestia, **no viajan** por GitHub o LiveKit hasta el navegador de la PC de TV en NY. La TV necesita importar el JSON en su propio origen/navegador o un despliegue seguro de assets compartidos. `photoForState` utiliza la foto principal si falta una específica.
+- Estar oyendo a Lina por el RØDECaster o ver su cara **no demuestra** que la TV reciba la pista del agente.
+
+**Próximo diagnóstico obligatorio ANTES de cambiar código:** identificar la URL exacta de la TV y comprobar si es `/presence/lina`, `/hologram-preview/lina` o `/hologram-preview/live/lina`; verificar `SALA CONECTADA`, `Pista de voz: RECIBIDA` y que el perfil local de la TV tenga fotografías por estado. No desplegar, rediseñar ni alterar el flujo de voz mientras se identifica el enlace faltante.
 
 ## Próxima implementación acordada
 
