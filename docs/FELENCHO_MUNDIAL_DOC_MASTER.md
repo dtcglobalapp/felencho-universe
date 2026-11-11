@@ -154,6 +154,16 @@ Se preparó solo un archivo de migración **REVIEW_ONLY** (sin modificación de 
 
 **Estado:** política técnica documentada, **NO IMPLEMENTADA/NO DESPLEGADA**. Antes de abrir servicios privados se exige cerrar fallas actuales de RLS/autorización y registros de datos, validar límites de acceso con dos cuentas, y no tocar voces, LiveKit ni hologramas.
 
+## Límites de conversaciones sexuales de miembros de pago — 2026-11-11
+
+**Decisión editorial/producto:** la membresía paga minutos de conversación y acceso a funciones permitidas, no acceso irrestricto a interacciones eróticas explícitas. Lina, Bob y otros seres pueden conversar sin prejuicios sobre sexualidad adulta, consentimiento, relaciones, identidad, orientación, educación sexual, anticoncepción y bienestar; la conversación erótica destinada a excitación/roleplay sexual no forma parte del servicio V1. Definir límites con transparencia antes de cobrar; nunca avergonzar por una consulta íntima.
+
+**Privacidad:** no convertir automáticamente declaraciones sexuales, orientación, identidad o experiencias privadas en memorias perdurables, perfiles, marketing o contenido de podcast. Consentimiento explícito para cualquier recuerdo sensible; aislamiento por cuenta y por personaje autorizado. Menores requieren controles reforzados. Coerción/explotación y contenido sexual con menores deben bloquearse.
+
+**Protección comercial:** cobrar de forma transparente; no monetizar vulnerabilidad emocional ni usar confidencias para promover recargas. Probar respuestas empáticas y límites, protección de memorias y tratamiento justo de minutos.
+
+**Documento de políticas:** `docs/FELENCHO_BRAIN_PRIVATE_CHANNEL_SAFETY_V1.md`, actualización `c9a055a`. Sin despliegue ni modificación de hologramas, voz, LiveKit, Cartesia o bases de datos.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
