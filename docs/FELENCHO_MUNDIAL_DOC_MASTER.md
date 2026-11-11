@@ -65,6 +65,33 @@
 
 **Prueba de aceptación pendiente:** Felencho acuerda un hecho no sensible con Lina, lo aprueba como memoria, cierra la sesión y días después Bob lo recupera correctamente sin transcripción completa ni acceso a recuerdos privados de invitados.
 
+## Inventario real de formularios, memoria de episodios y membresías — 2026-11-11
+
+### Formularios ya construidos; NO volver a crearlos
+- `/felencho-brain` → `app/felencho-brain/FelenchoBrainClient.tsx`: formulario de Memoria Manual (categorías music/family/biography/projects/guests/studio/corrections, etc.), selección de personaje o `shared`, título, contenido, importancia, visibilidad, etiquetas; Memory Inbox con Aprobar/Rechazar; memorias aprobadas.
+- API existente `/api/felencho-brain/memories`, `/memory-inbox`, `/memory-inbox/approve`, `/memory-inbox/reject`, `/recall` y `/corrections`. Histórico antiguo `/api/lumina/brain-memory` — NO crear cerebro paralelo.
+- Inventario SQL READ ONLY confirmado del proyecto Supabase de producción `Felencho-ai`: `felencho_memories`, `felencho_memory_inbox`, `felencho_conversations`, `felencho_guests`, `felencho_corrections`, `felencho_memory_links`, `felencho_memory_topics`, `felencho_knowledge_entities`, `felencho_recall_logs`, `podcast_episodes`, `felencho_character_identity`. NO se hicieron escrituras a la base.
+- El agente `agents/lina/src/main.ts` envía sólo cuatro turnos recientes de su propia sesión a `/api/felencho-forever/conversation`; no transmite un resumen perdurable, `episode_id` ni identificador compartido de participante. Por tanto, recuerdos cross-session/cross-character NO están completos.
+- Prueba de aceptación propuesta: una conversación autorizada en Vega Baja, Puerto Rico, produce un resumen mínimo pendiente de aprobación; luego Bob y Lina recuperan contexto en NY, sin atribuir palabras que no fueron guardadas.
+
+### Diseño de memoria selectiva por podcast
+1. **Sesión viva:** contexto compartido y resumen rodante por `studio_session_id`, intérprete `speaker_id`, `episode_id`, participantes, temas y última pregunta/respuesta; no persistir todo el audio ni transcripciones íntegras por defecto.
+2. **Ficha del episodio:** reutilizar `podcast_episodes` para título/estado y crear, SOLO tras revisar esquema y autorizaciones, tabla de relación episodios-participantes y `episode_recap` (resumen aprobado, preguntas significativas, respuestas/argumentos clave, referencias y seguimientos). El historial editorial puede conservar turnos seleccionados, no todo el chat.
+3. **Memorias perdurables:** los hitos/correcciones se proponen en `felencho_memory_inbox` (no escritura automática a memorias definitivas), se aprueban y se enlazan a temas, episodios, participantes y personajes. Permitir olvidar/corregir datos.
+4. **Recuperación por contexto:** antes de cada respuesta buscar memorias `shared` y específicas según personaje, público/privado, episodio y personas autorizadas; inyectar solo fragmentos relevantes. Resolver identidad de Felencho y compañeros como reglas invariables de personaje.
+5. **Privacidad:** separar conversaciones de invitados, miembros, productor y menores. Los consejos sobre sexualidad/orientación y otras cuestiones personales son privados por defecto, no recuerdos públicos del programa. No reutilizar relatos personales para episodios sin consentimiento específico.
+
+### Membresías y minutos de conversación — proyecto por fases
+- Un usuario autenticado tiene `account_id`, identidades verificadas de proveedores `provider_identity`, derechos de membresía `entitlement`, saldo de **segundos** de conversación, sesiones y eventos de facturación. Entitlement no se deduce de nombre de usuario: verificar la membresía por una integración oficial autorizada o por compra directamente en Felencho.ai.
+- Flujo de producto: inicio de sesión → verificar membresía → asignar cupo → iniciar conversación con Bob/Lina → contabilizar tiempo consumido en servidor → congelar saldo al agotar → permitir recarga pagada → continuar el contexto de la misma sesión. Mostrar costo y saldo antes de aceptar pago y usar ledger transaccional idempotente para evitar doble cobro.
+- **Integraciones limitadas:** YouTube Members API sólo está disponible para creadores con acceso aprobado; no prometer habilitación universal. Patreon API v2 admite integración con OAuth/webhooks sujetos a permisos. Para otros proveedores, verificar acceso legal/técnico antes de vender la modalidad «cualquier red social».
+- **Consejos personales:** identidad de IA clara, límites de asesoramiento profesional, control de privacidad, moderación y protección especial de menores. No imponer categorías o inferencias sensibles en memoria personal.
+- **Condición previa innegociable:** los endpoints actuales `/api/felencho-brain/memories`, `/memory-inbox`, `/guests` exponen operaciones con cliente privilegiado `supabaseAdmin` sin comprobación explícita de autorización en los handlers revisados; riesgo de acceso/edición de memorias privadas si están públicamente alcanzables. Corregir autorización del lado servidor y políticas/RLS antes de abrir suscripciones ni introducir más datos privados. `/api/felencho-brain/recall` también registra `user_question` íntegro; actualizar política de retención.
+- No lanzar cobros reales, permitir lectura pública de memoria privada ni crear suscripciones pagadas hasta pasar pruebas de identidad, permisos, consumo de minutos, cancelaciones/reembolsos y límites de gasto.
+
+### Orden de trabajo para Smart
+P0 inventario/autorización de formularios y memoria (proteger endpoints privados). P1 contexto persistente de podcast + Inbox y recuperación cross-character con consentimiento. P2 pantalla de episodios/participantes/seguimientos. P3 acceso de miembros, minutos y recargas. P4 integración de redes sociales una a una con verificación oficial. En paralelo, identificar URL real de la TV de Lina; el placeholder `[pegar URL]` no permite diagnosticar los Sentidos.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
