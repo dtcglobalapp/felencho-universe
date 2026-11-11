@@ -164,6 +164,14 @@ Se preparó solo un archivo de migración **REVIEW_ONLY** (sin modificación de 
 
 **Documento de políticas:** `docs/FELENCHO_BRAIN_PRIVATE_CHANNEL_SAFETY_V1.md`, actualización `c9a055a`. Sin despliegue ni modificación de hologramas, voz, LiveKit, Cartesia o bases de datos.
 
+## Implementación aislada: política de canales privados (2026-11-11)
+
+- **Código creado** `lib/memberPrivacyPolicy.ts` (commit `76c2cfc`): contrato de canal privado, propietario autenticado, personaje principal, personajes autorizados, opt-in de memoria; deniega acceso de otros miembros, anónimos y Felencho humano por defecto.
+- **Pruebas escritas** `lib/memberPrivacyPolicy.test.ts` (commit `22a3d7c`): A vs B, Lina vs Bob sin consentimiento, miembro propietario, canal cerrado, consentimiento y cero persistencia por defecto. **Pruebas aún NO ejecutadas**; ejecutar en La Bestia: `npx tsx --test lib/memberPrivacyPolicy.test.ts`.
+- Estos son **contratos puros y pruebas de diseño**, NO endpoints reales, NO implementan autenticación, RLS, consentimiento persistente, historial ni cobros. No desplegar para usuarios hasta que el backend obtenga el usuario autenticado real y respete permisos por fila.
+- **Base de datos sin cambios**; mantener `docs/sql/member_private_profiles_v1_REVIEW_ONLY.sql` sin aplicar hasta auditar el impacto en `audience_profiles` y los endpoints antiguos. No se modificó LiveKit/Cartesia/voz/Sentidos/hologramas.
+- Próximo hito: preparar endpoints de identidad verificada y consentimiento en rama independiente, con pruebas de dos cuentas y anónimo, sin habilitar canales abiertos. No utilizar `supabaseAdmin` en endpoints de audiencia sin autorización comprobada del lado servidor.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
