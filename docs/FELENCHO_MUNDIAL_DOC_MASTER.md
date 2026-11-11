@@ -238,6 +238,25 @@ Felencho detuvo la idea de escalar la comunidad con Cartesia porque no acepta pr
 
 **Prueba de aceptación:** generar frases breves de Bob y Lina en español neutro y muestras de los otros nueve idiomas, medir inicio de audio, velocidad, inteligibilidad y consumo de memoria; testear interrupciones cuando se conecte a conversación en vivo. Primero comparar modelos/voz de muestra autorizada, no introducir cambios en producción. Si el motor no genera voz neutra satisfactoria o no soporta los diez idiomas con la calidad suficiente, no declarar aprobada la etapa.
 
+## Qwen3-TTS lab aislado listo para primer ensayo en La Bestia — 2026-11-11
+
+**Archivos creados (sin cambiar servicio actual):** `tools/qwen3-lab/setup-mac.sh`, `tools/qwen3-lab/generate-mac.sh`, `tools/qwen3-lab/README.md`. Generan entorno `~/felencho-qwen3-tts-lab` separado de Next.js, LiveKit, Cartesia, hologramas y voces actualmente desplegadas. Configuración de Mac y TTS únicamente; no hay integración de STT/LLM aún.
+
+**Hallazgo práctico:** Qwen3-TTS `0.6B Base` no incluye voces prefijadas y requiere muestra consentida para clonar. Para generar las **primeras muestras escuchables** sin grabaciones, la prueba usa variante `Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit` preparada para MLX con voces `Serena` (Lina, femenina) y `Uncle_Fu` (Bob, masculina madura), español e inglés. Son voces nativas de chino: **no garantizar español neutro**; si el acento no sirve, probar otros presets y luego `Base` con referencia autorizada. Los diez idiomas son objetivo del modelo, no de tres audios iniciales.
+
+**Comandos para La Bestia** (desde un terminal diferente al servidor Next actual):
+```bash
+cd ~/Documents/felencho-hologram-check
+git pull --ff-only
+bash tools/qwen3-lab/setup-mac.sh
+bash tools/qwen3-lab/generate-mac.sh
+open ~/felencho-qwen3-tts-lab/output
+```
+Primero necesita Python 3.12; si falta: `brew install python@3.12` (Homebrew ya instalado); modelos se descargan la primera vez (Internet requerido). Confirmar memoria, audio y errores antes de ensayo adicional. **No correr `sudo` ni instalar en el entorno global**.
+
+**Estado y QA:** sintaxis de borradores Bash verificada por parser `bash -n` en entorno de desarrollo, instrucciones cotejadas con CLI oficial de mlx-audio, scripts versión final subidos a GitHub. **No ejecutado en Mac de Felencho, no escuchadas voces, no tiempos ni calidad medidos**. Antes de aceptar la etapa deben escucharse las WAV y probar los 10 idiomas, luego medir concurrencia y podcast real. Cambios de voces permitidos por Felencho para pruebas; diseño de hologramas NO modificar.
+**Docs:** https://github.com/Neywa-Labs/mlx-audio/blob/main/docs/getting-started/quickstart-cli.md ; https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit .
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
