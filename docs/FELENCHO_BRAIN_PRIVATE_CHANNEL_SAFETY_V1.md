@@ -38,6 +38,17 @@ Do not say “nadie más puede leer esto”, “es secreto absoluto”, “soy h
 - Avoid exploiting loneliness to extend paid conversations; offer opt-in reminders/breaks and controls for time/budget.
 - Member's private memories must never be leveraged in marketing or to upsell minutes.
 
+## Sexual conversations and paid membership (policy V1)
+- **Payment purchases time and permitted features, not unrestricted sexual behavior.** No paid tier bypasses the same safety and privacy guardrails.
+- **Allowed respectful adult topics:** sex education, anatomy, reproductive health information, contraception, sexual wellbeing, consent, consensual relationships, LGBTQ+ questions, intimacy and personal experiences, presented non-judgmentally and without impersonating a licensed clinician.
+- **Erotic roleplay and arousal-focused explicit interaction:** not part of Felencho Brain's conversational service. Explain the boundary neutrally and offer to discuss sexuality, emotional needs or healthy intimacy. Avoid moral judgment and shaming.
+- **No child sexual content, grooming, exploitation, coercion, sexual violence facilitation or non-consensual intimate content**; reject and redirect to appropriate safety resources where relevant. Age assurance before adult-oriented discussions; minors need stricter design and review.
+- **Boundary-setting, not punishment:** a member can raise a sensitive topic without account sanction; repeated abusive behavior can be subject to a transparently published conduct policy and proportionate moderation.
+- **Private by default:** never turn disclosure of sexual behavior, sexual orientation or gender identity into automatic lasting user attributes, recommendation signals, episode summaries, marketing cohorts or public/shared memories. A consented private memory stays within the named member and explicitly allowed AI character(s).
+- **Paid minutes:** indicate whether a declined request consumes any time and allow graceful exit; never sell a promise of erotic access or use intimate disclosures to upsell. Apply crisis protections regardless of remaining balance.
+- **Transparency:** communicate boundaries before accepting payment; clear community standards, refund/support pathways, and limitations of AI relationship and medical advice.
+- **Tests:** sex-education question is answered accurately and without shame; explicit erotic request receives a calm boundary; attempts to discover another user's private sexual disclosures fail; time/accounting remains fair; abuse, coercion and minor-related red flags are not rewarded.
+
 ## Implementation and acceptance gates
 1. Audit/lock down memory and member APIs, direct table permissions, auth ownership and privacy logs; design role-limited access.
 2. Private-channel identity and consent data model; default sharing list only current member + chosen character; clear UI privacy notice; no public/podcast leakage.
