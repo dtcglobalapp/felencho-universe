@@ -191,6 +191,16 @@ Fuentes oficiales consultadas 2026-11-11:
 - Políticas operativas antes de escala: medir segundos de conversación vs voz realmente producida, contador de minutos del miembro validado en servidor, presupuesto por día/mes, límite de sesiones concurrentes, alertas al 70/90/100%, control de exceso y acceso de crisis sin paywall. Analizar volumen/idiomas, degradación segura y contrato enterprise si carga excede los límites.
 - No migrar Sonic 3 a Sonic 3.6 ni modificar voces aprobadas automáticamente: comparación de calidad, idioma, latencia, precio y ensayo A/B antes de alterar producción.
 
+## PRIORIDAD DEL PRODUCTOR: soberanía de voz y eliminación de cuotas de TTS — 2026-11-11
+
+Felencho detuvo la idea de escalar la comunidad con Cartesia porque no acepta promesas de gratuidad ilimitada que son falsas ni una red atada a minutos de terceros. **Se reconoce el error anterior** y se prioriza una ruta de TTS autoalojado sin cuotas comerciales de voz. No confundir esto con potencia ilimitada: hay restricciones físicas y costos de hardware/energía.
+
+**Plan técnico auditado:** `docs/FELENCHO_VOICE_INDEPENDENCE_PLAN.md`. Primer candidato Qwen3-TTS (Apache-2.0), respaldo ligero Kokoro-82M (Apache-2.0), prueba comparativa Chatterbox Multilingual V3 (MIT, pero archivado y sin mantenimiento desde agosto 2026); excluir pesos F5-TTS CC-BY-NC del uso comercial. Probar modelos primero en La Bestia M4 Max usando MLX-Audio sin tocar proyectos actuales, comparar voz de Lina/Bob, latencia en español e inglés y concurrencia.
+
+**Camino de dependencia actual**: `agents/lina/src/main.ts` utiliza STT Deepgram Nova 3, TTS Cartesia Sonic 3 vía LiveKit Inference y Felencho Brain/LLM alojado; LiveKit Cloud transporta audio. Liberarse solo de Cartesia no libera STT, LLM, transporte ni facturación de cómputo. Diseñar adaptadores y migrar por etapas sin cambios de voces/Sentidos hasta pruebas verificadas y aprobación de Felencho.
+
+**Estado:** documentación investigada, código LIVE intacto, sin instalación de motores, sin benchmark ni despliegue. No afirmar que Qwen/Kokoro igualan la voz aprobada sin escuchar pruebas reales.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
