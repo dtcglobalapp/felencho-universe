@@ -201,6 +201,24 @@ Felencho detuvo la idea de escalar la comunidad con Cartesia porque no acepta pr
 
 **Estado:** documentación investigada, código LIVE intacto, sin instalación de motores, sin benchmark ni despliegue. No afirmar que Qwen/Kokoro igualan la voz aprobada sin escuchar pruebas reales.
 
+## Decisión revisada: podcast soberano primero; luego expansión mundial — 2026-11-11
+
+**Cambio explícito de prioridad y criterio del productor:** no exige todo gratis ni comprar servidores ahora. Quiere un podcast sin cuotas artificiales de minutos/llamadas ni bloqueo de proveedores externos, y una arquitectura portable que después escale a canales privados mundiales. **Autoriza cambiar las voces de Bob y Lina** ahora y en el futuro; la prioridad es autonomía, inteligibilidad, calidad y capacidad de sustitución. **No implica autorización para cambiar el diseño visual ni desplegar un nuevo worker sin validación.** Este criterio reemplaza en la fase futura la regla anterior de conservar exactamente las voces Cartesia; el circuito en producción permanece intacto hasta la prueba.
+
+**Auditoría comprobada en código:** `agents/lina/src/main.ts` usa LiveKit Agents (código nuestro), `inference.STT({model:"deepgram/nova-3"})` y `inference.TTS({model:"cartesia/sonic-3"})` — ambos enrutados por LiveKit Inference/LiveKit Cloud; la función `askFelenchoBrain` llama al endpoint propio, cuyo `lib/felenchoBrainEngine.ts` usa OpenAI Responses API; memoria Supabase alojada. La creación de sala y tokens es nuestra aplicación, pero utiliza LiveKit Cloud. **No es actualmente una pila local ni gratuita ilimitada.**
+
+**LiveKit no equivale exclusivamente a su nube:** servidor SFU y Agents abiertos, ejecutables en nuestro propio hardware. Autohospedado NO incluye LiveKit Inference: sustituir por motores locales o APIs directas. Referencias: https://docs.livekit.io/transport/self-hosting/ ; https://docs.livekit.io/intro/cloud/ ; https://docs.livekit.io/agents/models/inference/ ; https://docs.livekit.io/transport/self-hosting/deployment/ .
+
+### Etapas propuestas sin comprometer producción
+- **Lab A — podcast local en La Bestia:** Docker/LiveKit Server autohospedado en LAN (o contenedor equivalente), worker propio sin inferencia Cloud, TTS Qwen3-TTS 0.6B Apache-2.0 y Kokoro-82M Apache-2.0 como voces candidatas; STT whisper.cpp local Metal/CoreML; LLM local con Ollama/MLX y un modelo cuyas licencias permitan uso comercial. Mantener Felencho Brain como coordinador de identidad, memoria, reglas y episodios; sustituir su proveedor de inferencia por adaptador compatible probado. Todo en sandbox independiente del sistema funcionando.
+- **Pruebas que definen si la ruta vale:** 2 coanfitriones, 30–60 min de charla real y cambios de turno sin retraso inaceptable; pruebas dominicano/español/inglés e interrupciones; medir latencia p50/p95, CPU/GPU/memoria, STT error, claridad TTS, coste eléctrico, consumo y carga de dos voces; preservar fotos, anillos y seis Sentidos. Sin resultados, no afirmar que «sin límites» equivale a capacidad ilimitada. El equipo M4 Max puede ser cuello de botella si simultáneamente renderiza video/hologramas.
+- **Lab B — estudio LAN:** MacBook Pro maestro, RØDECaster audio, dos PCs/TVs verticales de Bob/Lina, YoloBox streaming independiente. TLS y red deben planearse; no exponer el servidor de desarrollo públicamente.
+- **Mundial después:** servidores dedicados/VPS bajo administración de Felencho.ai con dominio, SSL, TURN, monitoreo, backups, control de costos, identidad segura, regiones y capacidad concurrente por GPU. Inicio en una región y replicación cuando los datos lo justifiquen. LiveKit SFU usa CPU/red; STT/TTS/LLM consumen GPU/CPU por separado. Internet, dominios, electricidad, hardware y conectividad siguen siendo servicios con costos/capacidad física.
+- **Canales privados:** mantener el trabajo de privacidad y aprobación en rama sin exponer memoria sensible. RLS, autenticación y retención antes de suscriptores. El podcast local no requiere abrir esos canales todavía.
+- **Contingencia:** retener la versión actual LiveKit Cloud + Deepgram + Cartesia como respaldo aislado hasta aprobar la independencia. No perder repositorios ni reescribir hologramas.
+
+**Status 2026-11-11:** fuentes y código contrastados, decisiones registradas, **NO se ha instalado ni medido todavía** la pila local, no se ha desplegado LiveKit autohospedado, no hay cambios en producción. Próxima entrega técnica: prueba local desechable y comparación de calidad/capacidad antes de migración.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
