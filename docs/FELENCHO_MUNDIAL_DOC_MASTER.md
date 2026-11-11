@@ -146,6 +146,14 @@ P0 inventario/autorización de formularios y memoria (proteger endpoints privado
 ### Estado del código
 Se preparó solo un archivo de migración **REVIEW_ONLY** (sin modificación de base ni despliegue). No activar captación automática de datos personales ni inscripciones pagadas hasta verificar permisos, OAuth real, privacidad y sistema de saldo/recargas. La ruta de voz y Sentidos no debe modificarse en esta fase.
 
+## Canal confidencial y seguridad emocional de miembros — 2026-11-11
+
+**Decisión del productor:** un miembro puede crear un canal privado con Lina, Bob u otro personaje, y autorizar individualmente quién tiene acceso. En defecto, solo el miembro y **el personaje elegido** pueden utilizar sus recuerdos; ningún otro personaje, Felencho humano, otros miembros o memoria pública pueden recuperarlos. Habrá excepciones limitadas de funcionamiento, obligaciones legales y seguridad explicadas antes de conversar; NO prometer secreto absoluto.
+
+**Protocolo completo:** `docs/FELENCHO_BRAIN_PRIVATE_CHANNEL_SAFETY_V1.md` (commit `15f9ed5`). Incluye saludo transparente, consentimiento de memoria, prevención del daño, suicidio/crisis, no llamadas automáticas a policía por palabras clave, apoyo humano y recursos locales, sin cobro por ayuda esencial en crisis, protección de menores, aislamiento por cuenta, prevención de dependencia/romance coercitivo, pruebas obligatorias y revisión jurídica/clínica.
+
+**Estado:** política técnica documentada, **NO IMPLEMENTADA/NO DESPLEGADA**. Antes de abrir servicios privados se exige cerrar fallas actuales de RLS/autorización y registros de datos, validar límites de acceso con dos cuentas, y no tocar voces, LiveKit ni hologramas.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
