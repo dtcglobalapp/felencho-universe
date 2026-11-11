@@ -92,6 +92,32 @@
 ### Orden de trabajo para Smart
 P0 inventario/autorización de formularios y memoria (proteger endpoints privados). P1 contexto persistente de podcast + Inbox y recuperación cross-character con consentimiento. P2 pantalla de episodios/participantes/seguimientos. P3 acceso de miembros, minutos y recargas. P4 integración de redes sociales una a una con verificación oficial. En paralelo, identificar URL real de la TV de Lina; el placeholder `[pegar URL]` no permite diagnosticar los Sentidos.
 
+## Motor de memoria autónoma propuesto — Fase 0, 2026-11-11
+
+**Pedido del productor:** los formularios de Felencho Brain son vistas administrativas, no el método primario de alimentar conocimientos. Los seres inteligentes deben detectar, resumir, categorizar, relacionar, recordar y recuperar información automáticamente; la autonomía no debe suponer pérdida de privacidad ni inventar recuerdos.
+
+### Flujo de ingestión (por construir, NO conectado todavía)
+1. **Entradas permitidas**: turnos STT efímeros de la sala de estudio; datos editoriales de episodios; conversaciones de miembros sólo con consentimiento y configuración individual. Ningún audio crudo guardado por defecto.
+2. **Memoria de trabajo**: resumen móvil breve de la sesión con participantes, asunto, decisiones y últimos turnos. Retención corta y expiración cuando ya no es necesaria.
+3. **Extractor inteligente**: después de cada bloque relevante o al finalizar episodio, devolver salida estructurada: `category`, `title`, `summary`, `character_key`, `audience_scope`, `owner_user_id`, `episode_id`, `consent_status`, `confidence`, `importance`, `tags`, `related_memory_ids`, `source_session_id`, `expires_at`. Rechazar inferencias no confirmadas y conservar enlaces de procedencia mínimos.
+4. **Clasificador de política**: memorias editoriales no sensibles y hechos expresamente solicitados pueden proponer persistencia; datos personales/sensibles, consejos íntimos, salud, sexualidad, terceros e invitados requieren autorización explícita y separación de tenant. Nunca hacer públicas conversaciones privadas; no inferir atributos sensibles.
+5. **Persistencia diferenciada**: resumen de episodio y temas pendientes en repositorio editorial; recuerdo familiar/creativo del productor en `felencho_memory_inbox` hasta política aprobada; recuerdos personales de miembro en almacenaje asociado a su propia cuenta y reglas de privacidad. No usar `shared` para historias privadas de audiencia.
+6. **Consolidación**: deduplicar, actualizar versiones al recibir correcciones, conectar entidades y fechas; no sobrescribir automáticamente fuentes originales. Asentar quién confirmó un hecho.
+7. **Recuperación bajo demanda**: búsqueda híbrida semántica + filtros de acceso/propietario + relevancia temporal y fuentes; inyectar sólo pocos fragmentos pertinentes en Brain. Nunca recuperar recuerdos privados de otro usuario.
+8. **Olvido y auditoría**: miembros pueden ver, corregir, exportar y solicitar eliminación de recuerdos y resúmenes personales; definir retención mínima y borrado verificable.
+9. **Regresión**: no tocar LiveKit, Cartesia, hologramas, Sentidos ni controles de voz para introducir esta fase; desarrollar extractor offline con entradas sintéticas y probar primero.
+
+### Hallazgo de privacidad de prioridad CRÍTICA
+- En código actual `lib/felenchoBrainEngine.ts`, `logBrainCall` envía **pregunta completa, contexto de memoria y respuesta completa** a `felencho_recall_logs`. Es una forma de retención completa de turnos, aunque no exista grabación de audio; es incompatible con la regla de minimizar los datos hasta corregirla y definir controles de acceso y retención.
+- En `/api/felencho-brain/memories`, `/memory-inbox` y `/guests` se usa `supabaseAdmin` sin autorización explícita en el handler inspeccionado. Prioridad: controles de identidad de servidor, acceso por propiedad/alcance, pruebas negativas para público no autorizado y auditoría de políticas/RLS antes de activar el extractor o membresías.
+- **No habilitar extracción automática en producción mientras persistan esos riesgos.** Evitar capturar conversaciones de terceros para pruebas.
+
+### Pruebas de aceptación
+- **Felencho/Vega Baja**: una conversación consentida propone un recuerdo de viaje verificado; Lina lo recupera días después y Bob puede acceder a la misma memoria compartida.
+- **Podcast**: un episodio produce automáticamente resumen, participantes, puntos en debate y seguimiento; otro episodio recupera el resumen atribuido correctamente.
+- **Miembro privado**: una persona conversa con Lina, opta por recordar un dato permitido y lo recupera en su próxima sesión; Bob en sesión de otro usuario NO tiene acceso; Felencho productor no ve datos íntimos sin consentimiento.
+- **Sin permiso/no guardar**: al decir «no recuerdes esto» no persiste resumen; historial efímero se descarta según política.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
