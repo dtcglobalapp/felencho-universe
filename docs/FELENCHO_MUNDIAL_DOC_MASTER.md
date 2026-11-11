@@ -232,6 +232,12 @@ Felencho detuvo la idea de escalar la comunidad con Cartesia porque no acepta pr
 - Próximos pasos tras aprobar la investigación: demo local sin alterar producción, prueba Linux GPU por horas de 45–60 min con dos turnos, test WebRTC/UDP y cálculo de costo. No prometemos concurrencia ilimitada.
 **Estado:** solo investigación, documentación en GitHub; ninguna compra, instalación, despliegue ni cambio de voz/holograma realizados.
 
+## Decisión de voces e idiomas para primera prueba Qwen3-TTS — 2026-11-11
+
+**Aprobado por Felencho:** probar primero `Qwen3-TTS 0.6B Base` localmente en La Bestia M4 Max, sin tocar los agentes Cartesia/LiveKit actualmente operativos. Si la prueba es satisfactoria, el podcast tendrá soporte inicial objetivo para los 10 idiomas del modelo: español, inglés, portugués, francés, alemán, italiano, chino, japonés, coreano y ruso. **No prometer igual calidad en todos sin comprobarlos.** El idioma principal del podcast es **español internacional neutro, sin acento marcado de República Dominicana, Puerto Rico, Cuba ni ningún país o isla**. No se necesita entrenar ni clonar voces regionales para aprobar la primera versión.
+
+**Prueba de aceptación:** generar frases breves de Bob y Lina en español neutro y muestras de los otros nueve idiomas, medir inicio de audio, velocidad, inteligibilidad y consumo de memoria; testear interrupciones cuando se conecte a conversación en vivo. Primero comparar modelos/voz de muestra autorizada, no introducir cambios en producción. Si el motor no genera voz neutra satisfactoria o no soporta los diez idiomas con la calidad suficiente, no declarar aprobada la etapa.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
