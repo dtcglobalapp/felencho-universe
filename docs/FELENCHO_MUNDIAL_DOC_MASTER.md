@@ -1,6 +1,6 @@
 # FELENCHO MUNDIAL — DOC MASTER / STUDIO HOLOGRAM MODE
 
-**Actualizado:** 2026-11-10 · **Estado:** integración de prueba, NO producción · **Repositorio:** dtcglobalapp/felencho-universe · **Rama:** `feature/lovable-hologram-studio-v1` · **PR:** #30 (borrador)
+**Actualizado:** 2026-11-11 · **Estado:** integración de prueba, NO producción · **Repositorio:** dtcglobalapp/felencho-universe · **Rama:** `feature/lovable-hologram-studio-v1` · **PR:** #30 (borrador)
 
 > Este documento complementa `project-memory/current.json` y sustituye sus prioridades operativas obsoletas de octubre (LiveAvatar/ElevenLabs/avatar de video). No borrar la historia técnica previa. La prioridad es conservar la versión funcional y evolucionar por pruebas verificadas, no volver a empezar.
 
@@ -48,6 +48,22 @@
 - Estar oyendo a Lina por el RØDECaster o ver su cara **no demuestra** que la TV reciba la pista del agente.
 
 **Próximo diagnóstico obligatorio ANTES de cambiar código:** identificar la URL exacta de la TV y comprobar si es `/presence/lina`, `/hologram-preview/lina` o `/hologram-preview/live/lina`; verificar `SALA CONECTADA`, `Pista de voz: RECIBIDA` y que el perfil local de la TV tenga fotografías por estado. No desplegar, rediseñar ni alterar el flujo de voz mientras se identifica el enlace faltante.
+
+## Arquitectura de memoria selectiva — decisión 2026-11-11
+
+**Objetivo:** Bob, Lina y futuros seres inteligentes recuperan experiencias y decisiones pasadas sin conservar todas las conversaciones crudas.
+
+- **Memoria inmediata de sesión:** unos turnos recientes y un resumen de contexto de la conversación actual. Temporal, expiración corta al cerrar, no equivale a memoria permanente.
+- **Candidatos de memoria permanente:** hechos confirmados, acuerdos de producción, preferencias persistentes, correcciones explícitas, hitos y planes futuros. Registrar fecha, fuente, personaje(s), alcance compartido/privado, confianza y vigencia.
+- **Aprobación:** reutilizar `felencho_memory_inbox` antes de persistir recuerdos sensibles o ambiguos. El productor puede decir «recuerda esto» o «no guardes esto». Evitar guardar comentarios casuales o inferencias como hechos.
+- **Almacenamiento:** reutilizar `felencho_memories` y `felencho_memory_links`; todos los personajes consultan memoria compartida por defecto, más memoria específica cuando corresponda, respetando los niveles de visibilidad.
+- **Recuperación:** reutilizar `lib/felenchoBrainEngine.ts` y el endpoint `/api/felencho-brain/recall`; seleccionar solo recuerdos pertinentes a la pregunta, con contexto y prioridad. La memoria no puede inventar hechos ni confundir correcciones informales con órdenes permanentes.
+- **Privacidad:** revisión obligatoria antes de activar la captura. El endpoint actual `app/api/felencho-brain/recall/route.ts` inserta `user_question` completo en `felencho_recall_logs`; esto contradice «no guardar todo». Diseñar registros mínimos o sin texto, retención temporal, controles de borrado y consentimiento de invitados. Sin consentimiento explícito, no conservar datos personales de terceros ni conversaciones completas.
+- **Identidad verbal:** el nombre del presentador es «Felencho», nunca «Fel.ai» o «Fel». Registrar como configuración del personaje, además de recuerdo, para no depender únicamente de recuperación semántica.
+- **Estado real:** tablas/rutas e índice de recuperación existentes; integración de aprendizaje automático aprobado y retención privada NO verificada. No afirmar que Bob/Lina ya comparten recuerdos automáticamente.
+- **Audio/visual:** esta fase NO modifica el motor de Sentidos ni el worker de LiveKit. Primero diagnosticar la URL exacta de la TV de Lina y sus pistas; el texto «[pegar URL]» es un marcador, no una dirección verificada.
+
+**Prueba de aceptación pendiente:** Felencho acuerda un hecho no sensible con Lina, lo aprueba como memoria, cierra la sesión y días después Bob lo recupera correctamente sin transcripción completa ni acceso a recuerdos privados de invitados.
 
 ## Próxima implementación acordada
 
