@@ -172,6 +172,25 @@ Se preparó solo un archivo de migración **REVIEW_ONLY** (sin modificación de 
 - **Base de datos sin cambios**; mantener `docs/sql/member_private_profiles_v1_REVIEW_ONLY.sql` sin aplicar hasta auditar el impacto en `audience_profiles` y los endpoints antiguos. No se modificó LiveKit/Cartesia/voz/Sentidos/hologramas.
 - Próximo hito: preparar endpoints de identidad verificada y consentimiento en rama independiente, con pruebas de dos cuentas y anónimo, sin habilitar canales abiertos. No utilizar `supabaseAdmin` en endpoints de audiencia sin autorización comprobada del lado servidor.
 
+## Continuidad de memoria de miembros + Cartesia/LiveKit — 2026-11-11
+
+**Prueba comprobada por Felencho en La Bestia:** `npx tsx --test lib/memberPrivacyPolicy.test.ts` → **5 pass, 0 fail**. Son pruebas unitarias de autorización pura; **no prueban todavía** RLS, APIs o aislamiento de conversaciones reales.
+
+### Memoria continua multicanal — alcance solicitado
+- Un miembro registrado posee un identificador de cuenta único y verificado (`auth.users.id`). Puede regresar desde cualquier navegador/dispositivo/región/red enlazada por login y conservar sus **recuerdos autorizados**. Nunca afirmar identidad basada solo en voz, nombre, ubicación o perfil social visible.
+- Los recuerdos pertenecen a la **persona**, pero su **visibilidad la concede esa persona**: por defecto sólo el miembro y el personaje con quien habló. Otro personaje o Felencho humano requiere consentimiento específico, revocable y auditable, por canal/recuerdo; no enlazar historias privadas a la memoria editorial.
+- Memoria de sesión efímera + resumen duradero consentido con versión y fechas. Sin audio crudo ni transcripción completa por defecto. No inferir orientación sexual, salud ni otros atributos íntimos a partir de confidencias. Controles ver, corregir, exportar y olvidar.
+- Concurrencia/costo: un personaje invocado en sala de miembro puede tener sesión de voz propia; **identidad, memoria y cupos se administran centralmente**. Necesitamos validación autenticada y autorización de acceso en cada llamada al Brain, no sólo en la UI del holograma.
+- Prueba E2E obligatoria: misma cuenta Ana se autentica en dos dispositivos y puede retomar recuerdo consentido con Lina; Bob no lo ve a menos que Ana comparta; cuenta B no puede ver ningún dato; revocación impide nuevo acceso.
+
+### Cartesia Sonic actual: límites y costos
+Fuentes oficiales consultadas 2026-11-11:
+- https://www.cartesia.ai/pricing : Free $0/mes, ~27 min TTS y 2 solicitudes simultáneas; Pro $5/mes ~133 min y 3; Startup $49 ~1667 min y 5; Scale $299 ~10667 min y 15; Enterprise a medida. **Minutos de voz generada, no de llamada**. Créditos asignados mensualmente; consumo adicional/cupos dependen del plan. Las llamadas de **Cartesia Managed Agents** usan tarifa separada, actualmente $0.03/min en página oficial, y no son el tipo de agente que está implementado en Felencho Mundial.
+- https://livekit.com/pricing : LiveKit Inference Cartesia Sonic 3 TTS en Build/Ship **$0.03 por minuto TTS** como precio de referencia, más costos independientes de LiveKit Agent, STT, LLM y transporte. Validar tarifa efectiva dentro de la cuenta real antes de vender membresías.
+- El worker actual `agents/lina/src/main.ts` utiliza `inference.TTS({model: "cartesia/sonic-3"})` y `inference.STT({model: "deepgram/nova-3", language:"multi"})`; **la facturación principal de este flujo se observa en LiveKit Cloud**, no debe inferirse directamente del plan de créditos Cartesia.
+- Políticas operativas antes de escala: medir segundos de conversación vs voz realmente producida, contador de minutos del miembro validado en servidor, presupuesto por día/mes, límite de sesiones concurrentes, alertas al 70/90/100%, control de exceso y acceso de crisis sin paywall. Analizar volumen/idiomas, degradación segura y contrato enterprise si carga excede los límites.
+- No migrar Sonic 3 a Sonic 3.6 ni modificar voces aprobadas automáticamente: comparación de calidad, idioma, latencia, precio y ensayo A/B antes de alterar producción.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
