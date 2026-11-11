@@ -219,6 +219,19 @@ Felencho detuvo la idea de escalar la comunidad con Cartesia porque no acepta pr
 
 **Status 2026-11-11:** fuentes y código contrastados, decisiones registradas, **NO se ha instalado ni medido todavía** la pila local, no se ha desplegado LiveKit autohospedado, no hay cambios en producción. Próxima entrega técnica: prueba local desechable y comparación de calidad/capacidad antes de migración.
 
+## Preflight antes de la primera etapa — Qwen3-TTS y alternativa a La Bestia (2026-11-11)
+
+**Pedido del productor:** investigación sin instalar ni comprar; La Bestia se apaga y viaja, por eso usarla como laboratorio no implica que sea servidor 24/7. Se requiere propuesta económica de **servidor nuestro alquilado**, sin servicios de streaming de IA por minuto, que pueda empezar con el podcast y crecer después hacia red privada mundial.
+
+**Documento de investigación verificada:** `docs/FELENCHO_PODCAST_PREFLIGHT_QWEN_GPU_2026-11-11.md`:
+- Qwen3 TTS 0.6B Base/CustomVoice Apache-2.0; 10 idiomas, español incluido, sin voces preestablecidas nativas en español dentro de nueve voces oficiales; evaluar clonación autorizada o voz propia. Publicidad 97ms no garantiza latencia integral ni equivalencia de Apple Silicon.
+- **Hetzner GEX45:** 24GB GPU Blackwell, 64GB RAM, 2x512GB SSD, Linux root, red 1G, Finlandia, **$249/mes + $249 setup** antes impuestos; candidato all-in-one (SFU LiveKit UDP + STT/LLM/TTS) sujeto a prueba de memoria y latencia a NY.
+- **RunPod:** RTX A5000 24GB $0.27/h (~$197/mo 24/7), A40/RTX A6000 48GB $0.59/h (~$431/mo 24/7), almacenamiento aparte. Pods exponen fundamentalmente HTTP/TCP y requieren verificación/servicio separado para UDP del servidor LiveKit; no compararlos ciegamente con servidor dedicado íntegro.
+- **Hetzner GEX63:** 96GB GPU 128GB RAM, **$1199/mes + $1199 setup**; no comprar antes de benchmark.
+- La Bestia sigue siendo consola de equipos del estudio aunque el cómputo IA migre al servidor; GPU Linux no sustituye puertos RØDE/cámaras ni MacOS. Un Mac M4 Max de memoria unificada no es equivalente a 24 GB de VRAM GPU dedicada; perfil real debe medirse.
+- Próximos pasos tras aprobar la investigación: demo local sin alterar producción, prueba Linux GPU por horas de 45–60 min con dos turnos, test WebRTC/UDP y cálculo de costo. No prometemos concurrencia ilimitada.
+**Estado:** solo investigación, documentación en GitHub; ninguna compra, instalación, despliegue ni cambio de voz/holograma realizados.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
