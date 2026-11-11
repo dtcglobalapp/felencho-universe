@@ -118,6 +118,34 @@ P0 inventario/autorización de formularios y memoria (proteger endpoints privado
 - **Miembro privado**: una persona conversa con Lina, opta por recordar un dato permitido y lo recupera en su próxima sesión; Bob en sesión de otro usuario NO tiene acceso; Felencho productor no ve datos íntimos sin consentimiento.
 - **Sin permiso/no guardar**: al decir «no recuerdes esto» no persiste resumen; historial efímero se descarta según política.
 
+## Perfil privado de miembros e identidades vinculadas — 2026-11-11
+
+**Regla definitiva del productor:** una confidencia de un miembro a Lina, Bob o cualquier ser inteligente nunca se comparte con otros miembros, el público, el podcast o el productor humano por defecto. Se recupera exclusivamente para la misma cuenta verificada, dentro de la finalidad de servicio autorizada. El productor no ve ni explota recuerdos íntimos ajenos sin consentimiento específico. Pueden existir excepciones estrictamente necesarias por obligaciones legales/seguridad, claramente explicadas; nunca prometer secreto absoluto imposible.
+
+### Hallazgos existentes (Supabase Felencho-ai, consulta READ ONLY)
+- `audience_profiles` YA EXISTE: nombre, correo, teléfono, Instagram, Facebook, TikTok, YouTube, idiomas, nivel de membresía, preferencias de comunicación. **No duplicar ni sobreescribir**.
+- `lumina_user_profiles` y `lumina_profile_memories` YA EXISTEN como sistema anterior; revisar inventario, migración y tratamiento de perfiles antes de reutilizar para miembros.
+- `studio_members` YA EXISTE, pero corresponde al equipo/estudio, no se debe mezclar con audiencia o suscriptores.
+- Auditoría de catálogo: `audience_profiles`, `lumina_user_profiles`, `lumina_profile_memories`, `felencho_memories` y `felencho_memory_inbox` muestran RLS **desactivado** y sin políticas en la consulta. **P0 crítico:** no conectar miembros a estas tablas mediante API pública ni usar memorias de miembro en Brain sin aislamiento verificado. Revisar además permisos de tabla y todos los endpoints con `supabaseAdmin`.
+- Diseño de migración controlada revisable: `docs/sql/member_private_profiles_v1_REVIEW_ONLY.sql`, commit `f12b4b6`. **NO APLICADA**. Revisión y pruebas negativas con 2 usuarios + anónimo obligatorias antes de ejecutarla.
+
+### Decisión de identidad
+- Una persona = un `auth.users.id` (Supabase Auth), con `audience_profiles.auth_user_id` único tras migración y vinculación verificada. Registro por email personal + OTP/magic link o inicio de sesión con proveedor compatible configurado.
+- Facebook/Google pueden ser métodos OAuth sujetos a configuración; YouTube/Instagram/TikTok son fuentes de audiencia o membresías vinculables mediante APIs oficiales si están disponibles; **no afirmar que todas ofrecen login OAuth compatible en Supabase**. Ninguna red social concede propiedad de una cuenta por el mero texto de `@usuario`.
+- No fusionar automáticamente cuentas por coincidencia de correo, nombre o handle. Requerir sesión previa + verificación del proveedor + consentimiento de asociación. No importar listas de seguidores sin permiso ni garantizar detectar pagos en cualquier red.
+- Correo `@felencho.ai` para remitente transaccional (p.ej. `cuentas@` o `acceso@`), mediante proveedor de envío configurado con SPF/DKIM/DMARC; no crear buzones privados para todos los miembros. Correo de registro puede pertenecer a cualquier proveedor.
+- Autorrelleno limitado a campos autorizados por el usuario y realmente proporcionados por el proveedor; mostrar datos editables y consentimiento separado para marketing, memorias y comunicaciones.
+
+### Recuerdos privados de miembros
+- Una memoria privada pertenece a `owner_user_id`, no a `character_key=shared`; usar separación fuerte de cuenta (RLS + validación servidor), sin vías alternativas por Brain/retrieval/logs.
+- Consentimiento opt-in para memoria persistente. Privacidad por defecto, minimización de datos, sin transcripción íntegra ni grabación de voz salvo permiso específico. Los datos especialmente sensibles (sexualidad, salud, religión, familia, menores) no deben convertirse automáticamente en recuerdos; si hay continuidad explícitamente autorizada, mínima información y posibilidad de revisión/olvido.
+- Bob y Lina pueden consultar recuerdos de la **misma cuenta** cuando el miembro los autorice; nunca pueden responder sobre la historia íntima del miembro a terceros ni integrarla en memorias editoriales.
+- Explicar al miembro que la privacidad frente a otros usuarios no equivale a ausencia absoluta de acceso técnico/administrativo, conservación legal o revisión de seguridad. Aplicar retención corta, cifrado y controles auditables.
+- **Prueba negativa imprescindible:** miembro A guarda una memoria consentida; miembro B y público/anon reciben cero resultados con consulta directa, a través del agente y por preguntas para deducirla; productor humano sin permiso no ve contenido íntimo. Prueba positiva: A cambia de Lina a Bob y conserva el contexto permitido.
+
+### Estado del código
+Se preparó solo un archivo de migración **REVIEW_ONLY** (sin modificación de base ni despliegue). No activar captación automática de datos personales ni inscripciones pagadas hasta verificar permisos, OAuth real, privacidad y sistema de saldo/recargas. La ruta de voz y Sentidos no debe modificarse en esta fase.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
