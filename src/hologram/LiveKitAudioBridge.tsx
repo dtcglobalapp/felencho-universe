@@ -1,0 +1,257 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Room, RoomEvent, Track, type RemoteTrack, type RemoteParticipant } from 'livekit-client';
+import { hologram, type Persona } from './engine';
+
+/**
+ * Audio-only display bridge. The hologram is native Three.js; we never wait
+ * for or subscribe to hosted avatar video. Studio audio can remain muted on TV
+ * clients while their spectral analysis drives each character's rings.
+ *
+ * Security: the LiveKit room token is read from URL fragment (never query
+ * parameters, server logs, or analytics). It is discarded after mounting.
+ * Join is explicitly user-initiated so browsers can unlock AudioContext.
+ */
+export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
+  const [status, setStatus] = useState('Desconectado');
+  const [connected, setConnected] = useState(false);
+  const [sense, setSense] = useState('DESCANSANDO');
+  const [audioDetected, setAudioDetected] = useState(false);
+  const [lastDisconnect, setLastDisconnect] = useState('');
+  const senseNames: Record<string, string> = {
+    idle: 'EN ESPERA', listening: 'ESCUCHANDO', thinking: 'PENSANDO',
+    speaking: 'HABLANDO', watching: 'OBSERVANDO', sleep: 'DESCANSANDO',
+  };
+  useEffect(() => {
+    const unsubscribe = hologram.onState(state => setSense(senseNames[state] ?? state));
+    return () => { unsubscribe(); };
+  }, []);
+  const [monitor, setMonitor] = useState(false);
+  const [config, setConfig] = useState<{ server: string; token: string } | null>(null);
+  const roomRef = useRef<Room | null>(null);
+  const contextRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+  const disposeRef = useRef<(() => void) | null>(null);
+  const didReceiveAudio = useRef(false);
+  const requestedState = useRef<'idle' | 'listening' | 'thinking'>('idle');
+  const speakingRef = useRef(false);
+  const agentStateRef = useRef<'idle' | 'listening' | 'thinking' | 'speaking' | null>(null);
+  const [signalSource, setSignalSource] = useState('MICRÓFONO / AUDIO (estimado)');
+
+  useEffect(() => {
+    const fragment = new URLSearchParams(window.location.hash.slice(1));
+    const server = fragment.get('server');
+    const token = fragment.get('token');
+    if (server && token && /^wss:\/\//.test(server)) {
+      setConfig({ server, token });
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    } else {
+      setStatus('Falta el enlace de audio con token LiveKit de esta sala.');
+    }
+    return () => { disposeRef.current?.(); };
+  }, []);
+
+  useEffect(() => { if (gainRef.current) gainRef.current.gain.value = monitor ? 1 : 0; }, [monitor]);
+
+  const disconnect = useCallback(() => {
+    disposeRef.current?.();
+    disposeRef.current = null;
+    setConnected(false);
+    setStatus('Desconectado por el usuario');
+  }, []);
+
+  const connect = useCallback(async () => {
+    if (!config || roomRef.current) return;
+    setStatus('Conectando al audio de ' + persona.toUpperCase() + '…');
+    let disposed = false;
+    const room = new Room({ adaptiveStream: true });
+    setAudioDetected(false);
+    setLastDisconnect('');
+    roomRef.current = room;
+    const ctx = new AudioContext();
+    contextRef.current = ctx;
+    // Must happen on the click before asynchronous room connection.
+    void ctx.resume().catch(() => {});
+    const gain = ctx.createGain();
+    gain.gain.value = monitor ? 1 : 0;
+    gain.connect(ctx.destination);
+    gainRef.current = gain;
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.65;
+    analyser.connect(gain);
+    const bins = new Uint8Array(analyser.frequencyBinCount);
+    let lastSpeech = 0;
+    speakingRef.current = false;
+    requestedState.current = 'idle';
+    agentStateRef.current = null;
+    setSignalSource('MICRÓFONO / AUDIO (estimado)');
+
+    const animate = () => {
+      if (disposed) return;
+      analyser.getByteFrequencyData(bins);
+      // Frequencies based on the actual AudioContext sample rate.
+      const band = (fromHz: number, toHz: number) => {
+        const hzPerBin = ctx.sampleRate / analyser.fftSize;
+        const start = Math.min(bins.length - 1, Math.max(0, Math.floor(fromHz / hzPerBin)));
+        const end = Math.min(bins.length, Math.max(start + 1, Math.ceil(toHz / hzPerBin)));
+        let total = 0;
+        for (let i = start; i < end; i++) total += bins[i];
+        return Math.min(1, total / (end - start) / 180);
+      };
+      const bass = band(80, 300);
+      const mids = band(300, 2400);
+      const treble = band(2400, 7500);
+      const level = Math.min(1, 0.2 * bass + 0.55 * mids + 0.25 * treble);
+      hologram.pushAudio({ level, bass, mids, treble });
+      if (didReceiveAudio.current && level > 0.055) {
+        lastSpeech = performance.now();
+        speakingRef.current = true;
+        if (hologram.state !== 'speaking') hologram.setState('speaking');
+      } else if (speakingRef.current && performance.now() - lastSpeech > 700) {
+        speakingRef.current = false;
+        hologram.setState(agentStateRef.current === 'thinking' || agentStateRef.current === 'speaking' ? agentStateRef.current : requestedState.current);
+      }
+      frameRef.current = requestAnimationFrame(animate);
+    };
+
+    const attach = (track: RemoteTrack, _publication: unknown, participant: RemoteParticipant) => {
+      if (track.kind !== Track.Kind.Audio) return;
+      // Display-only rooms: remote voice must belong to a worker/agent, never
+      // feed a studio microphone or another display back into the hologram.
+      if (participant.identity.startsWith('studio-') || participant.identity.startsWith('display-')) return;
+      // Analyze the remote audio MediaStream directly. An HTMLMediaElement can
+      // be bound to createMediaElementSource only once across AudioContexts;
+      // reconnecting a LiveKit track may reuse its element and throw.
+      // A fresh MediaStreamAudioSourceNode per subscription avoids that failure.
+      sourceRef.current?.disconnect();
+      const source = ctx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
+      source.connect(analyser);
+      sourceRef.current = source;
+      didReceiveAudio.current = true;
+      setAudioDetected(true);
+      setStatus('Audio recibido de ' + participant.identity + ' · holograma reactivo');
+      void ctx.resume().catch(() => setStatus('Audio recibido; el navegador bloqueó AudioContext. Pulsa Conectar tras autorizar el audio.'));
+      if (frameRef.current === null) frameRef.current = requestAnimationFrame(animate);
+    };
+    const onDisconnect = (reason?: unknown) => {
+      if (!disposed) {
+        hologram.setState('sleep');
+        setConnected(false);
+        setAudioDetected(false);
+        setLastDisconnect(String(reason ?? 'motivo no disponible'));
+        // Release the terminally disconnected Room so the Connect button can
+        // retry the same (still valid) display token. Never dispatch agents here.
+        disposeRef.current?.();
+        disposeRef.current = null;
+        setStatus('La sala se cerró. Puedes pulsar Conectar para intentar recuperar esta pantalla. Si la sala terminó, crea otra desde el estudio.');
+      }
+    };
+    // LiveKit Agents publishes its true state as participant attribute
+    // lk.agent.state. Unlike microphone silence, THINKING here reflects the
+    // actual agent pipeline (when the deployed worker supports the attribute).
+    const receiveAgentState = (participant: RemoteParticipant) => {
+      if (participant.identity.startsWith('studio-') || participant.identity.startsWith('display-')) return;
+      const state = participant.attributes?.['lk.agent.state'];
+      if (state !== 'idle' && state !== 'listening' && state !== 'thinking' && state !== 'speaking') return;
+      agentStateRef.current = state;
+      setSignalSource('LIVEKIT AGENT (real)');
+      if (state === 'thinking' || state === 'speaking') {
+        hologram.setState(state);
+      } else if (!speakingRef.current) {
+        hologram.setState(requestedState.current === 'listening' ? 'listening' : 'idle');
+      }
+    };
+    room.on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => {
+      if (participant) receiveAgentState(participant);
+    });
+    room.on(RoomEvent.ParticipantConnected, receiveAgentState);
+    // A data event from the studio can represent only what was actually
+    // observed: microphone activity or a pause (estimated thinking).
+    // Never claim to know Felencho Brain's internal processing state.
+    room.on(RoomEvent.DataReceived, (payload, participant) => {
+      if (!participant?.identity.startsWith('studio-')) return;
+      let message: { source?: string; character?: string; state?: string };
+      try { message = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (message.source !== 'felencho-studio' || message.character !== persona) return;
+      if (message.state !== 'idle' && message.state !== 'listening' && message.state !== 'thinking') return;
+      requestedState.current = message.state;
+      if (!speakingRef.current && agentStateRef.current !== 'thinking' && agentStateRef.current !== 'speaking') hologram.setState(message.state);
+    });
+    room.on(RoomEvent.Reconnecting, () => {
+      if (!disposed) setStatus('Recuperando conexión con LiveKit…');
+    });
+    room.on(RoomEvent.Reconnected, () => {
+      if (!disposed) {
+        setConnected(true);
+        for (const participant of room.remoteParticipants.values()) receiveAgentState(participant);
+        setStatus(didReceiveAudio.current ? 'Conexión recuperada; audio listo.' : 'Conexión recuperada; esperando pista de voz.');
+      }
+    });
+    room.on(RoomEvent.TrackUnsubscribed, track => {
+      if (track.kind !== Track.Kind.Audio) return;
+      sourceRef.current?.disconnect();
+      sourceRef.current = null;
+      didReceiveAudio.current = false;
+      speakingRef.current = false;
+      setAudioDetected(false);
+      hologram.setState(agentStateRef.current === 'thinking' || agentStateRef.current === 'speaking' ? agentStateRef.current : requestedState.current);
+      setStatus('La pista de audio desapareció. Esperando su publicación de nuevo…');
+    });
+    room.on(RoomEvent.TrackSubscribed, attach);
+    room.on(RoomEvent.Disconnected, onDisconnect);
+    disposeRef.current = () => {
+      if (disposed) return;
+      disposed = true;
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+      hologram.pushAudio({ level: 0, bass: 0, mids: 0, treble: 0 });
+      hologram.setState('sleep');
+      didReceiveAudio.current = false;
+      speakingRef.current = false;
+      requestedState.current = 'idle';
+      agentStateRef.current = null;
+      sourceRef.current?.disconnect();
+      sourceRef.current = null;
+      room.disconnect();
+      roomRef.current = null;
+      void ctx.close().catch(() => {});
+      contextRef.current = null;
+      gainRef.current = null;
+    };
+    try {
+      hologram.setPersona(persona);
+      hologram.setSimulator(false);
+      hologram.setState('idle');
+      await room.connect(config.server, config.token);
+      if (disposed) return;
+      setConnected(true);
+      for (const participant of room.remoteParticipants.values()) receiveAgentState(participant);
+      if (!didReceiveAudio.current) setStatus('Conectado. Esperando pista de audio del agente ' + persona.toUpperCase() + '…');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo conectar';
+      disposeRef.current?.();
+      setStatus(message);
+      setConnected(false);
+    }
+  }, [config, monitor, persona]);
+
+  return <aside className="fixed bottom-3 left-3 right-3 z-20 mx-auto max-w-xl rounded-xl border border-white/20 bg-black/85 p-3 text-xs text-white backdrop-blur">
+    <div className="flex flex-wrap items-center gap-3">
+      <strong>{persona.toUpperCase()} · Sentidos: {sense}</strong>
+      <button type="button" disabled={!config || connected} onClick={() => void connect()} className="rounded bg-cyan-500 px-3 py-2 font-semibold text-black disabled:opacity-50">Conectar</button>
+      <button type="button" disabled={!connected} onClick={disconnect} className="rounded border border-white/30 px-3 py-2 disabled:opacity-50">Desconectar</button>
+      <label className="ml-auto flex items-center gap-2">
+        <input type="checkbox" checked={monitor} onChange={e => setMonitor(e.target.checked)} />
+        Escuchar en este equipo
+      </label>
+    </div>
+    <p className="mt-2 text-zinc-300" role="status">{status}</p>
+    <p className="mt-1 text-cyan-300">Origen de Sentidos: {signalSource}</p>
+    <p className="mt-1 text-zinc-400">Pista de voz: {audioDetected ? 'RECIBIDA' : 'NO RECIBIDA'} · {connected ? 'SALA CONECTADA' : 'SALA DESCONECTADA'}{lastDisconnect ? ' · cierre: ' + lastDisconnect : ''}</p>
+    <p className="mt-1 text-zinc-500">Los estados reales del agente LiveKit tienen prioridad cuando el worker los publica; mientras tanto, micrófono y audio sirven de estimación. OBSERVANDO necesita señal de cámara autorizada. Esta pantalla no publica micrófono ni inicia agentes. Audio silenciado por defecto.</p>
+  </aside>;
+}

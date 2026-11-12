@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "../src/hologram/theme.css";
+@source "../src/hologram";
 
 :root {
   --background: #ffffff;

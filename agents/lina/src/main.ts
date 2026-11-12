@@ -9,7 +9,6 @@ import {
   llm,
   voice,
 } from "@livekit/agents";
-import * as lemonslice from "@livekit/agents-plugin-lemonslice";
 import * as silero from "@livekit/agents-plugin-silero";
 import { fileURLToPath } from "node:url";
 import { ReadableStream } from "node:stream/web";
@@ -18,8 +17,6 @@ import { getCharacterConfig, isCharacterKey } from "./characters.js";
 initializeLogger({ pretty: true });
 
 const AGENT_NAME = process.env.AGENT_NAME || "felencho-universe";
-const AVATAR_JOIN_TIMEOUT_MS = 60_000;
-const SESSION_TIMEOUT_MS = 900_000;
 const TRANSCRIPTION_TIMEOUT_MS = 5_000;
 const FELENCHO_BRAIN_URL =
   process.env.FELENCHO_BRAIN_URL ||
@@ -46,9 +43,6 @@ function getCharacter(metadata: JobMetadata) {
 
   const character = getCharacterConfig(key);
   if (!character.enabled) throw new Error(`${character.displayName} is not enabled.`);
-  if (!character.lemonsliceAgentId) {
-    throw new Error(`Missing LemonSlice agent ID for ${character.displayName}.`);
-  }
   return character;
 }
 
@@ -62,11 +56,12 @@ function getLatestUserText(chatCtx: llm.ChatContext): string {
   return "";
 }
 
-async function askFelenchoBrain(characterKey: string, message: string): Promise<string> {
+type DialogueTurn = { user: string; assistant: string };
+async function askFelenchoBrain(characterKey: string, message: string, conversationContext: DialogueTurn[]): Promise<string> {
   const response = await fetch(FELENCHO_BRAIN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ character_key: characterKey, message, include_audio: false }),
+    body: JSON.stringify({ character_key: characterKey, message, include_audio: false, conversation_context: conversationContext }),
   });
 
   if (!response.ok) {
@@ -91,6 +86,8 @@ class FelenchoBrainNodeMarker extends llm.LLM {
 }
 
 class FelenchoBrainAgent extends voice.Agent {
+  // Rolling context is isolated to this active character/session.
+  private recentTurns: DialogueTurn[] = [];
   constructor(private readonly characterKey: string, instructions: string) {
     // AgentSession 1.8.1 requires an LLM instance before it schedules a custom llmNode.
     super({ instructions, llm: new FelenchoBrainNodeMarker() });
@@ -103,9 +100,12 @@ class FelenchoBrainAgent extends voice.Agent {
   ): Promise<ReadableStream<llm.ChatChunk | string> | null> {
     const userText = getLatestUserText(chatCtx);
     if (!userText) return null;
-    console.log(`[felencho-universe] brain input (${this.characterKey}): ${userText}`);
-    const answer = await askFelenchoBrain(this.characterKey, userText);
-    console.log(`[felencho-universe] brain response ready (${this.characterKey})`);
+    const brainStartedAt = performance.now();
+    console.log(`[felencho-universe] brain input (${this.characterKey}) length=${userText.length}`);
+    const answer = await askFelenchoBrain(this.characterKey, userText, this.recentTurns.slice(-4));
+    this.recentTurns.push({ user: userText.slice(0, 1500), assistant: answer.slice(0, 1500) });
+    if (this.recentTurns.length > 6) this.recentTurns.shift();
+    console.log(`[felencho-universe] brain response ready (${this.characterKey}) brainMs=${Math.round(performance.now() - brainStartedAt)}`);
 
     return new ReadableStream<llm.ChatChunk | string>({
       start(controller) {
@@ -122,18 +122,12 @@ export default defineAgent({
   },
 
   entry: async (ctx: JobContext) => {
-    let avatar: lemonslice.AvatarSession | undefined;
     let session: voice.AgentSession | undefined;
-    let failSafe: ReturnType<typeof setTimeout> | undefined;
     let closing: Promise<void> | undefined;
 
     const closeSession = (reason: string) => {
       if (closing) return closing;
       closing = (async () => {
-        if (failSafe) clearTimeout(failSafe);
-        await avatar?.aclose().catch((error) =>
-          console.error("[felencho-universe] avatar cleanup failed", error),
-        );
         await session?.close().catch((error) =>
           console.error("[felencho-universe] session cleanup failed", error),
         );
@@ -160,11 +154,6 @@ export default defineAgent({
       await ctx.connect();
       console.log(`[felencho-universe] worker connected identity=${ctx.agent?.identity}`);
 
-      failSafe = setTimeout(() => {
-        console.error("[felencho-universe] interactive hard timeout");
-        void closeSession("interactive hard timeout");
-      }, SESSION_TIMEOUT_MS);
-
       const agent = new FelenchoBrainAgent(character.key, character.instructions);
 
       session = new voice.AgentSession({
@@ -188,14 +177,16 @@ export default defineAgent({
       });
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (event) => {
         console.log(
-          `[felencho-universe] stt transcript final=${event.isFinal} language=${event.language ?? "unknown"} text=${event.transcript}`,
+          `[felencho-universe] stt transcript final=${event.isFinal} language=${event.language ?? "unknown"} length=${event.transcript.length}`,
         );
       });
       session.on(voice.AgentSessionEventTypes.UserTranscriptionTimeout, (event) => {
         console.error(
           `[felencho-universe] stt transcript timeout speechMs=${event.speechDuration}`,
         );
-        void closeSession("stt transcript timeout");
+        // A single recognizer timeout must not drop the entire room or erase the
+        // ongoing conversational context. Subsequent speech turns may recover.
+        console.warn("[felencho-universe] keeping voice session open after STT timeout");
       });
       session.on(voice.AgentSessionEventTypes.AgentStateChanged, (event) => {
         console.log(
@@ -211,18 +202,6 @@ export default defineAgent({
         console.error(`[felencho-universe] voice pipeline error: ${detail}`);
       });
 
-      avatar = new lemonslice.AvatarSession({
-        agentId: character.lemonsliceAgentId,
-        apiKey: process.env.LEMONSLICE_API_KEY,
-        agentPrompt: character.avatarPrompt,
-        idleTimeout: 900,
-        connOptions: { maxRetry: 2, retryIntervalMs: 2_000, timeoutMs: 20_000 },
-      });
-
-      console.log(`[felencho-universe] starting LemonSlice avatar character=${character.key} agentId=${character.lemonsliceAgentId} apiKeyConfigured=${Boolean(process.env.LEMONSLICE_API_KEY)}`);
-      await avatar.start(session, ctx.room);
-      console.log(`[felencho-universe] LemonSlice session created id=${avatar.sessionId}`);
-
       await session.start({
         agent,
         room: ctx.room,
@@ -232,21 +211,20 @@ export default defineAgent({
           closeOnDisconnect: true,
           deleteRoomOnClose: true,
         },
-        outputOptions: { syncTranscription: false },
+        // Send voice audio directly into LiveKit; no video avatar required.
+        outputOptions: { audioEnabled: true, syncTranscription: false },
       });
       console.log(
         `[felencho-universe] interactive voice session listening to participant=${participantIdentity}`,
       );
 
-      await avatar.waitForJoin({ timeout: AVATAR_JOIN_TIMEOUT_MS });
-      console.log("[felencho-universe] avatar video track published");
-
       const greeting = session.say(`Hola, soy ${character.displayName}. Estoy listo para escucharte.`);
       await greeting.waitForPlayout();
-      console.log("[felencho-universe] interactive greeting played; keeping job alive");
-
-      await new Promise<void>((resolve) => setTimeout(resolve, SESSION_TIMEOUT_MS));
-      if (!closing) await closeSession("interactive session timeout");
+      console.log("[felencho-universe] interactive greeting played; no arbitrary session timer");
+      // Returning the job entrypoint is safe: LiveKit manages the active room's
+      // lifecycle until the linked studio participant leaves. closeOnDisconnect
+      // and deleteRoomOnClose tear down the agent when the operator ends the session.
+      // Never schedule a wall-clock timeout or a second paid dispatch here.
     } catch (error) {
       console.error("[felencho-universe] interactive startup error", error);
       await closeSession("interactive failed");

@@ -4,23 +4,37 @@
     "ecosystem": "Felencho.ai / Felencho Forever / Felencho Mundial The Podcast",
     "owner_name": "Felencho",
     "legal_name": "Martin F. Duran",
-    "updated_at": "2026-10-09",
-    "version": "1.4.1",
+    "updated_at": "2026-11-09",
+    "version": "1.5.0",
     "purpose": "Memoria técnica persistente para continuar el proyecto entre chats sin perder arquitectura, decisiones, archivos, estado ni próximos pasos.",
-    "absolute_rule": "Nunca rehacer, reemplazar, desmontar o rediseñar algo que ya funciona sin comprobar primero el estado real del proyecto."
+    "absolute_rule": "Nunca rehacer, reemplazar, desmontar o rediseñar algo que ya funciona sin comprobar primero el estado real del proyecto.",
+    "doc_master": "docs/FELENCHO_MUNDIAL_DOC_MASTER.md",
+    "operational_rule": "Before edits read DOC MASTER, recover existing voice commands, preserve verified voice/audio hologram behavior, and perform regression tests before declaring success."
   },
   "current_priority": {
-    "phase": "Felencho Avatar Engine - Phase 0 Foundation",
+    "phase": "Hologram Mode — restore verified Lina baseline and integrate existing voice commands",
     "priority_level": "URGENT",
-    "objective": "Construir un motor propietario de avatares inteligentes para Bob, Lina y Felencho Virtual, comenzando por Bob y eliminando la dependencia operativa de LiveAvatar y HeyGen.",
-    "focus_character": "bob",
-    "do_not_open_other_modules": true,
-    "next_result": "Bob debe poder permanecer vivo visualmente, escuchar mediante La Bestia, responder con su voz, mover la boca de forma sincronizada y aparecer en su TV sin consumir créditos externos por minuto.",
-    "credit_preservation_rule": "No iniciar sesiones LiveAvatar para pruebas de interfaz, depuración pasiva o experimentos no cronometrados.",
-    "strategic_parallel_track": "Diseñar progresivamente Felencho Avatar Engine como reemplazo visual propio, sin interrumpir la misión urgente de completar a Bob.",
-    "immediate_engine_goal": "Crear la base técnica de Felencho Avatar Engine dentro de felencho-universe usando TypeScript para orquestación, Python para procesamiento audiovisual y render local en las PCs de las TVs."
+    "objective": "Keep Bob and Lina as always-visible holographic cohosts; producer controls interventions using spoken names and sleep commands, not studio buttons; preserve real Sentidos and working Lina voice.",
+    "verified": "Lina real conversation, Cartesia voice, rings and imported per-state photographs worked before latest studio UI regression; regression reverted in feature branch but not yet retested on La Bestia.",
+    "rollback_ref": "12445a597ebd7a7420eda5fd769bcf1e7df9d942",
+    "doc_master": "docs/FELENCHO_MUNDIAL_DOC_MASTER.md",
+    "next_result": "Verify Lina voice and Sentidos after rollback, then reuse studio-listener wake word and StudioDirector with LiveKit instead of duplicating UI controls.",
+    "nonnegotiable": "No UI buttons for give-the-word/standby during live production. Commands via voice. No new avatar providers. Production branch remains unchanged.",
+    "prior_priority_2026_10_09": {
+      "phase": "Felencho Avatar Engine - Phase 0 Foundation",
+      "priority_level": "URGENT",
+      "objective": "Construir un motor propietario de avatares inteligentes para Bob, Lina y Felencho Virtual, comenzando por Bob y eliminando la dependencia operativa de LiveAvatar y HeyGen.",
+      "focus_character": "bob",
+      "do_not_open_other_modules": true,
+      "next_result": "Bob debe poder permanecer vivo visualmente, escuchar mediante La Bestia, responder con su voz, mover la boca de forma sincronizada y aparecer en su TV sin consumir créditos externos por minuto.",
+      "credit_preservation_rule": "No iniciar sesiones LiveAvatar para pruebas de interfaz, depuración pasiva o experimentos no cronometrados.",
+      "strategic_parallel_track": "Diseñar progresivamente Felencho Avatar Engine como reemplazo visual propio, sin interrumpir la misión urgente de completar a Bob.",
+      "immediate_engine_goal": "Crear la base técnica de Felencho Avatar Engine dentro de felencho-universe usando TypeScript para orquestación, Python para procesamiento audiovisual y render local en las PCs de las TVs."
+    }
   },
   "operating_rules": [
+    "Leer docs/FELENCHO_MUNDIAL_DOC_MASTER.md antes de nuevos cambios; la prioridad histórica de octubre es obsoleta.",
+    "Durante programa controlar intervención por voz Bob/Lina/a dormir; nunca reemplazarla por botones sin solicitud.",
     "Trabajar un solo objetivo a la vez.",
     "Entregar archivos completos, nunca fragmentos ni instrucciones de parches manuales.",
     "No crear archivos vacíos.",
@@ -335,8 +349,8 @@
   ],
   "new_chat_instruction": {
     "mandatory": true,
-    "source_of_truth": "https://www.felencho.ai/api/project-memory",
-    "instruction": "Lee la memoria completa antes de proponer cambios. No preguntes nuevamente qué está construido. No reinicies la arquitectura. No reemplaces sistemas verificados. Continúa desde current_priority, current_status, known_behavior, studio_log y next_actions.",
+    "source_of_truth": "docs/FELENCHO_MUNDIAL_DOC_MASTER.md + project-memory/current.json",
+    "instruction": "Read DOC MASTER before touching code. October avatar/video status is historical. Reuse studio-listener wake words/StudioDirector. Verify rollback and hologram Sentidos first.",
     "user_message_template": "Bob, lee https://www.felencho.ai/api/project-memory y continúa exactamente desde la fase actual. No reinicies ni rediseñes nada."
   },
   "vision_system": {
