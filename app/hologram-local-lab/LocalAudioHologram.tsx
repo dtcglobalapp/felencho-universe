@@ -81,7 +81,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       if (hadAudio && level > 0.018) {
         lastSpeech = performance.now();
         if (!speakingNow) { speakingNow = true; hologram.setState('speaking'); setSpeaking(true); }
-      } else if (speakingNow && performance.now() - lastSpeech > 850) {
+      } else if (!hadAudio && speakingNow && performance.now() - lastSpeech > 850) {
         speakingNow = false;
         hologram.setState('idle');
         setSpeaking(false);
