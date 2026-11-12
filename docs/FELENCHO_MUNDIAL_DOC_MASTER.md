@@ -270,6 +270,14 @@ Finder mostró los tres directorios. **Éxito de instalación y síntesis offlin
 
 **Pendiente**: Felencho debe reproducir y valorar las tres WAV (naturalidad, acento internacional neutro, claridad, voz masculina madura), luego medir latencia de generación con caché caliente y revisar advertencias. Aún no se han ensayado los 10 idiomas, conversación bidireccional, interrupciones, capacidad concurrencia ni el sistema completo STT/LLM/LiveKit. No afirmar podcast liberado de cuotas hasta pruebas E2E y migración real. No borrar los modelos del entorno aislado ni modificar las páginas de Bob y Lina.
 
+## Primera evaluación vocal: 3/3 excelentes — 2026-11-11
+
+**Evaluación humana reportada por Felencho:** Lina en español (`Serena`) **excelente**; Bob en español (`Uncle_Fu`) **excelente**; Lina en inglés (`Serena`) **excelente**. La prueba se realizó realmente con archivos WAV sintetizados en La Bestia mediante Qwen3-TTS 0.6B CustomVoice/MLX. Las voces quedan **aprobadas para seguir investigando**, todavía no para sustituir el agente en vivo.
+
+**Segunda fase preparada:** `tools/qwen3-lab/test-remaining-languages-mac.sh` (commit `bd637b8`) genera ocho muestras adicionales en portugués, francés, alemán, italiano, chino, japonés, coreano y ruso con voz Serena/Uncle_Fu, y guarda logs de tiempo real de cada proceso en `~/felencho-qwen3-tts-lab/output/languages/benchmark-tiempos.txt`. Documentación complementaria en `tools/qwen3-lab/README.md`. Requiere que Felencho ejecute el script en La Bestia; **no ejecutado todavía** y no son pruebas de streaming, concurrencia ni primera salida de audio.
+
+**Precaución:** generación multilingüe declarada por el modelo ≠ calidad idéntica en los 10 idiomas; el productor y, si hace falta, hablantes competentes deben evaluar pronunciación. No alterar los WAV originales, LiveKit, Cartesia, hologramas, Sentidos ni producción antes de verificaciones posteriores.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
