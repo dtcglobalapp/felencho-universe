@@ -27,3 +27,8 @@ npm start
 - No hay cambios en producción. Después de comprobar esto, se podrá investigar un adaptador de voz generado en vivo, sin declararlo integrado todavía.
 
 No compartas tokens ni registros SDP completos; si falla, comparte únicamente los mensajes visibles en el recuadro de eventos y el error resumido del servidor.
+
+
+## Segunda voz: Bob / Uncle_Fu
+
+En el clon local ya situado en esta rama, actualiza con `git pull --ff-only` y recompila con `npm run build`. Detén solamente el servidor web `npm start` anterior mediante Ctrl+C en su Terminal; reinicia `npm start` en el directorio `tools/livekit-local-lab/webrtc-two`. No detengas LiveKit (7880). En `http://127.0.0.1:7890`, conecta A en una pestana y B en otra, micrófonos apagados. Desde A pulsa **Transmitir WAV Bob (Uncle_Fu)**; desde B comprueba pista recibida y audio audible. También sigue disponible Serena. No se modifica producción.
