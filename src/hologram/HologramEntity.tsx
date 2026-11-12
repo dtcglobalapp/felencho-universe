@@ -322,16 +322,29 @@ export function HologramEntity({ lowPower = false, persona = "lina", photoDispla
       cageMat.opacity = (0.18 + amp * 0.5 + w.thinking * 0.3) * energy;
       cage.current.scale.setScalar(1 + a.treble * speak * 0.15 + w.thinking * 0.1);
     }
+    // Local laboratory only: speaking must have a visibly distinct orbital choreography.
+    // Production and standard hologram-preview keep their approved geometry and timing.
+    const labOrbits = typeof window !== "undefined" && window.location.pathname.startsWith("/hologram-local-lab/");
     rings.forEach((r, i) => {
       const g = ringRefs.current[i];
       const ringMat = ringMats[i];
-      if (ringMat) set(ringMat,{uTime:t,uAmp:amp,uEnergy:energy*(0.8+w.thinking*0.6)});
+      const band = i % 3 === 0 ? a.bass : i % 3 === 1 ? a.mids : a.treble;
+      // A perceptible rhythmic baseline follows the SPEAKING state; the actual
+      // analyzed signal adds extra energy whenever non-zero audio is present.
+      const speechPulse = labOrbits ? speak * (0.35 + 0.65 * Math.pow(Math.sin(t * 7.5 + i * 1.45), 2)) : 0;
+      const liveAudio = labOrbits ? speak * Math.min(1, a.level * 4 + band * 2) : 0;
+      if (ringMat) set(ringMat,{
+        uTime:t,
+        uAmp:labOrbits ? Math.min(1, amp + speechPulse * 0.38 + liveAudio * 0.35) : amp,
+        uEnergy:labOrbits ? energy * (0.8 + w.thinking * 0.6 + speechPulse * 1.0 + liveAudio * 0.7) : energy * (0.8 + w.thinking * 0.6),
+        ...(labOrbits ? {uSpeed:r.speed * (1 + speak * 3 + liveAudio * 2.5)} : {}),
+      });
       if (g) {
-        g.rotation.x = r.tilt[0] + Math.sin(t * 0.3 + i) * (0.15 + w.thinking * 0.9);
-        g.rotation.y = r.tilt[1] + t * r.spin * (1 + w.thinking * 2.5);
-        g.rotation.z = r.tilt[2] + Math.cos(t * 0.21 + i * 2) * (0.1 + w.thinking * 0.6);
-        const band = i % 3 === 0 ? a.bass : i % 3 === 1 ? a.mids : a.treble;
-        g.scale.setScalar(1 + band * speak * 0.12 * (1 + i * 0.2) - w.sleep * 0.3);
+        g.rotation.x = r.tilt[0] + Math.sin(t * (labOrbits ? 0.3 + 2.4 * speak : 0.3) + i) * (0.15 + w.thinking * 0.9 + (labOrbits ? speak * 0.32 : 0));
+        g.rotation.y = r.tilt[1] + t * r.spin * (1 + w.thinking * 2.5 + (labOrbits ? speak * 3.2 : 0));
+        g.rotation.z = r.tilt[2] + Math.cos(t * (labOrbits ? 0.21 + 2 * speak : 0.21) + i * 2) * (0.1 + w.thinking * 0.6 + (labOrbits ? speak * 0.35 : 0));
+        const baseScale = 1 + band * speak * 0.12 * (1 + i * 0.2) - w.sleep * 0.3;
+        g.scale.setScalar(baseScale + (labOrbits ? speechPulse * (0.1 + i * 0.018) + liveAudio * 0.08 : 0));
       }
     });
     set(petalMat,{uTime:t,uAmp:amp,uEnergy:energy});
