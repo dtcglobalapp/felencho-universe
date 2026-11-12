@@ -18,6 +18,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
   const [speaking, setSpeaking] = useState(false);
   const [diagnostic, setDiagnostic] = useState('Esperando pistas');
   const [audioLevel, setAudioLevel] = useState(0);
+  const [peakLevel, setPeakLevel] = useState(0);
+  const [audioFrames, setAudioFrames] = useState(0);
   const sessionRef = useRef<Session | null>(null);
   const personaRef = useRef(persona);
   personaRef.current = persona;
@@ -33,7 +35,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
   const connect = useCallback(async () => {
     if (sessionRef.current) return;
     setStatus('Conectando...');
-    setDiagnostic('Esperando pistas'); setAudioLevel(0);
+    setDiagnostic('Esperando pistas'); setAudioLevel(0); setPeakLevel(0); setAudioFrames(0);
     // Browser audio must be unlocked synchronously from this user click.
     const ctx = new AudioContext();
     void ctx.resume();
@@ -46,6 +48,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     analyser.connect(muted);
     muted.connect(ctx.destination);
     const bins = new Uint8Array(analyser.frequencyBinCount);
+    const waveform = new Float32Array(analyser.fftSize);
+    let peak = 0, detectedFrames = 0;
     let finished = false, lastSpeech = 0, hadAudio = false, speakingNow = false, lastMeter = 0;
     let subscribedTrack: string | null = null;
     const session: Session = {
@@ -66,6 +70,10 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     const tick = () => {
       if (finished) return;
       analyser.getByteFrequencyData(bins);
+      analyser.getFloatTimeDomainData(waveform);
+      let energy = 0;
+      for (let i = 0; i < waveform.length; i++) energy += waveform[i] * waveform[i];
+      const rms = Math.sqrt(energy / waveform.length);
       const band = (low: number, high: number) => {
         const step = ctx.sampleRate / analyser.fftSize;
         const start = Math.max(0, Math.min(bins.length - 1, Math.floor(low / step)));
@@ -75,9 +83,14 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
         return Math.min(1, sum / (end - start) / 180);
       };
       const bass = band(80, 300), mids = band(300, 2400), treble = band(2400, 7500);
-      const level = Math.min(1, 0.2*bass + 0.55*mids + 0.25*treble);
+      const level = Math.min(1, 0.2*bass + 0.55*mids + 0.25*treble + rms * 1.5);
+      if (rms > 0.002) detectedFrames++;
+      peak = Math.max(peak, level);
       hologram.pushAudio({level,bass,mids,treble});
-      if (performance.now() - lastMeter > 200) { setAudioLevel(Math.round(level * 100)); lastMeter = performance.now(); }
+      if (performance.now() - lastMeter > 200) {
+        setAudioLevel(Math.round(level * 100)); setPeakLevel(Math.round(peak * 100));
+        setAudioFrames(detectedFrames); lastMeter = performance.now();
+      }
       if (hadAudio && level > 0.018) {
         lastSpeech = performance.now();
         if (!speakingNow) { speakingNow = true; hologram.setState('speaking'); setSpeaking(true); }
@@ -100,6 +113,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       session.source.connect(analyser);
       subscribedTrack = track.sid ?? null;
       hadAudio = true;
+      peak = 0; detectedFrames = 0;
+      setPeakLevel(0); setAudioFrames(0);
       // The WAV is published immediately before playback and is unpublished on completion.
       // Mark SPEAKING on its own named voice track, even if frequency bins take
       // a moment to become available or the browser suspends its AudioContext.
@@ -117,7 +132,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       subscribedTrack = null; hadAudio = false; speakingNow = false;
       hologram.pushAudio(silent); hologram.setState('idle'); setSpeaking(false);
       setStatus('Pista terminada. Esperando otra frase de '+persona.toUpperCase());
-      setDiagnostic('Pista recibida y terminada correctamente'); setAudioLevel(0);
+      setDiagnostic('Pista recibida y terminada · pico '+Math.round(peak*100)+'% · frames con sonido '+detectedFrames); setAudioLevel(0);
     });
     room.on(RoomEvent.Disconnected, () => {
       if (finished) return;
@@ -156,7 +171,9 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
         <button type="button" disabled={!connected} onClick={disconnect} className="rounded border px-3 py-2 disabled:opacity-40">Desconectar</button>
       </div>
       <p className="mt-2" role="status">{status}</p>
-      <p className="mt-1 text-cyan-300">Diagnóstico: {diagnostic} · Nivel: {audioLevel}%</p>
+      <p className="mt-1 text-cyan-300">Diagnóstico: {diagnostic}</p>
+      <p className="mt-1 text-cyan-300">Audio real: {audioLevel}% · Pico: {peakLevel}% · Frames con sonido: {audioFrames}</p>
+      <div aria-label="Nivel de audio real" className="mt-1 h-2 overflow-hidden rounded bg-zinc-700"><div className="h-full bg-cyan-400 transition-[width] duration-150" style={{width: audioLevel + '%'}} /></div>
       <p className="mt-1 text-zinc-400">Sin micrófono, sin audio en esta pantalla. Control de pruebas solamente; no es la ruta final para TV.</p>
     </aside>
   </main>;
