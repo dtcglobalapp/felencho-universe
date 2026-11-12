@@ -257,6 +257,19 @@ Primero necesita Python 3.12; si falta: `brew install python@3.12` (Homebrew ya 
 **Estado y QA:** sintaxis de borradores Bash verificada por parser `bash -n` en entorno de desarrollo, instrucciones cotejadas con CLI oficial de mlx-audio, scripts versión final subidos a GitHub. **No ejecutado en Mac de Felencho, no escuchadas voces, no tiempos ni calidad medidos**. Antes de aceptar la etapa deben escucharse las WAV y probar los 10 idiomas, luego medir concurrencia y podcast real. Cambios de voces permitidos por Felencho para pruebas; diseño de hologramas NO modificar.
 **Docs:** https://github.com/Neywa-Labs/mlx-audio/blob/main/docs/getting-started/quickstart-cli.md ; https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit .
 
+## Resultado REAL del primer laboratorio Qwen3-TTS en La Bestia — 2026-11-11, ~19:01 NY
+
+**Evidencia recibida del productor:** terminal Mac y captura Finder. `python3.12` inicialmente faltaba; Homebrew instaló Python 3.12.16. `bash tools/qwen3-lab/setup-mac.sh` terminó sin error e instaló `mlx-audio==0.3.1` y dependencias en `~/felencho-qwen3-tts-lab/.venv`. `bash tools/qwen3-lab/generate-mac.sh` descargó ~1.78 GB del modelo `mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit`, reconstruyó ~1.97 GB, y confirmó **tres WAV generados**:
+- `~/felencho-qwen3-tts-lab/output/lina-es/audio_000.wav` — voz Serena, texto español.
+- `~/felencho-qwen3-tts-lab/output/bob-es/audio_000.wav` — voz Uncle_Fu, texto español.
+- `~/felencho-qwen3-tts-lab/output/lina-en/audio_000.wav` — voz Serena, texto inglés.
+
+Finder mostró los tres directorios. **Éxito de instalación y síntesis offline/local:** el modelo corre en La Bestia y no consumió Cartesia/LiveKit para generar estas muestras. Se necesitó Internet para descargar el modelo por primera vez.
+
+**Advertencias observadas, no bloqueantes en esta ejecución:** model type `qwen3_tts` instantiated as blank type, y tokenizer Mistral incorrect regex pattern / sugerencia `fix_mistral_regex=True`. Investigar compatibilidad del adaptador y efecto de tokenización antes de integrar audio en tiempo real; no modificar producción hasta pruebas. Hugging Face advirtió peticiones sin `HF_TOKEN`, solo afecta límites/velocidad de descarga.
+
+**Pendiente**: Felencho debe reproducir y valorar las tres WAV (naturalidad, acento internacional neutro, claridad, voz masculina madura), luego medir latencia de generación con caché caliente y revisar advertencias. Aún no se han ensayado los 10 idiomas, conversación bidireccional, interrupciones, capacidad concurrencia ni el sistema completo STT/LLM/LiveKit. No afirmar podcast liberado de cuotas hasta pruebas E2E y migración real. No borrar los modelos del entorno aislado ni modificar las páginas de Bob y Lina.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
