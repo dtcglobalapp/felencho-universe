@@ -1,26 +1,29 @@
-# Dos participantes WebRTC — laboratorio local aislado
+# Laboratorio local: dos participantes + muestra Qwen3 Serena
 
-**No integra Qwen3-TTS todavía.** Prueba conexión real de dos clientes y audio humano opcional. No cambia código, .env, Cloud, Cartesia, Bob/Lina ni hologramas.
+Separación de puertos: LiveKit `ws://127.0.0.1:7880`, web local `http://127.0.0.1:7890`. El puerto 7881 queda libre para el transporte RTC TCP de LiveKit. Todo es localhost; claves `devkey/secret` solo para desarrollo. No exponer a LAN o Internet.
 
-## Mac
-Mantén el servidor LiveKit existente escuchando en `127.0.0.1:7880`. En una **terminal nueva**:
+**Aislado:** no cambia .env.local, rutas Cloud, Cartesia, agentes, Felencho Brain ni hologramas. La muestra se lee en modo solo lectura de `~/felencho-qwen3-tts-lab/output/lina-es/audio_000.wav`, sin subirla a GitHub. Ningún TTS en tiempo real está conectado: se reproduce un WAV ya generado.
 
+## Pasos
+
+1. Mantén LiveKit existente iniciado desde `tools/livekit-local-lab/start-mac.sh` en otra Terminal.
+2. Detén **solamente el servidor web anterior** que ocupa el puerto 7881, usando Ctrl+C en su propia Terminal. No detengas LiveKit ni Next.js.
+3. Actualiza exclusivamente el clon de pruebas y cambia a esta rama:
 ```bash
-cd ~/Documents/felencho-livekit-webrtc-lab/tools/livekit-local-lab/webrtc-two
+cd ~/Documents/felencho-livekit-webrtc-lab
+git fetch origin
+git switch -c feature/livekit-local-qwen-wav-lab --track origin/feature/livekit-local-qwen-wav-lab
+cd tools/livekit-local-lab/webrtc-two
 npm install
 npm run build
 npm start
 ```
+4. Abre **dos pestañas** en `http://127.0.0.1:7890`. Conecta A en una y B en otra. En A pulsa `Transmitir WAV Serena`; en B debe aparecer `Pista recibida` y escucharse Serena. Usa auriculares; si Chrome bloquea audio automático, pulsa Play en B. El micrófono no necesita activarse para la prueba del WAV.
+5. Pulsa Salir en ambas; confirma limpieza y sin errores.
 
-Abre `http://127.0.0.1:7881` en Chrome o Safari. En pestaña 1 pulsa **Entrar como A**; en pestaña 2 pulsa **Entrar como B**. Verifica mensaje `WebRTC conectado` y presencia del otro participante. Con auriculares, pulsa **Activar micrófono** en una pestaña para publicar la pista. En la otra debe aparecer `Pista recibida` y reproducirse el audio (si autoplay bloquea, pulsa play). Pulsa **Salir** en ambas al acabar.
+### Criterios
+- Ambos conectados; pista `serena-qwen-local-wav` publicada desde A y recibida en B.
+- El WAV es audible de principio a fin y la transmisión termina sin bucles.
+- No hay cambios en producción. Después de comprobar esto, se podrá investigar un adaptador de voz generado en vivo, sin declararlo integrado todavía.
 
-El token se firma **únicamente en Node en localhost**, no en el navegador. Usa claves públicas de desarrollo `devkey/secret` y puerto local 7881: **nunca exponer a Internet o LAN**, ni usar en producción. No instalar npm en la raíz del repositorio. Cada pestaña usa identidad aleatoria propia.
-
-## Aceptación
-1. LiveKit `check-mac.sh` devuelve HTTP 200.
-2. A y B se conectan a la misma sala `felencho-local-test`.
-3. Ambos ven al otro en los logs.
-4. Audio opcional: el remoto recibe pista y escucha audio.
-5. Salida/desconexión sin afectar proceso anterior.
-
-Si falla, comparte el log del navegador y salida de Terminal, sin pegar tokens. Próximo hito: publicación de un WAV Qwen3-TTS mediante cliente dedicado al mismo servidor local.
+No compartas tokens ni registros SDP completos; si falla, comparte únicamente los mensajes visibles en el recuadro de eventos y el error resumido del servidor.
