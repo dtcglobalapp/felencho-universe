@@ -32,3 +32,22 @@ The scripts use `mlx_audio.tts.generate` documented by mlx-audio with `--model`,
 https://github.com/QwenLM/Qwen3-TTS
 https://github.com/Neywa-Labs/mlx-audio/blob/main/docs/getting-started/quickstart-cli.md
 https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit
+
+
+## Second phase: eight remaining languages and elapsed time
+
+**Producer verdict on first recordings (2026-11-11):**
+- Lina Spanish / Serena: **excellent**
+- Bob Spanish / Uncle_Fu: **excellent**
+- Lina English / Serena: **excellent**
+
+The next script does not overwrite any of those WAVs. It creates new WAVs in `~/felencho-qwen3-tts-lab/output/languages`, and one text log `benchmark-tiempos.txt`.
+
+```bash
+cd ~/Documents/felencho-hologram-check
+git pull --ff-only
+bash tools/qwen3-lab/test-remaining-languages-mac.sh
+open ~/felencho-qwen3-tts-lab/output/languages
+```
+
+It tests Portuguese, French, German, Italian, Chinese, Japanese, Korean and Russian with a preset voice and language flag. Use the log's `real` field for **total per-process elapsed time**; each command starts a fresh MLX process and model load. This does NOT measure first-audio streaming latency, end-to-end interactive response, concurrency or a permanent loaded server. Review each language with someone competent in that language. Internet should not be required after download unless the local cache misses a file.
