@@ -16,6 +16,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
   const [status, setStatus] = useState('Listo para conectar con LiveKit local');
   const [connected, setConnected] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [diagnostic, setDiagnostic] = useState('Esperando pistas');
+  const [audioLevel, setAudioLevel] = useState(0);
   const sessionRef = useRef<Session | null>(null);
   const personaRef = useRef(persona);
   personaRef.current = persona;
@@ -31,6 +33,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
   const connect = useCallback(async () => {
     if (sessionRef.current) return;
     setStatus('Conectando...');
+    setDiagnostic('Esperando pistas'); setAudioLevel(0);
     // Browser audio must be unlocked synchronously from this user click.
     const ctx = new AudioContext();
     void ctx.resume();
@@ -43,7 +46,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     analyser.connect(muted);
     muted.connect(ctx.destination);
     const bins = new Uint8Array(analyser.frequencyBinCount);
-    let finished = false, lastSpeech = 0, hadAudio = false, speakingNow = false;
+    let finished = false, lastSpeech = 0, hadAudio = false, speakingNow = false, lastMeter = 0;
     let subscribedTrack: string | null = null;
     const session: Session = {
       room, ctx,
@@ -74,25 +77,37 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       const bass = band(80, 300), mids = band(300, 2400), treble = band(2400, 7500);
       const level = Math.min(1, 0.2*bass + 0.55*mids + 0.25*treble);
       hologram.pushAudio({level,bass,mids,treble});
-      if (hadAudio && level > 0.045) {
+      if (performance.now() - lastMeter > 200) { setAudioLevel(Math.round(level * 100)); lastMeter = performance.now(); }
+      if (hadAudio && level > 0.018) {
         lastSpeech = performance.now();
         if (!speakingNow) { speakingNow = true; hologram.setState('speaking'); setSpeaking(true); }
-      } else if (speakingNow && performance.now() - lastSpeech > 550) {
+      } else if (speakingNow && performance.now() - lastSpeech > 850) {
         speakingNow = false;
         hologram.setState('idle');
         setSpeaking(false);
       }
       session.frame = requestAnimationFrame(tick);
     };
-    const receive = (track: RemoteTrack, publication: {trackName?: string}, participant: RemoteParticipant) => {
-      if (track.kind !== Track.Kind.Audio || !participant.identity.startsWith('a-')) return;
-      if (!publication.trackName?.startsWith(expected)) return;
+    const receive = (track: RemoteTrack, publication: {trackName?: string; name?: string}, participant: RemoteParticipant) => {
+      if (finished || track.kind !== Track.Kind.Audio) return;
+      const name = publication.trackName ?? publication.name ?? '';
+      const who = participant.identity;
+      setDiagnostic('Pista: '+(name || '(sin nombre)')+' · emisor: '+who);
+      // Accept audio from the dedicated A publisher. Other voice tracks are ignored.
+      if (!who.startsWith('a-') || !name.startsWith(expected)) return;
       session.source?.disconnect();
       session.source = ctx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
       session.source.connect(analyser);
       subscribedTrack = track.sid ?? null;
       hadAudio = true;
-      setStatus('Recibiendo '+persona.toUpperCase()+' por LiveKit · '+publication.trackName);
+      // The WAV is published immediately before playback and is unpublished on completion.
+      // Mark SPEAKING on its own named voice track, even if frequency bins take
+      // a moment to become available or the browser suspends its AudioContext.
+      speakingNow = true; lastSpeech = performance.now();
+      hologram.setState('speaking'); setSpeaking(true);
+      setStatus('Recibiendo '+persona.toUpperCase()+' por LiveKit · '+name);
+      setDiagnostic('Pista compatible recibida · '+name+' · AudioContext: '+ctx.state);
+      void ctx.resume().catch(() => setDiagnostic('AudioContext bloqueado; vuelve a pulsar Conectar'));
       if (session.frame === undefined) session.frame = requestAnimationFrame(tick);
     };
     room.on(RoomEvent.TrackSubscribed, receive);
@@ -102,6 +117,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       subscribedTrack = null; hadAudio = false; speakingNow = false;
       hologram.pushAudio(silent); hologram.setState('idle'); setSpeaking(false);
       setStatus('Pista terminada. Esperando otra frase de '+persona.toUpperCase());
+      setDiagnostic('Pista recibida y terminada correctamente'); setAudioLevel(0);
     });
     room.on(RoomEvent.Disconnected, () => {
       if (finished) return;
@@ -122,6 +138,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       if (finished) return;
       setConnected(true);
       setStatus('Conectado. Pulsa Transmitir frase nueva '+persona.toUpperCase()+' en la pestaña A del laboratorio 7890.');
+      setDiagnostic('Conectado a la sala; esperando pista '+expected+'...');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'No se pudo conectar';
       session.dispose(); sessionRef.current = null;
@@ -139,6 +156,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
         <button type="button" disabled={!connected} onClick={disconnect} className="rounded border px-3 py-2 disabled:opacity-40">Desconectar</button>
       </div>
       <p className="mt-2" role="status">{status}</p>
+      <p className="mt-1 text-cyan-300">Diagnóstico: {diagnostic} · Nivel: {audioLevel}%</p>
       <p className="mt-1 text-zinc-400">Sin micrófono, sin audio en esta pantalla. Control de pruebas solamente; no es la ruta final para TV.</p>
     </aside>
   </main>;
