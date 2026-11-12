@@ -32,3 +32,30 @@ No compartas tokens ni registros SDP completos; si falla, comparte únicamente l
 ## Segunda voz: Bob / Uncle_Fu
 
 En el clon local ya situado en esta rama, actualiza con `git pull --ff-only` y recompila con `npm run build`. Detén solamente el servidor web `npm start` anterior mediante Ctrl+C en su Terminal; reinicia `npm start` en el directorio `tools/livekit-local-lab/webrtc-two`. No detengas LiveKit (7880). En `http://127.0.0.1:7890`, conecta A en una pestana y B en otra, micrófonos apagados. Desde A pulsa **Transmitir WAV Bob (Uncle_Fu)**; desde B comprueba pista recibida y audio audible. También sigue disponible Serena. No se modifica producción.
+
+## Frases nuevas de Lina y Bob — fase siguiente
+
+Esta fase usa una rama nueva, `feature/livekit-local-fresh-phrases-lab`, separada de la prueba WAV original y de producción.
+
+Con el servidor de LiveKit del laboratorio encendido en 7880, detén SOLO la terminal del servidor web 7890 (Ctrl+C) y actualiza el clon de pruebas:
+
+```bash
+cd ~/Documents/felencho-livekit-webrtc-lab
+git fetch origin
+git switch --track origin/feature/livekit-local-fresh-phrases-lab
+cd tools/livekit-local-lab/webrtc-two
+npm run build
+npm start
+```
+
+En otra terminal genera frases nuevas con Qwen3-TTS instalado previamente; no borra ni sobrescribe los WAV de referencia:
+
+```bash
+cd ~/Documents/felencho-livekit-webrtc-lab/tools/livekit-local-lab/webrtc-two
+bash generate-fresh-mac.sh lina "Felencho, hoy tenemos una noticia fascinante para compartir con nuestro publico."
+bash generate-fresh-mac.sh bob "Aqui esta Bob, listo para conversar con Lina y Felencho desde Nueva York."
+```
+
+Se almacenan únicamente en `~/felencho-qwen3-tts-lab/output/livekit-fresh/{lina,bob}/audio_000.wav`. Las voces siguen siendo Serena y Uncle_Fu, sin intentar resolver aun el acento de Bob.
+
+Abre dos pestañas en `http://127.0.0.1:7890`, conecta A y B. En A, pulsa `Transmitir frase nueva Lina` o `Transmitir frase nueva Bob`; escucha en B. Los botones previos de muestras originales siguen disponibles. Sin microfono. Si hay HTTP 404, confirma que los scripts produjeron esos WAV y que reiniciaste solo el web server. Es una prueba de WAV generados por lote, NO voz en vivo ni conversacion automatica. Nunca exponer puertos locales ni claves dev.
