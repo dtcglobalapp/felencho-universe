@@ -7,6 +7,7 @@ import os from 'node:os';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const host = '127.0.0.1', port = 7890;
 const samples = {serena:path.join(os.homedir(),'felencho-qwen3-tts-lab/output/lina-es/audio_000.wav'),bob:path.join(os.homedir(),'felencho-qwen3-tts-lab/output/bob-es/audio_000.wav')};
+const freshSamples = {lina:path.join(os.homedir(),'felencho-qwen3-tts-lab/output/livekit-fresh/lina/audio_000.wav'),bob:path.join(os.homedir(),'felencho-qwen3-tts-lab/output/livekit-fresh/bob/audio_000.wav')};
 const b64 = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
 function token(role) {
   const now = Math.floor(Date.now()/1000);
@@ -28,13 +29,15 @@ const server = http.createServer(async (req,res)=>{
     if (!['A','B'].includes(role)) return send(400,'role must be A or B');
     return send(200,JSON.stringify({token:token(role),url:'ws://127.0.0.1:7880',room:'felencho-local-test'}),'application/json');
   }
-  if (u.pathname==='/serena.wav' || u.pathname==='/bob.wav') {
-    const voice = u.pathname==='/bob.wav'?'bob':'serena';
+  if (u.pathname==='/serena.wav' || u.pathname==='/bob.wav' || u.pathname==='/fresh-lina.wav' || u.pathname==='/fresh-bob.wav') {
+    const fresh = u.pathname.startsWith('/fresh-');
+    const voice = (u.pathname==='/bob.wav' || u.pathname==='/fresh-bob.wav')?'bob':'serena';
+    const sample = fresh ? freshSamples[voice==='bob'?'bob':'lina'] : samples[voice];
     try {
-      const wav = await readFile(samples[voice]);
+      const wav = await readFile(sample);
       if (wav.subarray(0,4).toString() !== 'RIFF') return send(422,'La muestra no parece WAV RIFF');
       return send(200,wav,'audio/wav');
-    } catch(e) {return send(404,'No se encontró el WAV local de '+voice);}
+    } catch(e) {return send(404,'No se encontro el WAV: '+sample);}
   }
   const file=u.pathname==='/'?'index.html':u.pathname==='/client.js'?'dist/client.js':null;
   if (!file) return send(404,'Not found');
