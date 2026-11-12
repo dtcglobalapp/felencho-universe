@@ -1,8 +1,19 @@
 import { Room, RoomEvent, Track } from 'livekit-client';
 const el=id=>document.getElementById(id);
-let room=null, micOn=false;
+let room=null, micOn=false, playing=false, audioContext=null, activeSource=null, publishedTrack=null;
 const log=m=>{el('log').textContent+=new Date().toLocaleTimeString()+' '+m+'\n';};
-function buttons(connected){el('joinA').disabled=connected;el('joinB').disabled=connected;el('mic').disabled=!connected;el('leave').disabled=!connected;}
+function buttons(connected){
+  el('joinA').disabled=connected;el('joinB').disabled=connected;
+  el('mic').disabled=!connected || playing;el('play').disabled=!connected || playing;
+  el('leave').disabled=!connected;
+}
+async function stopPlayback(){
+  if(activeSource){try{activeSource.stop();}catch{} activeSource=null;}
+  if(publishedTrack && room){try{await room.localParticipant.unpublishTrack(publishedTrack);}catch{}}
+  publishedTrack=null;
+  if(audioContext){try{await audioContext.close();}catch{}audioContext=null;}
+  playing=false;buttons(Boolean(room && room.state==='connected'));
+}
 async function join(role){
   buttons(true);el('status').textContent='Conectando '+role+'...';
   try{
@@ -16,7 +27,11 @@ async function join(role){
       if(track.kind===Track.Kind.Audio){const node=track.attach();node.autoplay=true;node.controls=true;el('remote').appendChild(node);node.play().catch(()=>log('Audio bloqueado: pulsa reproducir en el control'));}
     });
     room.on(RoomEvent.TrackUnsubscribed,track=>track.detach().forEach(node=>node.remove()));
-    room.on(RoomEvent.Disconnected,()=>{el('status').textContent='Desconectado';buttons(false);micOn=false;el('mic').textContent='Activar micrófono';log('Sala desconectada');});
+    room.on(RoomEvent.Disconnected,()=>{
+      el('status').textContent='Desconectado';buttons(false);micOn=false;
+      el('mic').textContent='Activar micrófono';log('Sala desconectada');
+      void stopPlayback();
+    });
     await room.connect(data.url,data.token);
     el('status').textContent='Conectado como '+role+' a '+data.room;
     log('WebRTC conectado. Personas remotas: '+room.remoteParticipants.size+'. Sin micro hasta activación manual.');
@@ -28,4 +43,24 @@ el('mic').onclick=async()=>{
   try{await room.localParticipant.setMicrophoneEnabled(!micOn);micOn=!micOn;el('mic').textContent=micOn?'Silenciar micrófono':'Activar micrófono';log(micOn?'Micrófono publicando audio':'Micrófono silenciado');}
   catch(e){log('ERROR de micrófono: '+e.message);}
 };
-el('leave').onclick=()=>{room?.disconnect();room=null;el('remote').replaceChildren();};
+el('play').onclick=async()=>{
+  if(!room || playing)return;
+  playing=true;buttons(true);
+  try{
+    const response=await fetch('/serena.wav',{cache:'no-store'});
+    if(!response.ok)throw Error('WAV HTTP '+response.status+': '+await response.text());
+    const data=await response.arrayBuffer();
+    audioContext=new AudioContext();
+    await audioContext.resume();
+    const decoded=await audioContext.decodeAudioData(data);
+    const destination=audioContext.createMediaStreamDestination();
+    const source=audioContext.createBufferSource();activeSource=source;
+    source.buffer=decoded;source.connect(destination);
+    publishedTrack=destination.stream.getAudioTracks()[0];
+    await room.localParticipant.publishTrack(publishedTrack,{name:'serena-qwen-local-wav',source:Track.Source.Microphone});
+    log('WAV Serena publicado. Duración: '+decoded.duration.toFixed(2)+' segundos');
+    source.onended=()=>{log('WAV Serena terminado');void stopPlayback();};
+    source.start();
+  }catch(e){log('ERROR de WAV: '+e.message);await stopPlayback();}
+};
+el('leave').onclick=async()=>{await stopPlayback();room?.disconnect();room=null;el('remote').replaceChildren();};
