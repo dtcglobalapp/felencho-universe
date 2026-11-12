@@ -1,0 +1,16 @@
+{
+  "name": "felencho-livekit-local-two",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild client.js --bundle --format=esm --platform=browser --outfile=dist/client.js",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "livekit-client": "^2.15.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
