@@ -4,7 +4,7 @@ let room=null, micOn=false, playing=false, audioContext=null, activeSource=null,
 const log=m=>{el('log').textContent+=new Date().toLocaleTimeString()+' '+m+'\n';};
 function buttons(connected){
   el('joinA').disabled=connected;el('joinB').disabled=connected;
-  el('mic').disabled=!connected || playing;el('play').disabled=!connected || playing;
+  el('mic').disabled=!connected || playing;el('play').disabled=!connected || playing;el('playBob').disabled=!connected || playing;
   el('leave').disabled=!connected;
 }
 async function stopPlayback(){
@@ -43,11 +43,11 @@ el('mic').onclick=async()=>{
   try{await room.localParticipant.setMicrophoneEnabled(!micOn);micOn=!micOn;el('mic').textContent=micOn?'Silenciar micrófono':'Activar micrófono';log(micOn?'Micrófono publicando audio':'Micrófono silenciado');}
   catch(e){log('ERROR de micrófono: '+e.message);}
 };
-el('play').onclick=async()=>{
+async function transmitVoice(voice){
   if(!room || playing)return;
   playing=true;buttons(true);
   try{
-    const response=await fetch('/serena.wav',{cache:'no-store'});
+    const response=await fetch(voice==='bob'?'/bob.wav':'/serena.wav',{cache:'no-store'});
     if(!response.ok)throw Error('WAV HTTP '+response.status+': '+await response.text());
     const data=await response.arrayBuffer();
     audioContext=new AudioContext();
@@ -57,10 +57,12 @@ el('play').onclick=async()=>{
     const source=audioContext.createBufferSource();activeSource=source;
     source.buffer=decoded;source.connect(destination);
     publishedTrack=destination.stream.getAudioTracks()[0];
-    await room.localParticipant.publishTrack(publishedTrack,{name:'serena-qwen-local-wav',source:Track.Source.Microphone});
-    log('WAV Serena publicado. Duración: '+decoded.duration.toFixed(2)+' segundos');
-    source.onended=()=>{log('WAV Serena terminado');void stopPlayback();};
+    await room.localParticipant.publishTrack(publishedTrack,{name:voice+'-qwen-local-wav',source:Track.Source.Microphone});
+    log('WAV '+(voice==='bob'?'Bob':'Serena')+' publicado. Duración: '+decoded.duration.toFixed(2)+' segundos');
+    source.onended=()=>{log('WAV '+(voice==='bob'?'Bob':'Serena')+' terminado');void stopPlayback();};
     source.start();
   }catch(e){log('ERROR de WAV: '+e.message);await stopPlayback();}
-};
+}
+el('play').onclick=()=>transmitVoice('serena');
+el('playBob').onclick=()=>transmitVoice('bob');
 el('leave').onclick=async()=>{await stopPlayback();room?.disconnect();room=null;el('remote').replaceChildren();};
