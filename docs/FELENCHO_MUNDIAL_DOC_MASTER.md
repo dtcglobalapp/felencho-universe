@@ -278,6 +278,28 @@ Finder mostró los tres directorios. **Éxito de instalación y síntesis offlin
 
 **Precaución:** generación multilingüe declarada por el modelo ≠ calidad idéntica en los 10 idiomas; el productor y, si hace falta, hablantes competentes deben evaluar pronunciación. No alterar los WAV originales, LiveKit, Cartesia, hologramas, Sentidos ni producción antes de verificaciones posteriores.
 
+## LiveKit local independiente — laboratorio preparado (2026-11-11)
+
+**Nueva etapa técnica con autorización de Felencho:** validar LiveKit Server autohospedado en La Bestia, como base del podcast soberano con Qwen3-TTS y Felencho Brain, **sin modificar sesiones Cloud ni los hologramas**.
+
+**Implementación nueva en rama aislada, NO desplegada:** `tools/livekit-local-lab/start-mac.sh`, `tools/livekit-local-lab/check-mac.sh`, `tools/livekit-local-lab/README.md`. Scripts instalables con `brew install livekit` y `livekit-server --dev` oficiales; sala local de desarrollo `ws://127.0.0.1:7880`, claves predeterminadas de desarrollo `devkey` / `secret`, **sólo localhost**, nunca publicar ni usar en producción. `start-mac.sh` comprueba puerto ocupado, registra logs en home y se detiene con Ctrl+C. `check-mac.sh` comprueba listener y HTTP local; genera token JWT de prueba SIN imprimirlo. Verifica proceso y no prueba aún publicación de medios ni calidad de sala.
+
+**Fuentes verificadas:** https://docs.livekit.io/transport/self-hosting/local/ (brew, `--dev`, bind loopback y claves); https://docs.livekit.io/transport/self-hosting/ (no contiene LiveKit Inference en autohospedado); https://docs.livekit.io/transport/self-hosting/ports-firewall/ (UDP/TURN/TLS para producción).
+
+**Para La Bestia** abrir dos terminales adicionales sin matar Next.js:
+```bash
+cd ~/Documents/felencho-hologram-check
+git pull --ff-only
+brew install livekit
+bash tools/livekit-local-lab/start-mac.sh
+```
+En otra terminal:
+```bash
+cd ~/Documents/felencho-hologram-check
+bash tools/livekit-local-lab/check-mac.sh
+```
+**Estado exacto:** código escrito y verificado con documentación oficial; **aún no ejecutado en La Bestia**. No existe conexión de Qwen3-TTS en streaming a la sala, worker propio ni integración de Felencho Brain en este paso. Tampoco se ha cambiado `.env.local`, rutas `/api/live/*`, Cloud ni motor visual. **Siguiente prueba**: conexión real de dos clientes a una sala local, después adaptador local de audio Qwen3 a una pista; añadir STT y LLM de forma independiente; luego turnos Bob/Lina y seis Sentidos; evaluar 45-60 minutos. Jamás declarar completada la conversación autónoma por solo iniciar servidor.
+
 ## Próxima implementación acordada
 
 1. Hacer una **prueba de regresión con Lina**, solo para confirmar voz, reacciones reales y desconexión; usar la versión restaurada. Conservar las fotos en IndexedDB y su exportación JSON segura.
