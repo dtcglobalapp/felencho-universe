@@ -2,12 +2,12 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
-import { hologram } from '../../../src/hologram/engine';
-import { characters } from '../../../src/hologram-config';
+import { hologram } from '../../src/hologram/engine';
+import { characters } from '../../src/hologram-config';
 
 type Persona = 'lina' | 'bob';
-const Lina = dynamic(() => import('../../../src/hologram/LinaScreen').then(m => m.LinaScreen), { ssr: false });
-const Bob = dynamic(() => import('../../../src/hologram/BobScreen').then(m => m.BobScreen), { ssr: false });
+const Lina = dynamic(() => import('../../src/hologram/LinaScreen').then(m => m.LinaScreen), { ssr: false });
+const Bob = dynamic(() => import('../../src/hologram/BobScreen').then(m => m.BobScreen), { ssr: false });
 type Session = { room: Room; ctx: AudioContext; source?: MediaStreamAudioSourceNode; frame?: number; dispose: () => void };
 const silent = { level: 0, bass: 0, mids: 0, treble: 0 };
 
