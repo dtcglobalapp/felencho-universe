@@ -55,7 +55,7 @@ async function start(key){
  }
  const log=createWriteStream(join(logs,key+'.log'),{flags:'a'});
  log.write('\nSTART '+new Date().toISOString()+'\n');
- const child=spawn(s.cmd,s.args,{cwd:s.cwd,env:process.env,stdio:['ignore','pipe','pipe']});
+ const child=spawn(s.cmd,s.args,{cwd:s.cwd,env:process.env,detached:true,stdio:['ignore','pipe','pipe']});
  owned.set(key,child);
  child.stdout.pipe(log,{end:false});child.stderr.pipe(log,{end:false});
  child.on('error',e=>log.write('ERROR '+e.message+'\n'));
@@ -65,7 +65,7 @@ async function start(key){
 async function stop(key){
  const child=owned.get(key);
  if(!child)throw Error('Proceso externo o apagado: este panel no puede detenerlo');
- child.kill('SIGTERM');
+ try { process.kill(-child.pid,'SIGTERM'); } catch { child.kill('SIGTERM'); }
  return 'Apagado solicitado: '+services[key].label;
 }
 async function stopAll(){
