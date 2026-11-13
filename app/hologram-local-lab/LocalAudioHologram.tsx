@@ -81,6 +81,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     let finished = false, lastSpeech = 0, hadAudio = false, speakingNow = false, lastMeter = 0;
     let subscribedTrack: string | null = null;
     let mediaTrack: MediaStreamTrack | null = null;
+    let lastAudioDiagnostic = 'Aún no se ha analizado audio';
+    let lastAcceptedName = '';
     const session: Session = {
       room, ctx,
       dispose: () => {
@@ -120,7 +122,10 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       if (performance.now() - lastMeter > 200) {
         setAudioLevel(Math.round(level * 100)); setPeakLevel(Math.round(peak * 100));
         setAudioFrames(detectedFrames);
-        if (mediaTrack && detectedFrames === 0) setDiagnostic('Pista '+(subscribedTrack ?? 'sin SID')+' · audio: '+mediaTrack.readyState+' / '+(mediaTrack.enabled?'habilitado':'deshabilitado')+' / '+(mediaTrack.muted?'silenciado':'sin silenciar')+' · AudioContext: '+ctx.state+' · RMS: '+rms.toFixed(5));
+        if (mediaTrack) {
+          lastAudioDiagnostic = 'audio: '+mediaTrack.readyState+' / '+(mediaTrack.enabled?'habilitado':'deshabilitado')+' / '+(mediaTrack.muted?'silenciado':'sin silenciar')+' · AudioContext: '+ctx.state+' · RMS: '+rms.toFixed(5);
+          if (detectedFrames === 0) setDiagnostic('Analizando '+lastAcceptedName+' · '+lastAudioDiagnostic);
+        }
         lastMeter = performance.now();
       }
       if (hadAudio && level > 0.018) {
@@ -137,14 +142,16 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       if (finished || track.kind !== Track.Kind.Audio) return;
       const name = publication.trackName ?? publication.name ?? '';
       const who = participant.identity;
-      setDiagnostic('Pista: '+(name || '(sin nombre)')+' · emisor: '+who);
-      // Accept audio from the dedicated A publisher. Other voice tracks are ignored.
+      // Only show measurements for this character's dedicated A audio track.
+      // Other characters' tracks are intentionally ignored without overwriting diagnostics.
       if (!who.startsWith('a-') || !name.startsWith(expected)) return;
       session.source?.disconnect();
       mediaTrack = track.mediaStreamTrack;
       session.source = ctx.createMediaStreamSource(new MediaStream([mediaTrack]));
       session.source.connect(analyser);
       subscribedTrack = track.sid ?? null;
+      lastAcceptedName = name;
+      lastAudioDiagnostic = 'Esperando primeras muestras · AudioContext: '+ctx.state;
       hadAudio = true;
       peak = 0; detectedFrames = 0;
       setPeakLevel(0); setAudioFrames(0);
@@ -166,7 +173,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       subscribedTrack = null; hadAudio = false; speakingNow = false;
       hologram.pushAudio(silent); hologram.setState('idle'); setSpeaking(false);
       setStatus('Pista terminada. Esperando otra frase de '+persona.toUpperCase());
-      setDiagnostic('Pista recibida y terminada · pico '+Math.round(peak*100)+'% · frames con sonido '+detectedFrames); setAudioLevel(0);
+      setDiagnostic('Terminó '+lastAcceptedName+' · pico '+Math.round(peak*100)+'% · frames con sonido '+detectedFrames+' · '+lastAudioDiagnostic); setAudioLevel(0);
     });
     room.on(RoomEvent.Disconnected, () => {
       if (finished) return;
