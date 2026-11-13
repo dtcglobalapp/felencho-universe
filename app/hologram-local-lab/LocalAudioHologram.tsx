@@ -80,6 +80,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     let peak = 0, detectedFrames = 0;
     let finished = false, lastSpeech = 0, hadAudio = false, speakingNow = false, lastMeter = 0;
     let subscribedTrack: string | null = null;
+    let mediaTrack: MediaStreamTrack | null = null;
     const session: Session = {
       room, ctx,
       dispose: () => {
@@ -87,6 +88,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
         finished = true;
         if (session.frame !== undefined) cancelAnimationFrame(session.frame);
         session.source?.disconnect();
+        mediaTrack = null;
         hologram.pushAudio(silent);
         hologram.setState('idle');
         room.disconnect();
@@ -117,7 +119,9 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       hologram.pushAudio({level,bass,mids,treble});
       if (performance.now() - lastMeter > 200) {
         setAudioLevel(Math.round(level * 100)); setPeakLevel(Math.round(peak * 100));
-        setAudioFrames(detectedFrames); lastMeter = performance.now();
+        setAudioFrames(detectedFrames);
+        if (mediaTrack && detectedFrames === 0) setDiagnostic('Pista '+(subscribedTrack ?? 'sin SID')+' · audio: '+mediaTrack.readyState+' / '+(mediaTrack.enabled?'habilitado':'deshabilitado')+' / '+(mediaTrack.muted?'silenciado':'sin silenciar')+' · AudioContext: '+ctx.state+' · RMS: '+rms.toFixed(5));
+        lastMeter = performance.now();
       }
       if (hadAudio && level > 0.018) {
         lastSpeech = performance.now();
@@ -137,7 +141,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       // Accept audio from the dedicated A publisher. Other voice tracks are ignored.
       if (!who.startsWith('a-') || !name.startsWith(expected)) return;
       session.source?.disconnect();
-      session.source = ctx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
+      mediaTrack = track.mediaStreamTrack;
+      session.source = ctx.createMediaStreamSource(new MediaStream([mediaTrack]));
       session.source.connect(analyser);
       subscribedTrack = track.sid ?? null;
       hadAudio = true;
@@ -157,6 +162,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     room.on(RoomEvent.TrackUnsubscribed, track => {
       if (track.sid !== subscribedTrack) return;
       session.source?.disconnect(); session.source = undefined;
+      mediaTrack = null;
       subscribedTrack = null; hadAudio = false; speakingNow = false;
       hologram.pushAudio(silent); hologram.setState('idle'); setSpeaking(false);
       setStatus('Pista terminada. Esperando otra frase de '+persona.toUpperCase());
