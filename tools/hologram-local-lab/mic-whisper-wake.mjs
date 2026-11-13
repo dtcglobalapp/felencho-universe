@@ -24,13 +24,13 @@ function parse(argv) {
   }
   out.seconds = Number(out.seconds);
   if (!Number.isInteger(out.seconds) || out.seconds < 2 || out.seconds > 30) throw new Error('--seconds must be 2..30');
-  if (!/^\\d+$/.test(String(out.device))) throw new Error('--device must be an AVFoundation audio device index');
+  if (!/^[0-9]+$/.test(String(out.device))) throw new Error('--device must be an AVFoundation audio device index');
   return out;
 }
 function run(command, args) {
   const result = spawnSync(command, args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 4 });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(command + ' exit=' + result.status + '\\n' + String(result.stderr).slice(-1800));
+  if (result.status !== 0) throw new Error(command + ' exit=' + result.status + '\n' + String(result.stderr).slice(-1800));
 }
 function display(transcript) {
   const routed = routeTranscript(transcript);
