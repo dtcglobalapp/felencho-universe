@@ -23,6 +23,34 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
   const sessionRef = useRef<Session | null>(null);
   const personaRef = useRef(persona);
   personaRef.current = persona;
+  const [wakeStatus, setWakeStatus] = useState('Puente de escucha local: desconectado');
+  // Local lab only: listen for events from the isolated RODECaster/Whisper process.
+  // Existing LiveKit SPEAKING events always take priority.
+  useEffect(() => {
+    if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') return;
+    const events = new EventSource('http://127.0.0.1:7891/events?persona=' + persona);
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    events.onopen = () => setWakeStatus('Puente de escucha conectado');
+    events.onerror = () => setWakeStatus('Puente de escucha desconectado (inicia puerto 7891)');
+    events.onmessage = (event: MessageEvent<string>) => {
+      let message: {target?: string; action?: string};
+      try { message = JSON.parse(event.data) as typeof message; } catch { return; }
+      if (message.target !== persona || message.action !== 'LISTENING') return;
+      if (hologram.state === 'speaking') return;
+      if (idleTimer) clearTimeout(idleTimer);
+      hologram.setState('listening');
+      setWakeStatus('Te escucho: ' + persona.toUpperCase() + ' (deteccion local, sin respuesta IA)');
+      idleTimer = setTimeout(() => {
+        if (hologram.state === 'listening') hologram.setState('idle');
+        setWakeStatus('Puente de escucha conectado · esperando nombre');
+      }, 3500);
+    };
+    return () => {
+      events.close();
+      if (idleTimer) clearTimeout(idleTimer);
+      if (hologram.state === 'listening') hologram.setState('idle');
+    };
+  }, [persona]);
   const disconnect = useCallback(() => {
     sessionRef.current?.dispose();
     sessionRef.current = null;
@@ -172,6 +200,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       </div>
       <p className="mt-2" role="status">{status}</p>
       <p className="mt-1 text-cyan-300">Diagnóstico: {diagnostic}</p>
+      <p className="mt-1 text-amber-300">{wakeStatus}</p>
       <p className="mt-1 text-cyan-300">Audio real: {audioLevel}% · Pico: {peakLevel}% · Frames con sonido: {audioFrames}</p>
       <div aria-label="Nivel de audio real" className="mt-1 h-2 overflow-hidden rounded bg-zinc-700"><div className="h-full bg-cyan-400 transition-[width] duration-150" style={{width: audioLevel + '%'}} /></div>
       <p className="mt-1 text-zinc-400">Sin micrófono, sin audio en esta pantalla. Control de pruebas solamente; no es la ruta final para TV.</p>
