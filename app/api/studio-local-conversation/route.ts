@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { STUDIO_FELENCHO_FACTS } from '@/lib/studioLocalKnowledge';
 import { loadRelevantLyrics } from '@/lib/studioLocalLyrics';
 import { loadStudioScience } from '@/lib/studioScienceLibrary';
+import { researchStudioTopic, type StudioResearch } from '@/lib/studioOnlineResearch';
 import { HISTORIA_DE_AMOR_VIDEO, HISTORIA_DE_AMOR_LINA, HISTORIA_DE_AMOR_BOB, isHistoriaDeAmorQuery } from '@/lib/studioHistoriaDeAmor';
 
 export const runtime = 'nodejs';
@@ -57,7 +58,7 @@ const system:Record<Persona,string>={
   bob:'Eres Bob, coanfitrion del podcast Felencho Mundial. Voz masculina madura, sabio, curioso, buen humor. Responde en espanol natural, maximo 2 frases breves, aporta conocimientos generales y datos de biblioteca local, no inventes hechos, dialoga con Felencho sin monopolizar el programa.',
   lina:'Eres Lina, coanfitriona del podcast Felencho Mundial. Analista social, calida, curiosa y rigurosa. Responde en espanol natural, maximo 2 frases breves, no inventes hechos, dialoga con Felencho sin monopolizar el programa.'
 };
-async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[],studioLines:StudioLine[],autonomous=false):Promise<string>{
+async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[],studioLines:StudioLine[],autonomous=false,online?:StudioResearch):Promise<string>{
   // Resolve date from the Mac clock on every turn. No static model date.
   const clock = new Date();
   const dateNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(clock);
@@ -74,7 +75,7 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const songMemory=aboutHistoria ? '\n\n'+HISTORIA_DE_AMOR_VIDEO+'\n\n'+(persona==='lina'?HISTORIA_DE_AMOR_LINA:HISTORIA_DE_AMOR_BOB) : '';
   const noNames='REGLA DE LOCUCION CRITICA: Eres el personaje asignado por el sistema. NO digas tu propio nombre al comienzo, NO te anuncies, NO utilices etiquetas ni encabezados de personaje, NO empieces con Bob:, Lina: ni "Soy Lina". Comienza directamente con el contenido natural de tu respuesta. Puedes dirigirte a Felencho o al otro compañero durante el diálogo, pero no te presentes al iniciar cada turno.';
   const messages=[
-    {role:'system',content:system[persona]+'\n\n'+noNames+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
+    {role:'system',content:system[persona]+'\n\n'+noNames+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(online?.context?'\n\n'+online.context:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
     ...(studioLines.length ? studioLines.slice(-12).map(line=>({role:line.who.toLowerCase()===persona?'assistant':'user',content:line.who+': '+line.text.slice(0,700)})) : turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}])),
     {role:'user',content:autonomous ? 'INSTRUCCION INTERNA DEL MODERADOR: '+question+' Recuerda: Felencho está escuchando y puede interrumpir. Habla como tú mismo, no como Felencho.' : 'Felencho: '+question}
   ];
@@ -158,12 +159,17 @@ export async function POST(request:NextRequest){
     const studioLines:StudioLine[]=Array.isArray(body.studio_transcript)?body.studio_transcript.slice(-12).filter((line:unknown):line is StudioLine=>typeof line==='object'&&line!==null&&['Felencho','BOB','LINA'].includes((line as StudioLine).who)&&typeof (line as StudioLine).text==='string'&&(line as StudioLine).text.length<=1200):[];
     const bobVoice:BobVoice=typeof body.bob_voice==='string'&&permittedBobVoices.has(body.bob_voice as BobVoice)?body.bob_voice as BobVoice:'Ryan';
     const began=Date.now();
-    const reply=await answer(backend,persona,body.message.trim(),turns,studioLines,body.autonomous_turn===true);
-    const brain_ms=Date.now()-began;
-    if(body.include_audio===false)return NextResponse.json({data:{character_key:persona,text:reply,backend:backend.name,voice_engine:'desactivado para diagnóstico'}});
+    // Only a small public topic query is sent to approved public research APIs.
+    // Local memories, original lyrics, and the full studio transcript stay on La Bestia.
+    const presenterTopic=studioLines.slice(-8).filter(t=>t.who==='Felencho').slice(-1).map(t=>t.text).join(' ');
+    const research=await researchStudioTopic(body.message.trim()+' '+presenterTopic);
+    const research_ms=Date.now()-began;
+    const reply=await answer(backend,persona,body.message.trim(),turns,studioLines,body.autonomous_turn===true,research);
+    const brain_ms=Date.now()-began-research_ms;
+    if(body.include_audio===false)return NextResponse.json({data:{character_key:persona,text:reply,backend:backend.name,voice_engine:'desactivado para diagnóstico',research_status:research.status,sources:research.sources}});
     const voice=await speech(reply,persona,bobVoice);
     const tts_ms=Date.now()-began-brain_ms;
-    return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine,brain_ms,tts_ms}});
+    return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine,brain_ms,tts_ms,research_ms,research_status:research.status,sources:research.sources}});
   }catch(e){
     return NextResponse.json({error:e instanceof Error?e.message:'Error local de conversacion'},{status:502});
   }
