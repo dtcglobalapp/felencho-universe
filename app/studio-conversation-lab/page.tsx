@@ -33,6 +33,8 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
+  const [bobVoice,setBobVoice] = useState<'Uncle_Fu'|'Ryan'|'Aiden'|'Eric'|'Dylan'>('Uncle_Fu');
+  const [lastSpeaker,setLastSpeaker] = useState<Persona|null>(null);
   const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [songTitle,setSongTitle] = useState('');
   const [songLyrics,setSongLyrics] = useState('');
@@ -62,6 +64,8 @@ export default function StudioConversationLab() {
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const publisherRef = useRef<Room | null>(null);
   const turnRef = useRef<Record<Persona, Turn[]>>({bob:[],lina:[]});
+  const studioTranscriptRef = useRef<Array<{who:'Felencho'|'BOB'|'LINA';text:string}>>([]);
+  const lastSpeakerRef = useRef<Persona|null>(null);
   const processRef = useRef<(text: string) => Promise<void>>(async () => {});
   const runningRef = useRef(false);
   useEffect(() => {
@@ -205,19 +209,22 @@ export default function StudioConversationLab() {
     activeRef.current=who;setActive(who);
     busyRef.current=true;setBusy(true);
     stopRecognizer();
-    setHistory(h=>[...h.slice(-12),{who:'Felencho',text}]);
+    studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:'Felencho',text}];
+    setHistory(h=>[...h.slice(-18),{who:'Felencho',text}]);
     setStatus('Consultando Felencho Brain para '+who.toUpperCase()+'...');
     await signal(who,'LISTENING');
     try{
       const res=await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),include_audio:!brainOnly}),
+        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:studioTranscriptRef.current.slice(-12,-1),bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:AbortSignal.timeout(210000)
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string};error?:string};
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
-      setHistory(h=>[...h.slice(-12),{who:who.toUpperCase(),text:json.data!.text!}]);
+      studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:who.toUpperCase() as 'BOB'|'LINA',text:json.data.text}];
+      lastSpeakerRef.current=who;setLastSpeaker(who);
+      setHistory(h=>[...h.slice(-18),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
       if(brainOnly){await signal(who,'IDLE');setAudioStatus('Voz desactivada: casilla «Probar solo cerebro Qwen» marcada');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');return;}
@@ -293,9 +300,18 @@ export default function StudioConversationLab() {
         setTimeout(()=>{if(liveRef.current && !busyRef.current && !recorderRef.current) void processRef.current('__restart__');},350);
       }
     }
-  },[signal,brainOnly]);
+  },[signal,brainOnly,bobVoice]);
   processRef.current=processText;
 
+  const passTurn=()=>{
+    const previous=lastSpeakerRef.current;
+    if(!previous||busyRef.current)return;
+    const next=previous==='bob'?'lina':'bob';
+    const previousName=previous==='bob'?'Bob':'Lina';
+    const request=next.toUpperCase()+', escucha lo que acaba de decir '+previousName+
+      ' y responde brevemente con tu propia opinion. Puedes hacerle una pregunta. No repitas todo su mensaje.';
+    void processRef.current(request);
+  };
   const saveLyrics=async()=>{
     if(!songTitle.trim()||songLyrics.trim().length<30){setSongStatus('Introduce un título y la letra original completa.');return;}
     setSongStatus('Guardando letra únicamente en La Bestia...');
@@ -338,6 +354,19 @@ export default function StudioConversationLab() {
         <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
+        <label className="block text-sm">Voz masculina de Bob (pruebas; Lina permanece Serena)
+          <select disabled={busy} value={bobVoice} onChange={e=>setBobVoice(e.target.value as typeof bobVoice)} className="mt-1 w-full rounded bg-slate-950 p-2">
+            <option value="Uncle_Fu">Uncle_Fu · voz anterior</option>
+            <option value="Ryan">Ryan · alternativa</option>
+            <option value="Aiden">Aiden · alternativa</option>
+            <option value="Eric">Eric · alternativa</option>
+            <option value="Dylan">Dylan · alternativa</option>
+          </select>
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <button disabled={!lastSpeaker||busy||!localOk} onClick={passTurn} className="rounded bg-indigo-500 px-4 py-2 font-semibold text-white disabled:opacity-40">Dar turno a {lastSpeaker==='bob'?'Lina':'Bob'}</button>
+          <span className="text-xs text-slate-400">Los dos comparten la conversacion. Un solo turno por pulsacion, sin dialogos infinitos.</span>
+        </div>
         <label className="block text-sm">Final de turno
           <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'vad'|'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
             <option value="vad">Manos libres: detectar silencio al terminar (recomendado)</option>
