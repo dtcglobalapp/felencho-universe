@@ -13,8 +13,17 @@ const clients = new Set();
 const server = createServer((req, res) => {
   const origin = req.headers.origin;
   if (!isAllowedOrigin(origin)) { res.writeHead(403).end('Origin rejected'); return; }
-  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
   res.setHeader('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204).end();
+    return;
+  }
   const url = new URL(req.url || '/', 'http://127.0.0.1:7891');
   if (req.method === 'GET' && url.pathname === '/health') {
     res.writeHead(200, {'Content-Type':'application/json'}).end(JSON.stringify({ ok: true, service: 'wake-bridge', clients: clients.size }));
