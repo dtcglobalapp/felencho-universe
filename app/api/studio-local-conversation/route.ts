@@ -43,14 +43,15 @@ async function discover():Promise<Backend|null>{
   return null;
 }
 const system:Record<Persona,string>={
-  bob:'Eres Bob, coanfitrion del podcast Felencho Mundial. Voz masculina madura, sabio, curioso, buen humor. Responde en espanol natural, maximo 3 frases, no inventes hechos, dialoga con Felencho sin monopolizar el programa.',
-  lina:'Eres Lina, coanfitriona del podcast Felencho Mundial. Analista social, calida, curiosa y rigurosa. Responde en espanol natural, maximo 3 frases, no inventes hechos, dialoga con Felencho sin monopolizar el programa.'
+  bob:'Eres Bob, coanfitrion del podcast Felencho Mundial. Voz masculina madura, sabio, curioso, buen humor. Responde en espanol natural, maximo 2 frases breves, no inventes hechos, dialoga con Felencho sin monopolizar el programa.',
+  lina:'Eres Lina, coanfitriona del podcast Felencho Mundial. Analista social, calida, curiosa y rigurosa. Responde en espanol natural, maximo 2 frases breves, no inventes hechos, dialoga con Felencho sin monopolizar el programa.'
 };
 async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[],studioLines:StudioLine[]):Promise<string>{
   // Resolve date from the Mac clock on every turn. No static model date.
   const clock = new Date();
   const dateNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(clock);
   const timeNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false}).format(clock);
+  // Keep live studio answers concise so the offline TTS has fewer samples to synthesize.
   const currentFacts='FECHA Y HORA VERIFICADAS DEL RELOJ LOCAL: Hoy es '+dateNY+', hora en Nueva York: '+timeNY+'. Usa esta fecha para responder preguntas temporales. No calcules la fecha usando datos del entrenamiento. No inventes clima, temperaturas, resultados de actualidad o cronologías de canciones sin fuentes. Si no puedes comprobarlo, dilo.';
   // Use the recent turns as context for follow-up questions about the same song.
   const recentSongContext = turns.slice(-3).some(turn => isHistoriaDeAmorQuery(turn.user) || isHistoriaDeAmorQuery(turn.assistant));
@@ -63,8 +64,8 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
     {role:'user',content:'Felencho: '+question}
   ];
   const payload=backend.format==='ollama'
-    ? {model:backend.model,messages,stream:false,keep_alive:'30m',options:{num_predict:160,temperature:0.5}}
-    : {model:backend.model,messages,stream:false,max_tokens:190,temperature:0.65};
+    ? {model:backend.model,messages,stream:false,keep_alive:'30m',options:{num_predict:105,temperature:0.45}}
+    : {model:backend.model,messages,stream:false,max_tokens:125,temperature:0.45};
   const response=await json(backend.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},60000);
   const raw=backend.format==='ollama'
     ? (response.message as {content?:string}|undefined)?.content
