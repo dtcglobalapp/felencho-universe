@@ -141,10 +141,13 @@ export async function POST(request:NextRequest){
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
     const studioLines:StudioLine[]=Array.isArray(body.studio_transcript)?body.studio_transcript.slice(-12).filter((line:unknown):line is StudioLine=>typeof line==='object'&&line!==null&&['Felencho','BOB','LINA'].includes((line as StudioLine).who)&&typeof (line as StudioLine).text==='string'&&(line as StudioLine).text.length<=1200):[];
     const bobVoice:BobVoice=typeof body.bob_voice==='string'&&permittedBobVoices.has(body.bob_voice as BobVoice)?body.bob_voice as BobVoice:'Uncle_Fu';
+    const began=Date.now();
     const reply=await answer(backend,persona,body.message.trim(),turns,studioLines,body.autonomous_turn===true);
+    const brain_ms=Date.now()-began;
     if(body.include_audio===false)return NextResponse.json({data:{character_key:persona,text:reply,backend:backend.name,voice_engine:'desactivado para diagnóstico'}});
     const voice=await speech(reply,persona,bobVoice);
-    return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine}});
+    const tts_ms=Date.now()-began-brain_ms;
+    return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine,brain_ms,tts_ms}});
   }catch(e){
     return NextResponse.json({error:e instanceof Error?e.message:'Error local de conversacion'},{status:502});
   }
