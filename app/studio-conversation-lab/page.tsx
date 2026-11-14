@@ -25,6 +25,8 @@ const base64Audio = (encoded: string, mime: string) => {
 
 export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
+  const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
+  const [brainOnly,setBrainOnly] = useState(false);
   const [live,setLive] = useState(false);
   const [busy,setBusy] = useState(false);
   const [active,setActive] = useState<Persona | null>(null);
@@ -61,7 +63,8 @@ export default function StudioConversationLab() {
         signal:AbortSignal.timeout(2500)
       });
       if(!response.ok) throw new Error('HTTP '+response.status);
-    }catch(e){setStatus('Puente visual desconectado: '+String(e));}
+      setBridgeStatus('Puente conectado · '+persona.toUpperCase()+' '+action);
+    }catch(e){setBridgeStatus('Puente visual desconectado: '+String(e));}
   },[]);
 
   const endPlayback = useCallback(() => {
@@ -138,7 +141,7 @@ export default function StudioConversationLab() {
     try{
       const res=await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4)}),
+        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),include_audio:!brainOnly}),
         signal:AbortSignal.timeout(210000)
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string};error?:string};
@@ -147,6 +150,7 @@ export default function StudioConversationLab() {
       setHistory(h=>[...h.slice(-12),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
+      if(brainOnly){setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');return;}
       if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
       const player=new Audio(url);playerRef.current=player;
@@ -201,8 +205,8 @@ export default function StudioConversationLab() {
       }
       await signal(who,'IDLE');
     }catch(error){
-      setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
       await signal(who,'IDLE');
+      setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
       // Avoid repeated local retries after failure; preserve resources.
       liveRef.current=false;setLive(false);
     }finally{
@@ -232,6 +236,7 @@ export default function StudioConversationLab() {
       <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local + Whisper local + voces Qwen3-TTS Serena/Uncle_Fu (respaldo macOS): sin APIs comerciales.</p>
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
+        <p className="text-xs text-amber-300">{bridgeStatus}</p>
         <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
@@ -239,6 +244,7 @@ export default function StudioConversationLab() {
           <button disabled={!localOk||live||busy} className="rounded bg-cyan-500 px-4 py-3 font-semibold text-black disabled:opacity-40" onClick={start}>Iniciar conversación</button>
           <button disabled={!live&&!busy} className="rounded border px-4 py-3 disabled:opacity-40" onClick={stop}>Detener conversación</button>
         </div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={brainOnly} onChange={e=>setBrainOnly(e.target.checked)} /> Probar solo cerebro Qwen (sin esperar voz)</label>
         <p className="text-xs text-slate-400">Ejemplo: «Lina, ¿cómo estás?»; después «¿qué opinas de Nueva York?»; «Lina, a dormir»; «Bob, buenos días».</p>
         <form onSubmit={e=>{e.preventDefault();if(typed.trim()){void processText(typed);setTyped('');}}} className="flex gap-2">
           <input className="min-w-0 flex-1 rounded bg-slate-950 p-2" value={typed} onChange={e=>setTyped(e.target.value)} placeholder="O escribe una pregunta para probar Brain..." aria-label="Pregunta"/>
