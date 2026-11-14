@@ -155,8 +155,6 @@ export default function StudioConversationLab() {
     const cleanup=()=>{clearInterval(interval);input.disconnect();void context.close().catch(()=>{});};
     const interval=setInterval(()=>{
       if(disarmed||!liveRef.current)return;
-      // Avoid reacting to leftover audio on startup.
-      if(Date.now()-warmup<500)return;
       analyser.getFloatTimeDomainData(buffer);
       let energy=0;for(let i=0;i<buffer.length;i++)energy+=buffer[i]*buffer[i];
       const rms=Math.sqrt(energy/buffer.length);
@@ -166,6 +164,7 @@ export default function StudioConversationLab() {
       // This is acoustic VAD, not speaker identification: mix-minus is essential.
       if(now-warmup<450) noiseFloor=0.85*noiseFloor+0.15*rms;
       const threshold=Math.max(0.012,noiseFloor*2.8);
+      if(now-warmup<650)return; // calibrate before responding to a presenter interruption
       if(rms>threshold)speechMs+=elapsed;else speechMs=0;
       if(now-warmup>650 && now%800<110)setInterruptStatus('Escuchando interrupciones · nivel '+rms.toFixed(3)+' / umbral '+threshold.toFixed(3));
       if(speechMs<280)return;
