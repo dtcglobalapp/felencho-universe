@@ -139,7 +139,7 @@ export default function StudioConversationLab() {
       const res=await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4)}),
-        signal:AbortSignal.timeout(90000)
+        signal:AbortSignal.timeout(210000)
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string};error?:string};
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
