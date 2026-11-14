@@ -569,7 +569,7 @@ export default function StudioConversationLab() {
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
         <p className="text-sm">Voz de Bob fijada en <strong>Ryan</strong> para esta prueba. Lina permanece Serena. No hay cambio automático de voz.</p>
-        <p className="text-xs text-slate-400">Mesa automática: «Bob y Lina, hablemos de Historia de amor». Ellos intercambian argumentos, y tú recuperas la palabra al intervenir.</p>
+        <p className="text-xs text-slate-400">Solo se activa el debate continuo si dices «Bob y Lina, debatan entre ustedes sobre Historia de amor». Para preguntar algo a uno de ellos, llama a Bob o Lina por su nombre.</p>
         <label className="block text-sm">Final de turno
           <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'vad'|'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
             <option value="vad">Manos libres: detectar silencio al terminar (recomendado)</option>
