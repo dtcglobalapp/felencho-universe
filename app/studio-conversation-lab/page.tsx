@@ -27,9 +27,9 @@ function classify(text: string, active: Persona | null) {
 }
 function debatePrompt(persona: Persona, topic: string): string {
   const other=persona==='bob'?'Lina':'Bob';
-  return (persona==='bob'?'Bob':'Lina')+', continúa el debate con '+other+
+  return 'Continúa el debate con '+other+
     '. Retoma el tema propuesto por Felencho: '+topic.slice(0,400)+
-    '. Responde al argumento más reciente de '+other+' y aporta una idea nueva en dos frases breves. No repitas el mismo dato.';
+    '. Responde al argumento más reciente de '+other+' y aporta una idea nueva en dos frases breves. No repitas el mismo dato. No digas tu nombre al comenzar.';
 }
 const base64Audio = (encoded: string, mime: string) => {
   const binary = atob(encoded);
