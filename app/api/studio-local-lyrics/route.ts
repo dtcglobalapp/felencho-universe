@@ -3,7 +3,7 @@ import {mkdir,readdir,readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {homedir} from 'node:os';
 export const runtime='nodejs';export const dynamic='force-dynamic';
-export const LOCAL_LYRICS_DIR=join(homedir(),'Documents','FelenchoMundial','letras-aprobadas');
+const LOCAL_LYRICS_DIR=join(homedir(),'Documents','FelenchoMundial','letras-aprobadas');
 function authorized(request:NextRequest){
  return process.env.NODE_ENV==='development' && ['localhost:3001','127.0.0.1:3001'].includes(request.headers.get('host')||'');
 }
@@ -27,17 +27,4 @@ export async function POST(request:NextRequest){
   await writeFile(file,body.lyrics.trim()+'\n',{encoding:'utf8',mode:0o600});
   return NextResponse.json({ok:true,title:name});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'No se pudo guardar letra'},{status:500})}
-}
-export async function loadRelevantLyrics(question:string){
- try{
-  const names=(await readdir(LOCAL_LYRICS_DIR)).filter(n=>n.endsWith('.txt'));
-  const norm=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const q=norm(question);
-  const matching=names.filter(n=>q.includes(norm(n.replace(/\.txt$/,'').replace(/-/g,' ')))).slice(0,2);
-  if(!matching.length)return '';
-  return (await Promise.all(matching.map(async n=>{
-   const content=(await readFile(join(LOCAL_LYRICS_DIR,n),'utf8')).slice(0,9000);
-   return 'LETRA ORIGINAL APROBADA: '+n.replace(/\.txt$/,'')+'\n'+content;
-  }))).join('\n\n');
- }catch{return ''}
 }
