@@ -23,10 +23,11 @@ function classify(text: string, active: Persona | null) {
     return {persona: null as Persona | null, command: 'ambient'};
   }
   const words = normalize(text).match(/[a-z0-9]+/g) || [];
-  const bob = words.includes('bob'), lina = words.includes('lina');
+  // Whisper often turns "Lina" into "Linas", "Linna" or "Lin".
+  const bob = words.includes('bob'), lina = words.some(word=>['lina','linas','linna','lin','lino','linna'].includes(word));
   // If both cohosts are mentioned, the first name is the addressee.
   // Example: "Bob, preguntale a Lina..." must go to Bob, not be rejected.
-  const firstBob = words.indexOf('bob'), firstLina = words.indexOf('lina');
+  const firstBob = words.indexOf('bob'), firstLina = words.findIndex(word=>['lina','linas','linna','lin','lino'].includes(word));
   if (bob && lina) return {persona: (firstBob < firstLina ? 'bob' : 'lina') as Persona, command: 'question'};
   const persona: Persona | null = bob ? 'bob' : lina ? 'lina' : active;
   if (!persona) return {persona: null as Persona | null, command: 'unaddressed'};
@@ -353,6 +354,13 @@ export default function StudioConversationLab() {
       }
     }
     const routed=internal ? {persona:internal as Persona,command:'question'} : classify(text,activeRef.current);
+    if(!internal && /\b(smart|nuestro tecnico|nuestro arquitecto|notas para ti smart)\b/.test(normalize(text))){
+      // Smart is the technical architect, not an on-air cohost. Producer notes
+      // should not be treated as a question to whichever agent last spoke.
+      setStatus('Nota técnica para Smart registrada; Bob y Lina escuchando a Felencho.');
+      if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),220);
+      return;
+    }
     if(!internal && !routed.persona && debateRef.current)routed.persona='bob';
     if(routed.command==='ambient'){
       setStatus('Sonido ambiental ignorado. Esperando una pregunta dirigida a Bob o Lina.');
