@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 type Persona = 'bob'|'lina';
 type Turn = {user:string;assistant:string};
 type StudioLine = {who:'Felencho'|'BOB'|'LINA';text:string};
-type BobVoice = 'Uncle_Fu'|'Ryan'|'Aiden'|'Eric'|'Dylan';
-const permittedBobVoices = new Set<BobVoice>(['Uncle_Fu','Ryan','Aiden','Eric','Dylan']);
+type BobVoice = 'Ryan'|'Aiden'|'Eric'|'Dylan';
+const permittedBobVoices = new Set<BobVoice>(['Ryan','Aiden','Eric','Dylan']);
 function localOnly(request: NextRequest) {
   const host=request.headers.get('host')||'';
   return process.env.NODE_ENV==='development' && ['localhost:3001','127.0.0.1:3001'].includes(host);
@@ -106,7 +106,8 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
       const wav=await readFile(join(dir,'qwen','audio_000.wav'));
       if(wav.length>100)return {audio:wav.toString('base64'),engine:'Qwen3-TTS '+(persona==='bob'?bobVoice:'Serena')};
     }catch(error){
-      console.warn('[Studio local] Voz Qwen no disponible; voz macOS provisional:',String(error));
+      if(persona==='bob') throw new Error('Voz Bob Qwen3-TTS '+bobVoice+' no disponible: '+String(error)+'. No se usará otra voz sin autorización.');
+      console.warn('[Studio local] Serena Qwen no disponible; voz macOS provisional:',String(error));
     }
     const aiff=join(dir,'voice.aiff'),wav=join(dir,'voice.wav');
     const lines=await new Promise<string>(resolve=>{
@@ -127,7 +128,7 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
 export async function GET(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   const backend=await discover();
-  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena/Uncle_Fu instalado o voz macOS offline de respaldo',requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena para Lina / Ryan para Bob (otras voces masculinas opcionales)',requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
@@ -140,7 +141,7 @@ export async function POST(request:NextRequest){
     const backend=await discover();
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
     const studioLines:StudioLine[]=Array.isArray(body.studio_transcript)?body.studio_transcript.slice(-12).filter((line:unknown):line is StudioLine=>typeof line==='object'&&line!==null&&['Felencho','BOB','LINA'].includes((line as StudioLine).who)&&typeof (line as StudioLine).text==='string'&&(line as StudioLine).text.length<=1200):[];
-    const bobVoice:BobVoice=typeof body.bob_voice==='string'&&permittedBobVoices.has(body.bob_voice as BobVoice)?body.bob_voice as BobVoice:'Uncle_Fu';
+    const bobVoice:BobVoice=typeof body.bob_voice==='string'&&permittedBobVoices.has(body.bob_voice as BobVoice)?body.bob_voice as BobVoice:'Ryan';
     const began=Date.now();
     const reply=await answer(backend,persona,body.message.trim(),turns,studioLines,body.autonomous_turn===true);
     const brain_ms=Date.now()-began;
