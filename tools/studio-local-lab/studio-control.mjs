@@ -3,7 +3,7 @@
 import {createServer} from 'node:http';
 import {spawn} from 'node:child_process';
 import {connect} from 'node:net';
-import {mkdirSync, existsSync, createWriteStream} from 'node:fs';
+import {mkdirSync, existsSync, createWriteStream, writeFileSync} from 'node:fs';
 import {homedir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -12,6 +12,13 @@ const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
 const home=homedir();
 const logs=join(home,'Library','Logs','FelenchoStudioLab');
 mkdirSync(logs,{recursive:true});
+const displayEpochFile=join(logs,'display-generation.json');
+const publishDisplayEpoch=()=>{
+ // Shared with the Next.js route; TVs poll this version without accessing port 7892.
+ // Update only when the web service is started by Studio Control.
+ const generation={generation:new Date().toISOString()+'-'+process.pid+'-'+Math.random().toString(36).slice(2,9)};
+ writeFileSync(displayEpochFile,JSON.stringify(generation),{mode:0o600});
+};
 process.env.PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:'+process.env.PATH;
 const services={
  livekit:{label:'LiveKit',port:7880,cmd:'livekit-server',args:['--dev'],cwd:root},
@@ -56,6 +63,7 @@ async function start(key){
  const log=createWriteStream(join(logs,key+'.log'),{flags:'a'});
  log.write('\nSTART '+new Date().toISOString()+'\n');
  const child=spawn(s.cmd,s.args,{cwd:s.cwd,env:process.env,detached:true,stdio:['ignore','pipe','pipe']});
+ if(key==='web')publishDisplayEpoch();
  owned.set(key,child);
  child.stdout.pipe(log,{end:false});child.stderr.pipe(log,{end:false});
  child.on('error',e=>log.write('ERROR '+e.message+'\n'));
