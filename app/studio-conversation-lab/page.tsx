@@ -33,7 +33,7 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
-  const [turnMode,setTurnMode] = useState<'manual'|'auto'>('manual');
+  const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [songTitle,setSongTitle] = useState('');
   const [songLyrics,setSongLyrics] = useState('');
   const [songStatus,setSongStatus] = useState('Sin letras cargadas en esta sesión');
@@ -56,7 +56,8 @@ export default function StudioConversationLab() {
   const liveRef = useRef(false);
   const busyRef = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const turnModeRef = useRef<'manual'|'auto'>('manual');
+  const vadCleanupRef = useRef<(() => void) | null>(null);
+  const turnModeRef = useRef<'vad'|'manual'|'auto'>('vad');
   const microphoneRef = useRef<MediaStream | null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const publisherRef = useRef<Room | null>(null);
@@ -94,10 +95,11 @@ export default function StudioConversationLab() {
     playerRef.current = null;
   },[]);
   const stopRecognizer = () => {
+    vadCleanupRef.current?.();vadCleanupRef.current=null;
     if(recorderRef.current?.state==='recording')recorderRef.current.stop();
     setRecording(false);
   };
-  const finishTurn=()=>{if(recorderRef.current?.state==='recording')recorderRef.current.stop();setRecording(false);};
+  const finishTurn=()=>{vadCleanupRef.current?.();vadCleanupRef.current=null;if(recorderRef.current?.state==='recording')recorderRef.current.stop();setRecording(false);};
   const resumeListening = () => {
     busyRef.current = false;setBusy(false);
     if(liveRef.current) {
@@ -117,11 +119,14 @@ export default function StudioConversationLab() {
         const recorder=new MediaRecorder(stream,{mimeType:'audio/webm'});
         recorderRef.current=recorder;
         const chunks:Blob[]=[];
+        let discardSilence=false;
         recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
         recorder.onstop=async()=>{
+          vadCleanupRef.current?.();vadCleanupRef.current=null;
           if(recorderRef.current===recorder)recorderRef.current=null;
           setRecording(false);
           if(!liveRef.current||busyRef.current)return;
+          if(discardSilence){setStatus('Esperando voz clara de Felencho...');setTimeout(()=>void processRef.current('__restart__'),150);return;}
           try{
             const blob=new Blob(chunks,{type:'audio/webm'});
             if(!blob.size)throw new Error('Segmento sin audio');
@@ -140,7 +145,38 @@ export default function StudioConversationLab() {
         };
         recorder.start();
         setRecording(true);
-        if(turnModeRef.current==='auto'){
+        if(turnModeRef.current==='vad'){
+          setStatus('Escuchando en modo manos libres. Lina responderá cuando termines y haya una pausa natural.');
+          // Browser-side acoustic detection only. No streaming audio leaves this Mac.
+          // The microphone is never connected to the speakers (avoids feedback).
+          const context=new AudioContext();
+          const input=context.createMediaStreamSource(stream);
+          const analyser=context.createAnalyser();
+          analyser.fftSize=2048;
+          input.connect(analyser);
+          const samples=new Float32Array(analyser.fftSize);
+          const started=Date.now();
+          let speechMs=0,lastSound=0,lastTick=Date.now();
+          const interval=setInterval(()=>{
+            if(recorder.state!=='recording')return;
+            analyser.getFloatTimeDomainData(samples);
+            let total=0;
+            for(let i=0;i<samples.length;i++)total+=samples[i]*samples[i];
+            const rms=Math.sqrt(total/samples.length);
+            const now=Date.now(),elapsed=Math.min(250,now-lastTick);
+            lastTick=now;
+            // Practical starting threshold for studio speech; manual mode remains available.
+            if(rms>0.018){speechMs+=elapsed;lastSound=now;}
+            // Require 350 ms accumulated speech and 1.8 s of quiet after it.
+            if(speechMs>=350 && now-lastSound>=1800){
+              finishTurn();
+            } else if(now-started>=45000){
+              if(speechMs<350)discardSilence=true;
+              finishTurn();
+            }
+          },100);
+          vadCleanupRef.current=()=>{clearInterval(interval);input.disconnect();void context.close().catch(()=>{});};
+        } else if(turnModeRef.current==='auto'){
           setStatus('Escuchando localmente. Segmento automático de 18 segundos.');
           setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},18000);
         } else {
@@ -303,13 +339,14 @@ export default function StudioConversationLab() {
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
         <label className="block text-sm">Final de turno
-          <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
-            <option value="manual">Yo indico cuándo terminé (recomendado para entrevistas)</option>
+          <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'vad'|'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
+            <option value="vad">Manos libres: detectar silencio al terminar (recomendado)</option>
+            <option value="manual">Yo indico cuándo terminé (entrevistas largas)</option>
             <option value="auto">Automático, cada 18 segundos (prueba)</option>
           </select>
         </label>
         <div className="flex flex-wrap gap-3">
-          {live && recording && turnMode==='manual' && <button onClick={finishTurn} className="rounded bg-amber-400 px-4 py-3 font-semibold text-black">Terminé de hablar</button>}
+          {live && recording && (turnMode==='manual'||turnMode==='vad') && <button onClick={finishTurn} className="rounded bg-amber-400 px-4 py-3 font-semibold text-black">Terminé de hablar</button>}
           <button disabled={!localOk||live||busy} className="rounded bg-cyan-500 px-4 py-3 font-semibold text-black disabled:opacity-40" onClick={start}>Iniciar conversación</button>
           <button disabled={!live&&!busy} className="rounded border px-4 py-3 disabled:opacity-40" onClick={stop}>Detener conversación</button>
         </div>
@@ -334,7 +371,7 @@ export default function StudioConversationLab() {
         <button onClick={()=>void saveLyrics()} className="mt-2 rounded bg-cyan-500 px-4 py-2 font-semibold text-black">Guardar letra en La Bestia</button>
         <p className="mt-2 text-sm">{songStatus}</p>
       </details>
-      <p className="text-xs text-slate-400">Sin APIs comerciales: Qwen local + Whisper local + voz integrada macOS; modo manual de turnos o segmentos automáticos de 18 segundos.</p>
+      <p className="text-xs text-slate-400">Sin APIs comerciales: Qwen local + Whisper local + voz integrada macOS; detección de pausas naturales, modo manual o segmentos de 18 segundos.</p>
       {reply && <p className="sr-only" aria-live="polite">{reply}</p>}
     </div>
   </main>;
