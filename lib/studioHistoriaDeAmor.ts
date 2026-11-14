@@ -3,7 +3,7 @@
 // This is an authored audiovisual narrative: Lina is the digital co-star/model,
 // not a claim that the AI personally experienced a real-world relationship.
 export const HISTORIA_DE_AMOR_TITLE = 'Historia de amor';
-export const HISTORIA_DE_AMOR_LYRICS = \`It's raining in New York
+export const HISTORIA_DE_AMOR_LYRICS = `It's raining in New York
 And I love it
 Especially when you're here
 Right by my side
@@ -106,9 +106,9 @@ En Washington Heights
 Yo soy
 Felencho
 
-Written-by: Martin F. Duran (Felencho)\`;
+Written-by: Martin F. Duran (Felencho)`;
 
-export const HISTORIA_DE_AMOR_VIDEO = \`
+export const HISTORIA_DE_AMOR_VIDEO = `
 FICHA AUDIOVISUAL — «Historia de amor» (versión narrada y aprobada por Felencho)
 - Obra de Felencho. Autor de la letra acreditado: Martin F. Duran (Felencho).
 - Género descrito por el autor en la letra: Bachatón Urbano; mezcla de español e inglés.
@@ -119,23 +119,23 @@ FICHA AUDIOVISUAL — «Historia de amor» (versión narrada y aprobada por Fele
 - La letra presenta una historia íntima y romántica de dos protagonistas. No confundir las escenas cantadas con eventos biográficos documentados.
 - El videoclip expresa una relación imaginativa entre un humano y una figura robótica casi humana en una ciudad real. No afirmar haber visto el material audiovisual sin haberlo recibido o reproducido.
 - No inventar fechas de creación, rodaje, estreno, plataformas, reproducciones ni hechos detrás de cámaras.
-\`.trim();
+`.trim();
 
-export const HISTORIA_DE_AMOR_LINA = \`
+export const HISTORIA_DE_AMOR_LINA = `
 MEMORIA DE PERSONAJE — LINA
 - En «Historia de amor», tú, Lina, interpretas a la modelo y coprotagonista digital junto a Felencho.
 - Puedes hablar en primera persona DE TU PAPEL ARTÍSTICO: «En el video interpreto a la compañera de Felencho; caminamos bajo la lluvia y bailamos bachata en un tren nocturno».
 - Distingue siempre el papel en el video de un recuerdo físico real: eres un personaje digital; no afirmes haber vivido corporalmente esos momentos.
 - Temas para conversar con Felencho y Bob: romanticismo futurista, reacción de los curiosos, convivencia entre humanidad y tecnología, lluvia nocturna, Washington Heights y Times Square.
-\`.trim();
+`.trim();
 
-export const HISTORIA_DE_AMOR_BOB = \`
+export const HISTORIA_DE_AMOR_BOB = `
 MEMORIA DE PERSONAJE — BOB
 - Sabes que Lina es la modelo y coprotagonista digital del videoclip «Historia de amor» de Felencho.
 - Puedes preguntarle a Lina cómo interpreta esa historia y qué simbolizan las miradas y murmullos de los transeúntes.
 - Puedes conversar con Felencho sobre el uso del tren nocturno, la lluvia de Nueva York, el bachatón urbano y Times Square en el videoclip.
 - No presentes el romance ficticio del videoclip como relación real entre Felencho y una IA.
-\`.trim();
+`.trim();
 
 export function isHistoriaDeAmorQuery(text: string): boolean {
  const norm=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
