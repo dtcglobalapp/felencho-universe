@@ -5,6 +5,7 @@ import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { STUDIO_FELENCHO_FACTS } from '@/lib/studioLocalKnowledge';
 import { loadRelevantLyrics } from '@/lib/studioLocalLyrics';
+import { loadStudioScience } from '@/lib/studioScienceLibrary';
 import { HISTORIA_DE_AMOR_VIDEO, HISTORIA_DE_AMOR_LINA, HISTORIA_DE_AMOR_BOB, isHistoriaDeAmorQuery } from '@/lib/studioHistoriaDeAmor';
 
 export const runtime = 'nodejs';
@@ -58,8 +59,9 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const aboutHistoria = isHistoriaDeAmorQuery(question) || recentSongContext;
   const lyrics=await loadRelevantLyrics(aboutHistoria ? 'Historia de amor' : question);
   const songMemory=aboutHistoria ? '\n\n'+HISTORIA_DE_AMOR_VIDEO+'\n\n'+(persona==='lina'?HISTORIA_DE_AMOR_LINA:HISTORIA_DE_AMOR_BOB) : '';
+  const science=loadStudioScience(question+' '+studioLines.slice(-8).map(line=>line.text).join(' '));
   const messages=[
-    {role:'system',content:system[persona]+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
+    {role:'system',content:system[persona]+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
     ...(studioLines.length ? studioLines.slice(-12).map(line=>({role:line.who.toLowerCase()===persona?'assistant':'user',content:line.who+': '+line.text.slice(0,700)})) : turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}])),
     {role:'user',content:autonomous ? 'INSTRUCCION INTERNA DEL MODERADOR: '+question+' Recuerda: Felencho está escuchando y puede interrumpir. Habla como tú mismo, no como Felencho.' : 'Felencho: '+question}
   ];
