@@ -209,7 +209,7 @@ export default function StudioConversationLab() {
       busyRef.current=false;setBusy(false);
       if(liveRef.current) {
         setStatus('Escuchando: '+who.toUpperCase()+' conserva el turno. Puedes llamar al otro por su nombre.');
-        setTimeout(()=>{if(liveRef.current && !busyRef.current && !speechRef.current) void processRef.current('__restart__');},350);
+        setTimeout(()=>{if(liveRef.current && !busyRef.current && !recorderRef.current) void processRef.current('__restart__');},350);
       }
     }
   },[signal]);
