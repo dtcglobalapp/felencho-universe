@@ -50,7 +50,7 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
-  const [bobVoice,setBobVoice] = useState<'Ryan'|'Aiden'|'Eric'|'Dylan'>('Ryan');
+  const bobVoice = 'Ryan' as const; // One stable speaker identity until Felencho approves a replacement.
 
   const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [debateState,setDebateState] = useState('Mesa preparada: presenta un tema para iniciar el debate.');
@@ -60,6 +60,8 @@ export default function StudioConversationLab() {
   const [songCount,setSongCount] = useState(0);
   const [recording,setRecording] = useState(false);
   const [audioStatus,setAudioStatus] = useState('Voz todavía no probada');
+  const [timing,setTiming] = useState('Sin mediciones de respuesta todavía');
+  const [lastVoiceEngine,setLastVoiceEngine] = useState('Voz aún no generada');
   const [interruptStatus,setInterruptStatus] = useState('Micrófono de interrupción: esperando conversación');
   const [researchStatus,setResearchStatus] = useState('Sin búsqueda online en esta sesión');
   const [researchSources,setResearchSources] = useState<Array<{title:string;url:string;publisher:string;date?:string}>>([]);
@@ -406,6 +408,8 @@ export default function StudioConversationLab() {
       if(controller.signal.aborted || interruptedRef.current)return;
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
+      setLastVoiceEngine(who.toUpperCase()+': '+(json.data.voice_engine||'sin identificador de voz'));
+      setTiming(who.toUpperCase()+' · búsqueda '+((json.data.research_ms||0)/1000).toFixed(1)+' s · cerebro '+((json.data.brain_ms||0)/1000).toFixed(1)+' s · voz '+((json.data.tts_ms||0)/1000).toFixed(1)+' s');
       setResearchSources(json.data.sources||[]);
       setResearchStatus(json.data.research_status==='online' ?
         'Fuentes online encontradas (investigación '+((json.data.research_ms||0)/1000).toFixed(1)+' s)' :
@@ -541,6 +545,8 @@ export default function StudioConversationLab() {
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-xs text-amber-300">{bridgeStatus}</p>
         <p className="text-sm">Audio: {audioStatus}</p>
+        <p className="text-xs text-cyan-300">Última medición: {timing}</p>
+        <p className="text-xs text-slate-300">Motor de voz: {lastVoiceEngine}</p>
         <p className="text-xs text-slate-300">Interrupciones: {interruptStatus}. La entrada debe contener tu micrófono sin retorno de las voces de Bob/Lina.</p>
         <details className="rounded border border-slate-700 p-2">
           <summary className="cursor-pointer text-sm">Fuentes de investigación · {researchStatus}</summary>
@@ -562,15 +568,7 @@ export default function StudioConversationLab() {
         <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
-        <label className="block text-sm">Voz masculina de Bob (pruebas; Lina permanece Serena)
-          <select disabled={busy} value={bobVoice} onChange={e=>setBobVoice(e.target.value as typeof bobVoice)} className="mt-1 w-full rounded bg-slate-950 p-2">
-            
-            <option value="Ryan">Ryan · predeterminada de Bob</option>
-            <option value="Aiden">Aiden · alternativa</option>
-            <option value="Eric">Eric · alternativa</option>
-            <option value="Dylan">Dylan · alternativa</option>
-          </select>
-        </label>
+        <p className="text-sm">Voz de Bob fijada en <strong>Ryan</strong> para esta prueba. Lina permanece Serena. No hay cambio automático de voz.</p>
         <p className="text-xs text-slate-400">Mesa automática: «Bob y Lina, hablemos de Historia de amor». Ellos intercambian argumentos, y tú recuperas la palabra al intervenir.</p>
         <label className="block text-sm">Final de turno
           <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'vad'|'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
