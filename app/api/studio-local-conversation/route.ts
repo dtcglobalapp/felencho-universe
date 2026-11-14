@@ -82,7 +82,7 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const payload=backend.format==='ollama'
     ? {model:backend.model,messages,stream:false,keep_alive:'30m',options:{num_predict:105,temperature:0.45}}
     : {model:backend.model,messages,stream:false,max_tokens:125,temperature:0.45};
-  const response=await json(backend.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},60000);
+  const response=await json(backend.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},35000);
   const raw=backend.format==='ollama'
     ? (response.message as {content?:string}|undefined)?.content
     : ((response.choices as Array<{message?:{content?:string}}>|undefined)?.[0]?.message?.content);
@@ -115,7 +115,7 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
       await new Promise<void>((resolve,reject)=>{
         let finished=false;
         const settle=(error?:Error)=>{if(finished)return;finished=true;clearTimeout(timer);error?reject(error):resolve()};
-        const timer=setTimeout(()=>{child.kill('SIGTERM');settle(new Error('Qwen TTS tardó demasiado'))},120000);
+        const timer=setTimeout(()=>{child.kill('SIGTERM');settle(new Error('Qwen TTS superó 45 segundos'))},45000);
         child.once('error',e=>settle(e));
         child.once('close',code=>settle(code===0?undefined:new Error('Qwen3 TTS codigo '+code)));
       });
