@@ -410,11 +410,18 @@ export default function StudioConversationLab() {
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:controller.signal
       });
-      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;brain_ms?:number;tts_ms?:number;research_status?:'online'|'offline'|'not-needed';research_ms?:number;sources?:Array<{title:string;url:string;publisher:string;date?:string}>};error?:string};
+      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;memory_saved?:boolean;brain_ms?:number;tts_ms?:number;research_status?:'online'|'offline'|'not-needed';research_ms?:number;sources?:Array<{title:string;url:string;publisher:string;date?:string}>};error?:string};
       if(turnDeadlineRef.current)clearTimeout(turnDeadlineRef.current);
       turnDeadlineRef.current=null;
       if(controller.signal.aborted || interruptedRef.current)return;
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
+      if(json.data.memory_saved===true){
+        setReply(json.data.text);
+        setStatus('Memoria aprobada registrada en La Bestia. Bob y Lina pueden recuperarla en otra sesión.');
+        setAudioStatus('Dato guardado localmente sin llamar a Qwen ni al sintetizador');
+        await Promise.all([signal('bob','LISTENING'),signal('lina','LISTENING')]);
+        return;
+      }
       setReply(json.data.text);
       setLastVoiceEngine(who.toUpperCase()+': '+(json.data.voice_engine||'sin identificador de voz'));
       setTiming(who.toUpperCase()+' · búsqueda '+((json.data.research_ms||0)/1000).toFixed(1)+' s · cerebro '+((json.data.brain_ms||0)/1000).toFixed(1)+' s · voz '+((json.data.tts_ms||0)/1000).toFixed(1)+' s');
