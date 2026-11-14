@@ -36,7 +36,7 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
-  const [bobVoice,setBobVoice] = useState<'Uncle_Fu'|'Ryan'|'Aiden'|'Eric'|'Dylan'>('Uncle_Fu');
+  const [bobVoice,setBobVoice] = useState<'Ryan'|'Aiden'|'Eric'|'Dylan'>('Ryan');
 
   const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [debateState,setDebateState] = useState('Mesa preparada: presenta un tema para iniciar el debate.');
@@ -65,7 +65,7 @@ export default function StudioConversationLab() {
   const vadCleanupRef = useRef<(() => void) | null>(null);
   const turnModeRef = useRef<'vad'|'manual'|'auto'>('vad');
   const microphoneRef = useRef<MediaStream | null>(null);
-  const debateRef = useRef<{remaining:number;topic:string}|null>(null);
+  const debateRef = useRef<{topic:string}|null>(null);
   const debateTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null);
   const interruptedRef = useRef(false);
   const interruptCaptureRef = useRef<MediaRecorder|null>(null);
@@ -242,6 +242,7 @@ export default function StudioConversationLab() {
         };
         recorder.start();
         setRecording(true);
+        void Promise.all([signal('bob','LISTENING'),signal('lina','LISTENING')]);
         if(turnModeRef.current==='vad'){
           setStatus('Escuchando en modo manos libres. Lina responderá cuando termines y haya una pausa natural.');
           // Browser-side acoustic detection only. No streaming audio leaves this Mac.
@@ -306,9 +307,11 @@ export default function StudioConversationLab() {
       // A substantive topic addressed to both also starts their roundtable.
       const debateCue=/\b(hablemos|vamos a hablar|vamos a debatir|quiero hablar|quiero debatir|el tema es|tema de hoy|debatan|debatamos|conversen|discutan|opinen|opinion|opiniones|puntos de vista|que opinan|continuen el debate|sigan conversando)\b/.test(n);
       const startsDebate=debateCue || (bothNamed && n.length>65 && /\b(sobre|acerca de|tema|debate|conversar|hablar|opinan|piensan|discutir)\b/.test(n));
-      if(startsDebate){
-        debateRef.current={remaining:7,topic:text};
-        setDebateState('Mesa de Bob y Lina activada por Felencho; turnos alternados automáticos.');
+      if(/\b(terminamos|terminen|finalicen|se acabo el tema|cambien de tema|paren el debate|silencio los dos|basta de debate|detengan el debate)\b/.test(n)){
+        clearDebate();
+      } else if(startsDebate){
+        debateRef.current={topic:text};
+        setDebateState('Mesa activa: Bob y Lina debatirán hasta que Felencho los interrumpa o cierre el tema.');
       } else {
         debateRef.current=null;
         setDebateState('Mesa en escucha: esperando el próximo tema.');
@@ -342,7 +345,7 @@ export default function StudioConversationLab() {
       setHistory(h=>[...h.slice(-18),{who:'Felencho',text}]);
     }
     setStatus('Consultando Felencho Brain para '+who.toUpperCase()+'...');
-    await signal(who,'LISTENING');
+    await Promise.all([signal(who,'LISTENING'),signal(who==='bob'?'lina':'bob','LISTENING')]);
     // A spoken request to one cohost to ask the other schedules exactly one
     // response from the second cohost. It is not an autonomous infinite loop.
     const spoken = normalize(text);
@@ -400,7 +403,7 @@ export default function StudioConversationLab() {
           if(ctx) {await ctx.close().catch(()=>{});ctx=null;}
           publishedTrack=null;publishedRoom=null;
         }
-        await signal(who,'SPEAKING');
+        await Promise.all([signal(who,'SPEAKING'),signal(who==='bob'?'lina':'bob','LISTENING')]);
         setAudioStatus('Reproduciendo '+(json.data.voice_engine||'voz local')+' · '+delivery);
         setStatus(who.toUpperCase()+' hablando ('+delivery+'). Reconocimiento pausado.');
         await new Promise<void>((resolve,reject)=>{
@@ -417,7 +420,7 @@ export default function StudioConversationLab() {
         playerRef.current=null;
         URL.revokeObjectURL(url);
       }
-      await signal(who,'IDLE');
+      await signal(who,'LISTENING');
       setAudioStatus('Reproducción finalizada · '+(json.data.voice_engine||'voz local'));
       answered=true;
     }catch(error){
@@ -431,14 +434,10 @@ export default function StudioConversationLab() {
       interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;
       activeRequestRef.current=null;
       busyRef.current=false;setBusy(false);
-      if(answered && debateRef.current && !interruptedRef.current && !brainOnly && liveRef.current && debateRef.current.remaining>0){
+      if(answered && debateRef.current && !interruptedRef.current && !brainOnly && liveRef.current){
         const next=who==='bob'?'lina':'bob';
-        debateRef.current.remaining--;
-        setDebateState('Debatiendo: '+next.toUpperCase()+' responderá a '+who.toUpperCase()+'. Restan '+debateRef.current.remaining+' turnos adicionales.');
-        debateTimerRef.current=setTimeout(()=>{if(!busyRef.current && !interruptedRef.current && liveRef.current)void processRef.current('__debate__'+next);},250);
-      } else if(answered && debateRef.current && !debateRef.current.remaining){
-        debateRef.current=null;setDebateState('Debate finalizado tras ocho intervenciones. Felencho puede presentar otro tema o pedir que continúen.');
-        if(liveRef.current)setTimeout(()=>{if(liveRef.current&&!busyRef.current)void processRef.current('__restart__');},350);
+        setDebateState('Debate abierto bajo la dirección de Felencho: '+next.toUpperCase()+' responderá a '+who.toUpperCase()+'.');
+        debateTimerRef.current=setTimeout(()=>{if(!busyRef.current && !interruptedRef.current && liveRef.current && debateRef.current)void processRef.current('__debate__'+next);},180);
       } else if(answered && scheduledReply && !interruptedRef.current && liveRef.current){
         setStatus('Cediendo la palabra a '+scheduledReply.toUpperCase()+' por instrucción de Felencho.');
         setTimeout(()=>{if(!busyRef.current)void processRef.current('__handoff__'+scheduledReply);},400);
@@ -498,7 +497,7 @@ export default function StudioConversationLab() {
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
         <label className="block text-sm">Voz masculina de Bob (pruebas; Lina permanece Serena)
           <select disabled={busy} value={bobVoice} onChange={e=>setBobVoice(e.target.value as typeof bobVoice)} className="mt-1 w-full rounded bg-slate-950 p-2">
-            <option value="Uncle_Fu">Uncle_Fu · voz anterior</option>
+            
             <option value="Ryan">Ryan · alternativa</option>
             <option value="Aiden">Aiden · alternativa</option>
             <option value="Eric">Eric · alternativa</option>
