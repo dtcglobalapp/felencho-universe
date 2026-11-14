@@ -7,6 +7,14 @@ type Persona = 'bob' | 'lina';
 type Turn = {user: string; assistant: string};
 const isLocal = () => typeof window !== 'undefined' && ['localhost','127.0.0.1'].includes(window.location.hostname);
 const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const isNoiseOrFragment = (value:string) => {
+  const n=normalize(value).replace(/\[[^\]]*\]/g,' ').replace(/\([^)]*\)/g,' ').trim();
+  if(!n||n.length<10)return true;
+  if(/\b(power\s*100|calenton de la manana|subtitulos|gracias por ver|musica de fondo|anuncios?)\b/.test(n))return true;
+  if(/\b(escuchame|una pregunta|que opinas|que opinion|que te parece|quiero preguntarte)\b/.test(n) &&
+     /\b(de lo que|de que|sobre lo que|de la|de los|para ustedes|a usted)\s*$/.test(n))return true;
+  return false;
+};
 function classify(text: string, active: Persona | null) {
   // Whisper may return non-speech sound annotations; never send them to Qwen.
   const cleaned = normalize(text).trim();
@@ -313,6 +321,11 @@ export default function StudioConversationLab() {
           : 'Lina, responde a lo que dijo Bob en la mesa. Aporta tu perspectiva brevemente.')
        : raw.trim()).slice(0,1200);
     if(!text || busyRef.current || !isLocal())return;
+    if(!internal && isNoiseOrFragment(text)){
+      setStatus('Whisper: anuncio, música o frase incompleta ignorada. Escuchando a Felencho.');
+      if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),180);
+      return;
+    }
     if(!internal){
       nextTurnRef.current?.controller.abort();nextTurnRef.current=null;
       interruptedRef.current=false;
@@ -323,8 +336,10 @@ export default function StudioConversationLab() {
       // Covers the actual live introduction: "Bob y Lina, vamos a debatir
       // sobre el cerebro humano..." (previous rule forgot "vamos a debatir").
       // A substantive topic addressed to both also starts their roundtable.
-      const debateCue=/\b(hablemos|vamos a hablar|vamos a debatir|quiero hablar|quiero debatir|el tema es|tema de hoy|debatan|debatamos|conversen|discutan|opinen|opinion|opiniones|puntos de vista|que opinan|continuen el debate|sigan conversando)\b/.test(n);
-      const startsDebate=debateCue || (bothNamed && n.length>65 && /\b(sobre|acerca de|tema|debate|conversar|hablar|opinan|piensan|discutir)\b/.test(n));
+      // Only a deliberate invitation starts autonomous cross-talk.
+      // Asking "Qué opina Bob de lo que Lina dijo" is a single directed turn.
+      const debateCue=/\b(vamos a debatir|quiero que debatan|debatan entre ustedes|conversen entre ustedes|dialoguen entre ustedes|discutan entre ustedes|debatamos entre los tres|continuen el debate|sigan debatiendo)\b/.test(n);
+      const startsDebate=debateCue && (bothNamed || /\b(entre ustedes|entre los tres|ambos|los dos|continu|sigan)\b/.test(n));
       if(/\b(terminamos|terminen|finalicen|se acabo el tema|cambien de tema|paren el debate|silencio los dos|basta de debate|detengan el debate)\b/.test(n)){
         clearDebate();
       } else if(startsDebate){
@@ -332,7 +347,7 @@ export default function StudioConversationLab() {
         setDebateState('Mesa activa: Bob y Lina debatirán hasta que Felencho los interrumpa o cierre el tema.');
       } else {
         debateRef.current=null;
-        setDebateState('Mesa en escucha: esperando el próximo tema.');
+        setDebateState('Felencho tiene el turno. Solo responde el coanfitrión interpelado.');
       }
     }
     const routed=internal ? {persona:internal as Persona,command:'question'} : classify(text,activeRef.current);
