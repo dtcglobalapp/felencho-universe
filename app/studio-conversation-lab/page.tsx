@@ -300,9 +300,19 @@ export default function StudioConversationLab() {
       if(debateTimerRef.current)clearTimeout(debateTimerRef.current);
       debateTimerRef.current=null;
       const n=normalize(text);
-      const startsDebate=/\b(hablemos de|vamos a hablar|quiero hablar|el tema es|tema de hoy|debatan|conversen entre ustedes|discutan sobre|quiero que debatan|que opinan los dos|continuen el debate|sigan conversando)\b/.test(n);
-      if(startsDebate){debateRef.current={remaining:7,topic:text};setDebateState('Mesa en debate: hasta ocho intervenciones alternadas. Habla para interrumpir.');}
-      else {debateRef.current=null;setDebateState('Mesa en escucha: esperando el próximo tema.');}
+      const bothNamed=/\bbob\b/.test(n) && /\blina\b/.test(n);
+      // Covers the actual live introduction: "Bob y Lina, vamos a debatir
+      // sobre el cerebro humano..." (previous rule forgot "vamos a debatir").
+      // A substantive topic addressed to both also starts their roundtable.
+      const debateCue=/\b(hablemos|vamos a hablar|vamos a debatir|quiero hablar|quiero debatir|el tema es|tema de hoy|debatan|debatamos|conversen|discutan|opinen|opinion|opiniones|puntos de vista|que opinan|continuen el debate|sigan conversando)\b/.test(n);
+      const startsDebate=debateCue || (bothNamed && n.length>65 && /\b(sobre|acerca de|tema|debate|conversar|hablar|opinan|piensan|discutir)\b/.test(n));
+      if(startsDebate){
+        debateRef.current={remaining:7,topic:text};
+        setDebateState('Mesa de Bob y Lina activada por Felencho; turnos alternados automáticos.');
+      } else {
+        debateRef.current=null;
+        setDebateState('Mesa en escucha: esperando el próximo tema.');
+      }
     }
     const routed=internal ? {persona:internal as Persona,command:'question'} : classify(text,activeRef.current);
     if(!internal && !routed.persona && debateRef.current)routed.persona='bob';
@@ -314,6 +324,9 @@ export default function StudioConversationLab() {
     if(routed.command==='ambiguous'){setStatus('Nombraste a Bob y Lina juntos. Llama a uno para tomar su turno.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
     if(!routed.persona){setStatus('No hay personaje activo. Empieza diciendo Bob o Lina.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
     const who=routed.persona;
+    if(debateRef.current && !internal){
+      setStatus('Debate iniciado: primero '+who.toUpperCase()+', después '+(who==='bob'?'LINA':'BOB')+'.');
+    }
     if(routed.command==='sleep'){
       activeRef.current = null;setActive(null);
       await signal(who,'SLEEP');setStatus(who.toUpperCase()+' dormido. Llama a Bob o Lina para continuar.');
