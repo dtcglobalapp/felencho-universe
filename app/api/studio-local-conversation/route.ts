@@ -162,7 +162,15 @@ export async function POST(request:NextRequest){
     // Only a small public topic query is sent to approved public research APIs.
     // Local memories, original lyrics, and the full studio transcript stay on La Bestia.
     const presenterTopic=studioLines.slice(-8).filter(t=>t.who==='Felencho').slice(-1).map(t=>t.text).join(' ');
-    const research=await researchStudioTopic(body.message.trim()+' '+presenterTopic);
+    // One lookup when Felencho introduces a topic. Autonomous turns re-use local
+    // science/context instead of multiplying concurrent internet requests.
+    const research=body.autonomous_turn===true
+      ? {status:'not-needed' as const,context:'',sources:[]}
+      : await Promise.race([
+          researchStudioTopic(body.message.trim()+' '+presenterTopic),
+          new Promise<{status:'offline';context:string;sources:[]}>(
+            resolve=>setTimeout(()=>resolve({status:'offline',context:'',sources:[]}),4500))
+        ]);
     const research_ms=Date.now()-began;
     const reply=await answer(backend,persona,body.message.trim(),turns,studioLines,body.autonomous_turn===true,research);
     const brain_ms=Date.now()-began-research_ms;
