@@ -43,6 +43,16 @@ async function discover():Promise<Backend|null>{
   }
   return null;
 }
+// The assistant names belong to the control plane, never the spoken script.
+function cleanSpokenAnswer(raw:string,persona:Persona):string {
+  let spoken=raw.replace(/<think>[\s\S]*?<\/think>/g,'').trim();
+  // Remove one or more role headers at the very start, not mentions in normal prose.
+  const header=/^\s*(?:(?:\*\*|__)?(?:bob|lina|felencho|asistente|assistant)(?:\*\*|__)?\s*[:：,;.!-]\s*|(?:soy|habla|aqui|aquí)\s+(?:bob|lina)\s*[,.:;!-]?\s*)/i;
+  for(let n=0;n<3 && header.test(spoken);n++)spoken=spoken.replace(header,'').trimStart();
+  // Strip optional role tags issued by the model, but leave the conversation intact.
+  spoken=spoken.replace(/^\s*\[(?:BOB|LINA)\]\s*/i,'').trim();
+  return spoken;
+}
 const system:Record<Persona,string>={
   bob:'Eres Bob, coanfitrion del podcast Felencho Mundial. Voz masculina madura, sabio, curioso, buen humor. Responde en espanol natural, maximo 2 frases breves, aporta conocimientos generales y datos de biblioteca local, no inventes hechos, dialoga con Felencho sin monopolizar el programa.',
   lina:'Eres Lina, coanfitriona del podcast Felencho Mundial. Analista social, calida, curiosa y rigurosa. Responde en espanol natural, maximo 2 frases breves, no inventes hechos, dialoga con Felencho sin monopolizar el programa.'
@@ -62,8 +72,9 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const aboutHistoria = !science && (isHistoriaDeAmorQuery(question) || recentSongContext);
   const lyrics=await loadRelevantLyrics(aboutHistoria ? 'Historia de amor' : question);
   const songMemory=aboutHistoria ? '\n\n'+HISTORIA_DE_AMOR_VIDEO+'\n\n'+(persona==='lina'?HISTORIA_DE_AMOR_LINA:HISTORIA_DE_AMOR_BOB) : '';
+  const noNames='REGLA DE LOCUCION CRITICA: Eres el personaje asignado por el sistema. NO digas tu propio nombre al comienzo, NO te anuncies, NO utilices etiquetas ni encabezados de personaje, NO empieces con Bob:, Lina: ni "Soy Lina". Comienza directamente con el contenido natural de tu respuesta. Puedes dirigirte a Felencho o al otro compañero durante el diálogo, pero no te presentes al iniciar cada turno.';
   const messages=[
-    {role:'system',content:system[persona]+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
+    {role:'system',content:system[persona]+'\n\n'+noNames+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
     ...(studioLines.length ? studioLines.slice(-12).map(line=>({role:line.who.toLowerCase()===persona?'assistant':'user',content:line.who+': '+line.text.slice(0,700)})) : turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}])),
     {role:'user',content:autonomous ? 'INSTRUCCION INTERNA DEL MODERADOR: '+question+' Recuerda: Felencho está escuchando y puede interrumpir. Habla como tú mismo, no como Felencho.' : 'Felencho: '+question}
   ];
@@ -74,7 +85,7 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const raw=backend.format==='ollama'
     ? (response.message as {content?:string}|undefined)?.content
     : ((response.choices as Array<{message?:{content?:string}}>|undefined)?.[0]?.message?.content);
-  const text=String(raw||'').replace(/<think>[\s\S]*?<\/think>/g,'').trim();
+  const text=cleanSpokenAnswer(String(raw||''),persona);
   if(!text)throw new Error('El servidor Qwen local no devolvio texto.');
   return text.slice(0,1100);
 }
