@@ -509,7 +509,7 @@ export default function StudioConversationLab() {
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-2xl font-bold">Felencho Mundial · Conversación local</h1>
-      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local + Whisper local + voces Qwen3-TTS Serena/Uncle_Fu (respaldo macOS): sin APIs comerciales.</p>
+      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local + Whisper local + voces Qwen3-TTS Serena (Lina) y Ryan (Bob), sin alternar voces automáticamente: sin APIs comerciales.</p>
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-xs text-amber-300">{bridgeStatus}</p>
@@ -528,7 +528,7 @@ export default function StudioConversationLab() {
         <label className="block text-sm">Voz masculina de Bob (pruebas; Lina permanece Serena)
           <select disabled={busy} value={bobVoice} onChange={e=>setBobVoice(e.target.value as typeof bobVoice)} className="mt-1 w-full rounded bg-slate-950 p-2">
             
-            <option value="Ryan">Ryan · alternativa</option>
+            <option value="Ryan">Ryan · predeterminada de Bob</option>
             <option value="Aiden">Aiden · alternativa</option>
             <option value="Eric">Eric · alternativa</option>
             <option value="Dylan">Dylan · alternativa</option>
