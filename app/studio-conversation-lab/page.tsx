@@ -78,6 +78,7 @@ export default function StudioConversationLab() {
   const interruptedRef = useRef(false);
   const interruptCaptureRef = useRef<MediaRecorder|null>(null);
   const activeRequestRef = useRef<AbortController|null>(null);
+  const turnDeadlineRef = useRef<ReturnType<typeof setTimeout>|null>(null);
   const nextTurnRef = useRef<{who:Persona;controller:AbortController;promise:Promise<Response>}|null>(null);
   const interruptionMonitorRef = useRef<(()=>void)|null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
@@ -368,14 +369,16 @@ export default function StudioConversationLab() {
       const cached=automatic && nextTurnRef.current?.who===who ? nextTurnRef.current : null;
       if(cached)nextTurnRef.current=null;
       const controller=cached?.controller||new AbortController();activeRequestRef.current=controller;
-      const turnTimeout=setTimeout(()=>controller.abort('Tiempo máximo de respuesta de estudio: 85 segundos'),85000);
+      if(turnDeadlineRef.current)clearTimeout(turnDeadlineRef.current);
+      turnDeadlineRef.current=setTimeout(()=>controller.abort('Tiempo máximo de respuesta de estudio: 105 segundos'),105000);
       const res=cached ? await cached.promise : await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:controller.signal
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;brain_ms?:number;tts_ms?:number;research_status?:'online'|'offline'|'not-needed';research_ms?:number;sources?:Array<{title:string;url:string;publisher:string;date?:string}>};error?:string};
-      clearTimeout(turnTimeout);
+      if(turnDeadlineRef.current)clearTimeout(turnDeadlineRef.current);
+      turnDeadlineRef.current=null;
       if(controller.signal.aborted || interruptedRef.current)return;
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
@@ -454,6 +457,8 @@ export default function StudioConversationLab() {
       clearDebate();
       setAudioStatus('Turno detenido por error o espera excesiva. Reintenta con una pregunta corta.');
     }finally{
+      if(turnDeadlineRef.current)clearTimeout(turnDeadlineRef.current);
+      turnDeadlineRef.current=null;
       interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;
       activeRequestRef.current=null;
       busyRef.current=false;setBusy(false);
@@ -496,7 +501,7 @@ export default function StudioConversationLab() {
       await processRef.current('__restart__');
     }catch(e){setStatus('Permiso de micrófono o dispositivo: '+String(e));liveRef.current=false;setLive(false);}
   };
-  const stop=()=>{interruptedRef.current=true;clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;if(interruptCaptureRef.current?.state==='recording')interruptCaptureRef.current.stop();activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;publisherPendingRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
+  const stop=()=>{if(turnDeadlineRef.current)clearTimeout(turnDeadlineRef.current);turnDeadlineRef.current=null;interruptedRef.current=true;clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;if(interruptCaptureRef.current?.state==='recording')interruptCaptureRef.current.stop();activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;publisherPendingRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
   useEffect(()=>()=>{liveRef.current=false;stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());playerRef.current?.pause();publisherRef.current?.disconnect();},[]);
 
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
