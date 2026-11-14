@@ -42,7 +42,7 @@ export default function StudioConversationLab() {
   const [typed,setTyped] = useState('');
   const [history,setHistory] = useState<{who: string; text: string}[]>([]);
   const [localOk,setLocalOk] = useState(false);
-  const [readiness,setReadiness] = useState('Comprobando credenciales de Brain y voz...');
+  const [readiness,setReadiness] = useState('Integración comercial deshabilitada. Pendiente conectar Qwen y TTS locales.');
   const activeRef = useRef<Persona | null>(null);
   const liveRef = useRef(false);
   const busyRef = useRef(false);
@@ -55,9 +55,7 @@ export default function StudioConversationLab() {
   useEffect(() => {
     setLocalOk(isLocal());
     if(!isLocal())return;
-    fetch('/api/studio-local-health',{cache:'no-store'}).then(r=>r.json()).then((j:{ready?:boolean;missing?:string[]})=>{
-      setReadiness(j.ready?'Brain y voz: credenciales disponibles (pendiente prueba real).':'Faltan credenciales locales: '+(j.missing||[]).join(', '));
-    }).catch(()=>setReadiness('No se pudo comprobar la configuración local.'));
+
   },[]);
 
   const signal = useCallback(async(persona: Persona,action:'LISTENING'|'SLEEP'|'SPEAKING'|'IDLE')=>{
@@ -135,6 +133,10 @@ export default function StudioConversationLab() {
     setStatus('Consultando Felencho Brain para '+who.toUpperCase()+'...');
     await signal(who,'LISTENING');
     try{
+      // Local-only policy: NEVER call the legacy commercial OpenAI/ElevenLabs endpoint.
+      // Conversational replies remain disabled until Qwen + local TTS are wired.
+      throw new Error('Motor local Qwen/TTS pendiente. No se llamará a OpenAI ni ElevenLabs.');
+      /* PAID LEGACY ROUTE DISABLED
       const res=await fetch('/api/felencho-forever/conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({character_key:who,message:text,include_audio:true,conversation_context:turnRef.current[who].slice(-4)}),
@@ -199,6 +201,7 @@ export default function StudioConversationLab() {
         URL.revokeObjectURL(url);
       }
       await signal(who,'IDLE');
+      */
     }catch(error){
       setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
       await signal(who,'IDLE');
@@ -230,7 +233,7 @@ export default function StudioConversationLab() {
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-2xl font-bold">Felencho Mundial · Conversación local</h1>
-      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público.</p>
+      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Motor de respuesta deshabilitado hasta integración 100% local.</p>
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-sm text-amber-300">{readiness}</p>
@@ -252,7 +255,7 @@ export default function StudioConversationLab() {
         {history.map((h,i)=><p key={i} className="border-b border-slate-700 py-2 text-sm"><strong>{h.who}:</strong> {h.text}</p>)}
         {!history.length&&<p className="text-slate-400">Sin intervenciones todavía.</p>}
       </section>
-      <p className="text-xs text-slate-400">Voz real: endpoint existente de Felencho Brain + ElevenLabs, si están configuradas sus credenciales. El audio se publica en LiveKit cuando el emisor está disponible. El medidor y los visemas todavía requieren validación. La salida audible es la de La Bestia. El navegador puede requerir permiso de micrófono.</p>
+      <p className="text-xs text-slate-400">No se utilizan servicios comerciales en este laboratorio. Qwen, Whisper y TTS locales todavía deben conectarse antes de habilitar respuestas habladas.</p>
       {reply && <p className="sr-only" aria-live="polite">{reply}</p>}
     </div>
   </main>;
