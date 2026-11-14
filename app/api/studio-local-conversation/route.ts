@@ -115,7 +115,7 @@ export async function GET(request:NextRequest){
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   try{
-    const body=await request.json() as {character_key?:unknown;message?:unknown;conversation_context?:unknown};
+    const body=await request.json() as {character_key?:unknown;message?:unknown;conversation_context?:unknown;include_audio?:unknown};
     if(body.character_key!=='bob'&&body.character_key!=='lina')return NextResponse.json({error:'Personaje no valido'},{status:400});
     const persona=body.character_key;
     if(typeof body.message!=='string'||!body.message.trim()||body.message.length>1200)return NextResponse.json({error:'Mensaje no valido'},{status:400});
@@ -123,6 +123,7 @@ export async function POST(request:NextRequest){
     const backend=await discover();
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
     const reply=await answer(backend,persona,body.message.trim(),turns);
+    if(body.include_audio===false)return NextResponse.json({data:{character_key:persona,text:reply,backend:backend.name,voice_engine:'desactivado para diagnóstico'}});
     const voice=await speech(reply,persona);
     return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine}});
   }catch(e){
