@@ -120,12 +120,13 @@ export default function StudioConversationLab() {
     const text=raw.trim().slice(0,1200);
     if(!text || busyRef.current || !isLocal())return;
     const routed=classify(text,activeRef.current);
-    if(routed.command==='ambiguous'){setStatus('Nombraste a Bob y Lina juntos. Llama a uno para tomar su turno.');return;}
-    if(!routed.persona){setStatus('No hay personaje activo. Empieza diciendo Bob o Lina.');return;}
+    if(routed.command==='ambiguous'){setStatus('Nombraste a Bob y Lina juntos. Llama a uno para tomar su turno.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
+    if(!routed.persona){setStatus('No hay personaje activo. Empieza diciendo Bob o Lina.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
     const who=routed.persona;
     if(routed.command==='sleep'){
       activeRef.current = null;setActive(null);
       await signal(who,'SLEEP');setStatus(who.toUpperCase()+' dormido. Llama a Bob o Lina para continuar.');
+      if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);
       return;
     }
     activeRef.current=who;setActive(who);
@@ -146,7 +147,7 @@ export default function StudioConversationLab() {
       setHistory(h=>[...h.slice(-12),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
-      if(!json.data.audio_base64)throw new Error('Brain devolvió texto, pero no audio.');
+      if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
       const player=new Audio(url);playerRef.current=player;
       let ctx: AudioContext | null=null;
@@ -202,7 +203,7 @@ export default function StudioConversationLab() {
     }catch(error){
       setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
       await signal(who,'IDLE');
-      // Do not automatically resume on provider failure: avoid rapid paid retries.
+      // Avoid repeated local retries after failure; preserve resources.
       liveRef.current=false;setLive(false);
     }finally{
       busyRef.current=false;setBusy(false);
@@ -228,7 +229,7 @@ export default function StudioConversationLab() {
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-2xl font-bold">Felencho Mundial · Conversación local</h1>
-      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local y sintetizador integrado de macOS: sin APIs comerciales.</p>
+      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local + Whisper local + voces Qwen3-TTS Serena/Uncle_Fu (respaldo macOS): sin APIs comerciales.</p>
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-sm text-amber-300">{readiness}</p>
