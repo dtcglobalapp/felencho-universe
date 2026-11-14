@@ -23,14 +23,14 @@ async function discover():Promise<Backend|null>{
   try{
     const tags=await json('http://127.0.0.1:11434/api/tags',{},1100);
     const models=(tags.models||[]) as Array<{name?:string;model?:string}>;
-    const qwen=models.find(m=>/qwen/i.test(m.name||m.model||''));
+    const qwen=models.find(m=>/qwen.*instruct/i.test(m.name||m.model||'')) || models.find(m=>/qwen/i.test(m.name||m.model||'')&&!/embed|tts|rerank/i.test(m.name||m.model||''));
     if(qwen)return {name:'Ollama',model:qwen.name||qwen.model||'',url:'http://127.0.0.1:11434/api/chat',format:'ollama'};
   }catch{}
   for(const port of [1234,8080,8000]){
     try{
       const listing=await json('http://127.0.0.1:'+port+'/v1/models',{},1100);
       const models=(listing.data||[]) as Array<{id?:string}>;
-      const qwen=models.find(m=>/qwen/i.test(m.id||''));if(!qwen?.id)continue;
+      const qwen=models.find(m=>/qwen.*instruct/i.test(m.id||'')) || models.find(m=>/qwen/i.test(m.id||'')&&!/embed|tts|rerank/i.test(m.id||''));if(!qwen?.id)continue;
       return {name:'Servidor local '+port,model:qwen.id,url:'http://127.0.0.1:'+port+'/v1/chat/completions',format:'openai'};
     }catch{}
   }
