@@ -52,6 +52,7 @@ export default function StudioConversationLab() {
   const [songCount,setSongCount] = useState(0);
   const [recording,setRecording] = useState(false);
   const [audioStatus,setAudioStatus] = useState('Voz todavía no probada');
+  const [interruptStatus,setInterruptStatus] = useState('Micrófono de interrupción: esperando conversación');
   const [researchStatus,setResearchStatus] = useState('Sin búsqueda online en esta sesión');
   const [researchSources,setResearchSources] = useState<Array<{title:string;url:string;publisher:string;date?:string}>>([]);
   const [devices,setDevices] = useState<Array<{id:string;label:string}>>([]);
@@ -150,6 +151,7 @@ export default function StudioConversationLab() {
     const buffer=new Float32Array(analyser.fftSize);
     let speechMs=0,disarmed=false,lastTick=Date.now();
     const warmup=Date.now();
+    let noiseFloor=0.003;
     const cleanup=()=>{clearInterval(interval);input.disconnect();void context.close().catch(()=>{});};
     const interval=setInterval(()=>{
       if(disarmed||!liveRef.current)return;
@@ -159,14 +161,22 @@ export default function StudioConversationLab() {
       let energy=0;for(let i=0;i<buffer.length;i++)energy+=buffer[i]*buffer[i];
       const rms=Math.sqrt(energy/buffer.length);
       const now=Date.now(),elapsed=Math.min(200,now-lastTick);lastTick=now;
-      if(rms>0.045)speechMs+=elapsed;else speechMs=0;
-      if(speechMs<450)return;
+      // Calibrated threshold: the previous hardcoded 0.045 could ignore a
+      // normal presenter voice from an isolated RODECaster mic channel.
+      // This is acoustic VAD, not speaker identification: mix-minus is essential.
+      if(now-warmup<450) noiseFloor=0.85*noiseFloor+0.15*rms;
+      const threshold=Math.max(0.012,noiseFloor*2.8);
+      if(rms>threshold)speechMs+=elapsed;else speechMs=0;
+      if(now-warmup>650 && now%800<110)setInterruptStatus('Escuchando interrupciones · nivel '+rms.toFixed(3)+' / umbral '+threshold.toFixed(3));
+      if(speechMs<280)return;
       disarmed=true;
       cleanup();interruptionMonitorRef.current=null;
       interruptedRef.current=true;
       clearDebate();
       activeRequestRef.current?.abort();
       endPlayback();
+      setInterruptStatus('Intervención detectada: ambos callan');
+      void Promise.all([signal('bob','LISTENING'),signal('lina','LISTENING')]);
       setStatus('Interrupción detectada: Bob y Lina guardan silencio. Escuchando a Felencho...');
       // Capture a fresh spoken intervention on the microphone while the agents are silent.
       try{
@@ -517,6 +527,7 @@ export default function StudioConversationLab() {
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-xs text-amber-300">{bridgeStatus}</p>
         <p className="text-sm">Audio: {audioStatus}</p>
+        <p className="text-xs text-slate-300">Interrupciones: {interruptStatus}. La entrada debe contener tu micrófono sin retorno de las voces de Bob/Lina.</p>
         <details className="rounded border border-slate-700 p-2">
           <summary className="cursor-pointer text-sm">Fuentes de investigación · {researchStatus}</summary>
           {researchSources.length ? <ul className="mt-2 space-y-1 text-xs">
