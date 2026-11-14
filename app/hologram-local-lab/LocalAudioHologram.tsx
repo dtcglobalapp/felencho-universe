@@ -225,6 +225,40 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     }
   }, [persona]);
 
+  // The TVs are unattended display endpoints. On restart (or temporary outage)
+  // they silently load the current Next.js bundle without anyone pressing Reload.
+  // Do not refresh on a single network hiccup, and never render controls on TV.
+  useEffect(() => {
+    if (!['localhost','127.0.0.1'].includes(window.location.hostname)) return;
+    let alive=true, running=false, knownGeneration:string|null=null, failures=0;
+    const check=async()=>{
+      if(!alive||running)return;
+      running=true;
+      try{
+        const response=await fetch('/api/hologram-local-generation',{
+          cache:'no-store',signal:AbortSignal.timeout(2500)
+        });
+        if(!response.ok)throw new Error('Generation probe unavailable');
+        const data=await response.json() as {generation?:unknown};
+        if(typeof data.generation!=='string'||!data.generation)throw new Error('Missing generation');
+        const recovered=failures>=2;
+        failures=0;
+        if(knownGeneration!==null && knownGeneration!==data.generation || recovered){
+          window.location.reload();
+          return;
+        }
+        knownGeneration=data.generation;
+      }catch{
+        failures++;
+      }finally{
+        running=false;
+      }
+    };
+    void check();
+    const timer=setInterval(()=>{void check();},3500);
+    return ()=>{alive=false;clearInterval(timer);};
+  },[]);
+
   // The portrait TV is an output-only display. No on-screen buttons or labels.
   // Reconnect locally if LiveKit starts after the TV loads or temporarily drops.
   useEffect(() => {
