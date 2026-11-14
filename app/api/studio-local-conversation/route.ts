@@ -11,6 +11,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 type Persona = 'bob'|'lina';
 type Turn = {user:string;assistant:string};
+type StudioLine = {who:'Felencho'|'BOB'|'LINA';text:string};
+type BobVoice = 'Uncle_Fu'|'Ryan'|'Aiden'|'Eric'|'Dylan';
+const permittedBobVoices = new Set<BobVoice>(['Uncle_Fu','Ryan','Aiden','Eric','Dylan']);
 function localOnly(request: NextRequest) {
   const host=request.headers.get('host')||'';
   return process.env.NODE_ENV==='development' && ['localhost:3001','127.0.0.1:3001'].includes(host);
@@ -43,7 +46,7 @@ const system:Record<Persona,string>={
   bob:'Eres Bob, coanfitrion del podcast Felencho Mundial. Voz masculina madura, sabio, curioso, buen humor. Responde en espanol natural, maximo 3 frases, no inventes hechos, dialoga con Felencho sin monopolizar el programa.',
   lina:'Eres Lina, coanfitriona del podcast Felencho Mundial. Analista social, calida, curiosa y rigurosa. Responde en espanol natural, maximo 3 frases, no inventes hechos, dialoga con Felencho sin monopolizar el programa.'
 };
-async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[]):Promise<string>{
+async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[],studioLines:StudioLine[]):Promise<string>{
   // Resolve date from the Mac clock on every turn. No static model date.
   const clock = new Date();
   const dateNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(clock);
@@ -56,8 +59,8 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const songMemory=aboutHistoria ? '\n\n'+HISTORIA_DE_AMOR_VIDEO+'\n\n'+(persona==='lina'?HISTORIA_DE_AMOR_LINA:HISTORIA_DE_AMOR_BOB) : '';
   const messages=[
     {role:'system',content:system[persona]+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
-    ...turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}]),
-    {role:'user',content:question}
+    ...(studioLines.length ? studioLines.slice(-12).map(line=>({role:line.who.toLowerCase()===persona?'assistant':'user',content:line.who+': '+line.text.slice(0,700)})) : turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}])),
+    {role:'user',content:'Felencho: '+question}
   ];
   const payload=backend.format==='ollama'
     ? {model:backend.model,messages,stream:false,keep_alive:'30m',options:{num_predict:160,temperature:0.5}}
@@ -78,7 +81,7 @@ function run(cmd:string,args:string[],timeout=40000):Promise<void>{
     child.once('close',code=>{clearTimeout(deadline);code===0?resolve():reject(new Error(cmd+' fallo ('+code+')'))});
   });
 }
-async function speech(text:string,persona:Persona):Promise<{audio:string;engine:string}>{
+async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{audio:string;engine:string}>{
   if(process.platform!=='darwin')throw new Error('Se necesita La Bestia (macOS).');
   const dir=await mkdtemp(join(tmpdir(),'felencho-local-voice-'));
   try{
@@ -88,7 +91,7 @@ async function speech(text:string,persona:Persona):Promise<{audio:string;engine:
       await access(python);
       const child=spawn(python,['-m','mlx_audio.tts.generate',
         '--model','mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit',
-        '--text',text,'--voice',persona==='bob'?'Uncle_Fu':'Serena',
+        '--text',text,'--voice',persona==='bob'?bobVoice:'Serena',
         '--lang_code','Spanish','--output_path',join(dir,'qwen')],{
           stdio:'ignore',env:{...process.env,HF_HUB_OFFLINE:'1',TRANSFORMERS_OFFLINE:'1',HF_HUB_DISABLE_TELEMETRY:'1'}
         });
@@ -100,7 +103,7 @@ async function speech(text:string,persona:Persona):Promise<{audio:string;engine:
         child.once('close',code=>settle(code===0?undefined:new Error('Qwen3 TTS codigo '+code)));
       });
       const wav=await readFile(join(dir,'qwen','audio_000.wav'));
-      if(wav.length>100)return {audio:wav.toString('base64'),engine:'Qwen3-TTS '+(persona==='bob'?'Uncle_Fu':'Serena')};
+      if(wav.length>100)return {audio:wav.toString('base64'),engine:'Qwen3-TTS '+(persona==='bob'?bobVoice:'Serena')};
     }catch(error){
       console.warn('[Studio local] Voz Qwen no disponible; voz macOS provisional:',String(error));
     }
@@ -128,16 +131,18 @@ export async function GET(request:NextRequest){
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   try{
-    const body=await request.json() as {character_key?:unknown;message?:unknown;conversation_context?:unknown;include_audio?:unknown};
+    const body=await request.json() as {character_key?:unknown;message?:unknown;conversation_context?:unknown;studio_transcript?:unknown;include_audio?:unknown;bob_voice?:unknown};
     if(body.character_key!=='bob'&&body.character_key!=='lina')return NextResponse.json({error:'Personaje no valido'},{status:400});
     const persona=body.character_key;
     if(typeof body.message!=='string'||!body.message.trim()||body.message.length>1200)return NextResponse.json({error:'Mensaje no valido'},{status:400});
     const turns=Array.isArray(body.conversation_context)?body.conversation_context.slice(-4).filter((t:unknown)=>typeof t==='object'&&t!==null&&typeof (t as Turn).user==='string'&&typeof (t as Turn).assistant==='string'):[];
     const backend=await discover();
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
-    const reply=await answer(backend,persona,body.message.trim(),turns);
+    const studioLines:StudioLine[]=Array.isArray(body.studio_transcript)?body.studio_transcript.slice(-12).filter((line:unknown):line is StudioLine=>typeof line==='object'&&line!==null&&['Felencho','BOB','LINA'].includes((line as StudioLine).who)&&typeof (line as StudioLine).text==='string'&&(line as StudioLine).text.length<=1200):[];
+    const bobVoice:BobVoice=typeof body.bob_voice==='string'&&permittedBobVoices.has(body.bob_voice as BobVoice)?body.bob_voice as BobVoice:'Uncle_Fu';
+    const reply=await answer(backend,persona,body.message.trim(),turns,studioLines);
     if(body.include_audio===false)return NextResponse.json({data:{character_key:persona,text:reply,backend:backend.name,voice_engine:'desactivado para diagnóstico'}});
-    const voice=await speech(reply,persona);
+    const voice=await speech(reply,persona,bobVoice);
     return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine}});
   }catch(e){
     return NextResponse.json({error:e instanceof Error?e.message:'Error local de conversacion'},{status:502});
