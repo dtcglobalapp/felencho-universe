@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -65,37 +65,52 @@ function run(cmd:string,args:string[],timeout=40000):Promise<void>{
     child.once('close',code=>{clearTimeout(deadline);code===0?resolve():reject(new Error(cmd+' fallo ('+code+')'))});
   });
 }
-async function speech(text:string,persona:Persona):Promise<string>{
-  if(process.platform!=='darwin')throw new Error('El sintetizador provisional requiere macOS.');
+async function speech(text:string,persona:Persona):Promise<{audio:string;engine:string}>{
+  if(process.platform!=='darwin')throw new Error('Se necesita La Bestia (macOS).');
   const dir=await mkdtemp(join(tmpdir(),'felencho-local-voice-'));
   try{
-    const aiff=join(dir,'voice.aiff'), wav=join(dir,'voice.wav');
-    // Built-in macOS engine: fully offline. Voice selection can be refined later.
-    // Choose installed Spanish voice when present, otherwise use macOS default.
-    const voices=await new Promise<string>(resolve=>{
-      let out='';
-      const p=spawn('/usr/bin/say',['-v','?']);
-      p.stdout.on('data',b=>{out+=String(b)});
-      p.once('error',()=>resolve(''));
-      p.once('close',()=>resolve(out));
+    // Prefer voices already tested and approved by Felencho on his M4 Max.
+    const python=join(homedir(),'felencho-qwen3-tts-lab/.venv/bin/python');
+    try{
+      await access(python);
+      const child=spawn(python,['-m','mlx_audio.tts.generate',
+        '--model','mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit',
+        '--text',text,'--voice',persona==='bob'?'Uncle_Fu':'Serena',
+        '--lang_code','Spanish','--output_path',join(dir,'qwen')],{
+          stdio:'ignore',env:{...process.env,HF_HUB_OFFLINE:'1',TRANSFORMERS_OFFLINE:'1',HF_HUB_DISABLE_TELEMETRY:'1'}
+        });
+      await new Promise<void>((resolve,reject)=>{
+        let finished=false;
+        const settle=(error?:Error)=>{if(finished)return;finished=true;clearTimeout(timer);error?reject(error):resolve()};
+        const timer=setTimeout(()=>{child.kill('SIGTERM');settle(new Error('Qwen TTS tardó demasiado'))},120000);
+        child.once('error',e=>settle(e));
+        child.once('close',code=>settle(code===0?undefined:new Error('Qwen3 TTS codigo '+code)));
+      });
+      const wav=await readFile(join(dir,'qwen','audio_000.wav'));
+      if(wav.length>100)return {audio:wav.toString('base64'),engine:'Qwen3-TTS '+(persona==='bob'?'Uncle_Fu':'Serena')};
+    }catch(error){
+      console.warn('[Studio local] Voz Qwen no disponible; voz macOS provisional:',String(error));
+    }
+    const aiff=join(dir,'voice.aiff'),wav=join(dir,'voice.wav');
+    const lines=await new Promise<string>(resolve=>{
+      let out='';const p=spawn('/usr/bin/say',['-v','?']);
+      p.stdout.on('data',b=>{out+=String(b)});p.once('error',()=>resolve(''));p.once('close',()=>resolve(out));
     });
-    const lines=voices.split('\n');
-    const match=lines.find(line=>persona==='bob'
+    const match=lines.split('\n').find(line=>persona==='bob'
       ? /^(Jorge|Diego|Raul|Alvaro|Enrique)\s+.*\bes[_-]/i.test(line)
       : /^(Monica|Paulina|Luciana|Soledad)\s+.*\bes[_-]/i.test(line));
-    const selected=match?.trim().split(/\s+/)[0];
-    const args=selected?['-v',selected,'-o',aiff,'--',text]:['-o',aiff,'--',text];
-    await run('/usr/bin/say',args);
+    const voice=match?.trim().split(/\s+/)[0];
+    await run('/usr/bin/say',voice?['-v',voice,'-o',aiff,'--',text]:['-o',aiff,'--',text]);
     await run('/usr/bin/afconvert',['-f','WAVE','-d','LEI16',aiff,wav]);
     const buffer=await readFile(wav);
-    if(buffer.length<100)throw new Error('Audio local vacio');
-    return buffer.toString('base64');
+    if(buffer.length<100)throw new Error('El sintetizador macOS no generó audio');
+    return {audio:buffer.toString('base64'),engine:'macOS offline (voz provisional)'};
   }finally{await rm(dir,{recursive:true,force:true})}
 }
 export async function GET(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   const backend=await discover();
-  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Voz macOS sin conexion',requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena/Uncle_Fu instalado o voz macOS offline de respaldo',requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
@@ -108,8 +123,8 @@ export async function POST(request:NextRequest){
     const backend=await discover();
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
     const reply=await answer(backend,persona,body.message.trim(),turns);
-    const audio=await speech(reply,persona);
-    return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:audio,audio_mime:'audio/wav',backend:backend.name}});
+    const voice=await speech(reply,persona);
+    return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine}});
   }catch(e){
     return NextResponse.json({error:e instanceof Error?e.message:'Error local de conversacion'},{status:502});
   }
