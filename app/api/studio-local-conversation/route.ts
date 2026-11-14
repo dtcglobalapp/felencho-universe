@@ -55,7 +55,7 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
     {role:'user',content:question}
   ];
   const payload=backend.format==='ollama'
-    ? {model:backend.model,messages,stream:false,options:{num_predict:160,temperature:0.65}}
+    ? {model:backend.model,messages,stream:false,keep_alive:'30m',options:{num_predict:160,temperature:0.5}}
     : {model:backend.model,messages,stream:false,max_tokens:190,temperature:0.65};
   const response=await json(backend.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},60000);
   const raw=backend.format==='ollama'
