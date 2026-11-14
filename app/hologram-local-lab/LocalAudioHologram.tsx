@@ -181,7 +181,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       session.source?.disconnect(); session.source = undefined;
       mediaTrack = null;
       subscribedTrack = null; hadAudio = false; speakingNow = false;
-      hologram.pushAudio(silent); hologram.setState('idle'); setSpeaking(false);
+      hologram.pushAudio(silent); hologram.setState(sleepingRef.current ? 'sleep' : 'idle'); setSpeaking(false);
       setStatus('Pista terminada. Esperando otra frase de '+persona.toUpperCase());
       setDiagnostic('Terminó '+lastAcceptedName+' · pico '+Math.round(peak*100)+'% · frames con sonido '+detectedFrames+' · '+lastAudioDiagnostic); setAudioLevel(0);
     });
