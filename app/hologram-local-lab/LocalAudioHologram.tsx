@@ -63,10 +63,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       sleepingRef.current = false;
       hologram.setState('listening');
       setWakeStatus('Te escucho: ' + persona.toUpperCase() + ' (deteccion local, sin respuesta IA)');
-      idleTimer = setTimeout(() => {
-        if (hologram.state === 'listening') hologram.setState('idle');
-        setWakeStatus('Puente de escucha conectado · esperando nombre');
-      }, 3500);
+      // Remain in LISTENING until the moderator changes the state.
+      // A timed reset made the waiting cohost look idle during long AI synthesis.
     };
     return () => {
       events.close();
@@ -195,8 +193,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       session.source?.disconnect(); session.source = undefined;
       mediaTrack = null;
       subscribedTrack = null; hadAudio = false; speakingNow = false;
-      hologram.pushAudio(silent); hologram.setState(sleepingRef.current ? 'sleep' : 'idle'); setSpeaking(false);
-      setStatus('Pista terminada. Esperando otra frase de '+persona.toUpperCase());
+      hologram.pushAudio(silent); hologram.setState(sleepingRef.current ? 'sleep' : 'listening'); setSpeaking(false);
+      setStatus('Pista terminada. '+persona.toUpperCase()+' escuchando la mesa.');
       setDiagnostic('Terminó '+lastAcceptedName+' · pico '+Math.round(peak*100)+'% · frames con sonido '+detectedFrames+' · '+lastAudioDiagnostic); setAudioLevel(0);
     });
     room.on(RoomEvent.Disconnected, () => {
