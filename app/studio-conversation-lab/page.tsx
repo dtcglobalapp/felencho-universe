@@ -216,7 +216,7 @@ export default function StudioConversationLab() {
         setTimeout(()=>{if(liveRef.current && !busyRef.current && !recorderRef.current) void processRef.current('__restart__');},350);
       }
     }
-  },[signal]);
+  },[signal,brainOnly]);
   processRef.current=processText;
 
   const start=async()=> {
