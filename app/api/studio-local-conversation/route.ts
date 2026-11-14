@@ -5,6 +5,7 @@ import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { STUDIO_FELENCHO_FACTS } from '@/lib/studioLocalKnowledge';
 import { loadRelevantLyrics } from '@/lib/studioLocalLyrics';
+import { HISTORIA_DE_AMOR_VIDEO, HISTORIA_DE_AMOR_LINA, HISTORIA_DE_AMOR_BOB, isHistoriaDeAmorQuery } from '@/lib/studioHistoriaDeAmor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,9 +49,13 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const dateNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(clock);
   const timeNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false}).format(clock);
   const currentFacts='FECHA Y HORA VERIFICADAS DEL RELOJ LOCAL: Hoy es '+dateNY+', hora en Nueva York: '+timeNY+'. Usa esta fecha para responder preguntas temporales. No calcules la fecha usando datos del entrenamiento. No inventes clima, temperaturas, resultados de actualidad o cronologías de canciones sin fuentes. Si no puedes comprobarlo, dilo.';
-  const lyrics=await loadRelevantLyrics(question);
+  // Use the recent turns as context for follow-up questions about the same song.
+  const recentSongContext = turns.slice(-3).some(turn => isHistoriaDeAmorQuery(turn.user) || isHistoriaDeAmorQuery(turn.assistant));
+  const aboutHistoria = isHistoriaDeAmorQuery(question) || recentSongContext;
+  const lyrics=await loadRelevantLyrics(aboutHistoria ? 'Historia de amor' : question);
+  const songMemory=aboutHistoria ? '\n\n'+HISTORIA_DE_AMOR_VIDEO+'\n\n'+(persona==='lina'?HISTORIA_DE_AMOR_LINA:HISTORIA_DE_AMOR_BOB) : '';
   const messages=[
-    {role:'system',content:system[persona]+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
+    {role:'system',content:system[persona]+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
     ...turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}]),
     {role:'user',content:question}
   ];
