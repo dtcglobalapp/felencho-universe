@@ -24,6 +24,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
   const personaRef = useRef(persona);
   personaRef.current = persona;
   const [wakeStatus, setWakeStatus] = useState('Puente de escucha local: desconectado');
+  const sleepingRef = useRef(false);
   // Local lab only: listen for events from the isolated RODECaster/Whisper process.
   // Existing LiveKit SPEAKING events always take priority.
   useEffect(() => {
@@ -35,9 +36,18 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     events.onmessage = (event: MessageEvent<string>) => {
       let message: {target?: string; action?: string};
       try { message = JSON.parse(event.data) as typeof message; } catch { return; }
-      if (message.target !== persona || message.action !== 'LISTENING') return;
-      if (hologram.state === 'speaking') return;
+      if (message.target !== persona) return;
+      if (message.action === 'SLEEP') {
+        if (idleTimer) clearTimeout(idleTimer);
+        sleepingRef.current = true;
+        hologram.setState('sleep');
+        setWakeStatus(persona.toUpperCase() + ' en reposo · di su nombre para despertar');
+        return;
+      }
+      if (message.action !== 'LISTENING') return;
+      if (hologram.state === 'speaking' && !sleepingRef.current) return;
       if (idleTimer) clearTimeout(idleTimer);
+      sleepingRef.current = false;
       hologram.setState('listening');
       setWakeStatus('Te escucho: ' + persona.toUpperCase() + ' (deteccion local, sin respuesta IA)');
       idleTimer = setTimeout(() => {
@@ -144,7 +154,7 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       const who = participant.identity;
       // Only show measurements for this character's dedicated A audio track.
       // Other characters' tracks are intentionally ignored without overwriting diagnostics.
-      if (!who.startsWith('a-') || !name.startsWith(expected)) return;
+      if (!who.startsWith('a-') || !name.startsWith(expected) || sleepingRef.current) return;
       session.source?.disconnect();
       mediaTrack = track.mediaStreamTrack;
       session.source = ctx.createMediaStreamSource(new MediaStream([mediaTrack]));
