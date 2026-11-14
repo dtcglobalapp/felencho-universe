@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, access } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
+import { STUDIO_FELENCHO_FACTS } from '@/lib/studioLocalKnowledge';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,7 @@ const system:Record<Persona,string>={
 };
 async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[]):Promise<string>{
   const messages=[
-    {role:'system',content:system[persona]},
+    {role:'system',content:system[persona]+'\n\n'+STUDIO_FELENCHO_FACTS},
     ...turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}]),
     {role:'user',content:question}
   ];
