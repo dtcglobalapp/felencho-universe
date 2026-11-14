@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { STUDIO_FELENCHO_FACTS } from '@/lib/studioLocalKnowledge';
 import { loadRelevantLyrics } from '@/lib/studioLocalLyrics';
 import { loadStudioScience } from '@/lib/studioScienceLibrary';
+import { approveStudioFact, explicitStudioFact, recallStudioFacts, studioMemoryCount } from '@/lib/studioApprovedMemory';
 import { researchStudioTopic, type StudioResearch } from '@/lib/studioOnlineResearch';
 import { HISTORIA_DE_AMOR_VIDEO, HISTORIA_DE_AMOR_LINA, HISTORIA_DE_AMOR_BOB, isHistoriaDeAmorQuery } from '@/lib/studioHistoriaDeAmor';
 
@@ -68,6 +69,7 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   // Use the recent turns as context for follow-up questions about the same song.
   const recentSongContext = turns.slice(-3).some(turn => isHistoriaDeAmorQuery(turn.user) || isHistoriaDeAmorQuery(turn.assistant));
   const science=loadStudioScience(question+' '+studioLines.slice(-8).map(line=>line.text).join(' '));
+  const approvedMemories=await recallStudioFacts(question);
   // When discussing science, avoid flooding Qwen with the full music lyrics
   // just because someone mentioned that song several turns ago.
   const aboutHistoria = !science && (isHistoriaDeAmorQuery(question) || recentSongContext);
@@ -77,7 +79,7 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   const balanced='CONVERSACION HONESTA: Responde a los argumentos concretos de Felencho, no repitas automaticamente al otro coanfitrion. Separa hechos verificables, valoraciones y cuestiones abiertas. En asuntos de compania humano-robot, no descartes de forma absoluta que una persona sienta un vinculo significativo; distingue bienestar del usuario, simulacion de la IA y reconocimiento legal, que depende de jurisdiccion y normativa. No afirmes tener pruebas definitivas sobre la experiencia subjetiva de las IA. '+ 'No inventes leyes ni juzgues a quien busca compania.';
   const noNames='REGLA DE LOCUCION CRITICA: Eres el personaje asignado por el sistema. NO digas tu propio nombre al comienzo, NO te anuncies, NO utilices etiquetas ni encabezados de personaje, NO empieces con Bob:, Lina: ni "Soy Lina". Comienza directamente con el contenido natural de tu respuesta. Puedes dirigirte a Felencho o al otro compañero durante el diálogo, pero no te presentes al iniciar cada turno.';
   const messages=[
-    {role:'system',content:system[persona]+'\n\n'+studioIdentity+'\n\n'+balanced+'\n\n'+noNames+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(online?.context?'\n\n'+online.context:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
+    {role:'system',content:system[persona]+'\n\n'+studioIdentity+'\n\n'+balanced+'\n\n'+noNames+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(approvedMemories?'\n\n'+approvedMemories:'')+(online?.context?'\n\n'+online.context:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
     ...(studioLines.length ? studioLines.slice(-12).map(line=>({role:line.who.toLowerCase()===persona?'assistant':'user',content:line.who+': '+line.text.slice(0,700)})) : turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}])),
     {role:'user',content:autonomous ? 'INSTRUCCION INTERNA DEL MODERADOR: '+question+' Recuerda: Felencho está escuchando y puede interrumpir. Habla como tú mismo, no como Felencho.' : 'Felencho: '+question}
   ];
@@ -146,7 +148,7 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
 export async function GET(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   const backend=await discover();
-  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena para Lina / Ryan para Bob (otras voces masculinas opcionales)',requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena para Lina / Ryan para Bob',local_approved_memories:await studioMemoryCount(),requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
@@ -155,6 +157,13 @@ export async function POST(request:NextRequest){
     if(body.character_key!=='bob'&&body.character_key!=='lina')return NextResponse.json({error:'Personaje no valido'},{status:400});
     const persona=body.character_key;
     if(typeof body.message!=='string'||!body.message.trim()||body.message.length>1200)return NextResponse.json({error:'Mensaje no valido'},{status:400});
+    // A producer-authorized note is persisted BEFORE any model call.
+    // No external service is needed to store or retrieve it.
+    const explicitlyApproved=explicitStudioFact(body.message);
+    if(explicitlyApproved){
+      const saved=await approveStudioFact(body.message);
+      return NextResponse.json({data:{character_key:persona,text:saved.reason,backend:'Memoria local aprobada',voice_engine:'desactivado para confirmación',memory_saved:saved.saved}});
+    }
     const turns=Array.isArray(body.conversation_context)?body.conversation_context.slice(-4).filter((t:unknown)=>typeof t==='object'&&t!==null&&typeof (t as Turn).user==='string'&&typeof (t as Turn).assistant==='string'):[];
     const backend=await discover();
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
