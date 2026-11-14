@@ -275,8 +275,8 @@ export default function StudioConversationLab() {
       if(debateTimerRef.current)clearTimeout(debateTimerRef.current);
       debateTimerRef.current=null;
       const n=normalize(text);
-      const startsDebate=/\b(hablemos de|vamos a hablar|quiero hablar|el tema es|tema de hoy|debatan|conversen entre ustedes|discutan sobre|quiero que debatan|que opinan los dos)\b/.test(n);
-      if(startsDebate){debateRef.current={remaining:3,topic:text};setDebateState('Debate automático sobre el tema de Felencho: hasta cuatro intervenciones en total.');}
+      const startsDebate=/\b(hablemos de|vamos a hablar|quiero hablar|el tema es|tema de hoy|debatan|conversen entre ustedes|discutan sobre|quiero que debatan|que opinan los dos|continuen el debate|sigan conversando)\b/.test(n);
+      if(startsDebate){debateRef.current={remaining:7,topic:text};setDebateState('Mesa en debate: hasta ocho intervenciones alternadas. Habla para interrumpir.');}
       else {debateRef.current=null;setDebateState('Mesa en escucha: esperando el próximo tema.');}
     }
     const routed=internal ? {persona:internal as Persona,command:'question'} : classify(text,activeRef.current);
@@ -321,7 +321,7 @@ export default function StudioConversationLab() {
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:controller.signal
       });
-      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string};error?:string};
+      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;brain_ms?:number;tts_ms?:number};error?:string};
       if(controller.signal.aborted || interruptedRef.current)return;
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
@@ -332,7 +332,7 @@ export default function StudioConversationLab() {
       if(brainOnly){await signal(who,'IDLE');setAudioStatus('Voz desactivada: casilla «Probar solo cerebro Qwen» marcada');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');answered=true;return;}
       if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
-      setAudioStatus('Audio generado por '+(json.data.voice_engine||'motor local')+'; preparando reproducción');
+      setAudioStatus('Audio generado por '+(json.data.voice_engine||'motor local')+'; cerebro '+((json.data.brain_ms||0)/1000).toFixed(1)+' s, voz '+((json.data.tts_ms||0)/1000).toFixed(1)+' s. Preparando reproducción.');
       if(lastAudioUrl) URL.revokeObjectURL(lastAudioUrl);
       const saved=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/wav');
       setLastAudioUrl(saved);
@@ -406,6 +406,9 @@ export default function StudioConversationLab() {
         debateRef.current.remaining--;
         setDebateState('Debatiendo: '+next.toUpperCase()+' responderá a '+who.toUpperCase()+'. Restan '+debateRef.current.remaining+' turnos adicionales.');
         debateTimerRef.current=setTimeout(()=>{if(!busyRef.current && !interruptedRef.current && liveRef.current)void processRef.current('__debate__'+next);},250);
+      } else if(answered && debateRef.current && !debateRef.current.remaining){
+        debateRef.current=null;setDebateState('Debate finalizado tras ocho intervenciones. Felencho puede presentar otro tema o pedir que continúen.');
+        if(liveRef.current)setTimeout(()=>{if(liveRef.current&&!busyRef.current)void processRef.current('__restart__');},350);
       } else if(answered && scheduledReply && !interruptedRef.current && liveRef.current){
         setStatus('Cediendo la palabra a '+scheduledReply.toUpperCase()+' por instrucción de Felencho.');
         setTimeout(()=>{if(!busyRef.current)void processRef.current('__handoff__'+scheduledReply);},400);
@@ -438,7 +441,7 @@ export default function StudioConversationLab() {
       await processRef.current('__restart__');
     }catch(e){setStatus('Permiso de micrófono o dispositivo: '+String(e));liveRef.current=false;setLive(false);}
   };
-  const stop=()=>{clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;if(interruptCaptureRef.current?.state==='recording')interruptCaptureRef.current.stop();activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
+  const stop=()=>{interruptedRef.current=true;clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;if(interruptCaptureRef.current?.state==='recording')interruptCaptureRef.current.stop();activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
   useEffect(()=>()=>{liveRef.current=false;stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());playerRef.current?.pause();publisherRef.current?.disconnect();},[]);
 
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
