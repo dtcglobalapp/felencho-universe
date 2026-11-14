@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Room } from 'livekit-client';
 
 type Persona = 'bob' | 'lina';
 type Turn = {user: string; assistant: string};
@@ -46,6 +47,7 @@ export default function StudioConversationLab() {
   const busyRef = useRef(false);
   const speechRef = useRef<SpeechRecognizer | null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
+  const publisherRef = useRef<Room | null>(null);
   const turnRef = useRef<Record<Persona, Turn[]>>({bob:[],lina:[]});
   const processRef = useRef<(text: string) => Promise<void>>(async () => {});
   const runningRef = useRef(false);
@@ -139,15 +141,52 @@ export default function StudioConversationLab() {
       if(!json.data.audio_base64)throw new Error('Brain devolvió texto, pero no audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
       const player=new Audio(url);playerRef.current=player;
+      let ctx: AudioContext | null=null;
+      let publishedTrack: MediaStreamTrack | null=null;
+      let publishedRoom: Room | null=null;
+      let delivery = 'solo salida local';
       try {
+        // Send the same actual audio samples to both Mac output and the LiveKit
+        // portrait receiver, rather than merely toggling a visual SPEAKING flag.
+        try {
+          const response=await fetch('/api/studio-local-publisher',{cache:'no-store'});
+          const credentials=await response.json() as {server?:string;token?:string;error?:string};
+          if(!response.ok||!credentials.token||!credentials.server)throw new Error(credentials.error || 'Sin token');
+          if(!publisherRef.current){
+            const room=new Room();
+            await room.connect(credentials.server,credentials.token);
+            publisherRef.current=room;
+          }
+          publishedRoom=publisherRef.current;
+          ctx=new AudioContext();
+          await ctx.resume();
+          const src=ctx.createMediaElementSource(player);
+          const destination=ctx.createMediaStreamDestination();
+          src.connect(destination);
+          src.connect(ctx.destination);
+          publishedTrack=destination.stream.getAudioTracks()[0];
+          await publishedRoom.localParticipant.publishTrack(publishedTrack,{
+            name:who==='bob'?'bob-studio-brain-voice':'serena-studio-brain-voice'
+          });
+          delivery='LiveKit y salida local';
+        } catch(error) {
+          setStatus('Voz local disponible; envío LiveKit no listo: '+String(error));
+          if(ctx) {await ctx.close().catch(()=>{});ctx=null;}
+          publishedTrack=null;publishedRoom=null;
+        }
         await signal(who,'SPEAKING');
-        setStatus(who.toUpperCase()+' hablando. Reconocimiento temporalmente pausado.');
+        setStatus(who.toUpperCase()+' hablando ('+delivery+'). Reconocimiento pausado.');
         await new Promise<void>((resolve,reject)=>{
           player.onended=()=>resolve();
           player.onerror=()=>reject(new Error('Fallo al reproducir audio generado'));
           void player.play().catch(reject);
         });
       } finally{
+        if(publishedTrack&&publishedRoom) {
+          await publishedRoom.localParticipant.unpublishTrack(publishedTrack).catch(()=>{});
+          publishedTrack.stop();
+        }
+        if(ctx) await ctx.close().catch(()=>{});
         playerRef.current=null;
         URL.revokeObjectURL(url);
       }
@@ -177,8 +216,8 @@ export default function StudioConversationLab() {
     void processRef.current('__restart__');
     runningRef.current=false;
   };
-  const stop=()=>{liveRef.current=false;setLive(false);stopRecognizer();endPlayback();busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
-  useEffect(()=>()=>{liveRef.current=false;stopRecognizer();playerRef.current?.pause();},[]);
+  const stop=()=>{liveRef.current=false;setLive(false);stopRecognizer();endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
+  useEffect(()=>()=>{liveRef.current=false;stopRecognizer();playerRef.current?.pause();publisherRef.current?.disconnect();},[]);
 
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
     <div className="mx-auto max-w-3xl space-y-5">
@@ -204,7 +243,7 @@ export default function StudioConversationLab() {
         {history.map((h,i)=><p key={i} className="border-b border-slate-700 py-2 text-sm"><strong>{h.who}:</strong> {h.text}</p>)}
         {!history.length&&<p className="text-slate-400">Sin intervenciones todavía.</p>}
       </section>
-      <p className="text-xs text-slate-400">Voz real: endpoint existente de Felencho Brain + ElevenLabs, si están configuradas sus credenciales. Esta primera consola no hace audio-reactividad/lip-sync ni emite audio por LiveKit. La salida audible es la de La Bestia. El navegador puede requerir permiso de micrófono.</p>
+      <p className="text-xs text-slate-400">Voz real: endpoint existente de Felencho Brain + ElevenLabs, si están configuradas sus credenciales. El audio se publica en LiveKit cuando el emisor está disponible. El medidor y los visemas todavía requieren validación. La salida audible es la de La Bestia. El navegador puede requerir permiso de micrófono.</p>
       {reply && <p className="sr-only" aria-live="polite">{reply}</p>}
     </div>
   </main>;
