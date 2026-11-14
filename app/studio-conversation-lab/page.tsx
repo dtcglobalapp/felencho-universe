@@ -347,7 +347,8 @@ export default function StudioConversationLab() {
     activeRef.current=who;setActive(who);
     busyRef.current=true;setBusy(true);
     stopRecognizer();
-    startInterruptMonitor();
+    // Do not start microphone barge-in while Qwen/research/TTS are generating.
+    // Only monitor during actual playback to avoid false positives from studio noise.
     if(!internal){
       studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:'Felencho',text}];
       setHistory(h=>[...h.slice(-18),{who:'Felencho',text}]);
@@ -367,12 +368,14 @@ export default function StudioConversationLab() {
       const cached=automatic && nextTurnRef.current?.who===who ? nextTurnRef.current : null;
       if(cached)nextTurnRef.current=null;
       const controller=cached?.controller||new AbortController();activeRequestRef.current=controller;
+      const turnTimeout=setTimeout(()=>controller.abort('Tiempo máximo de respuesta de estudio: 85 segundos'),85000);
       const res=cached ? await cached.promise : await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:controller.signal
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;brain_ms?:number;tts_ms?:number;research_status?:'online'|'offline'|'not-needed';research_ms?:number;sources?:Array<{title:string;url:string;publisher:string;date?:string}>};error?:string};
+      clearTimeout(turnTimeout);
       if(controller.signal.aborted || interruptedRef.current)return;
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
@@ -385,28 +388,9 @@ export default function StudioConversationLab() {
       setHistory(h=>[...h.slice(-18),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
-      // Generate the NEXT cohost's whole response while this cohost is speaking.
-      // This hides Qwen + Qwen3-TTS time behind audible playback without
-      // changing cadence or voices. Cancel prefetch on a real interruption.
-      if(debateRef.current && liveRef.current && !brainOnly && !interruptedRef.current){
-        const next:Persona=who==='bob'?'lina':'bob';
-        const controller=new AbortController();
-        const promise=fetch('/api/studio-local-conversation',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            character_key:next,
-            message:debatePrompt(next,debateRef.current.topic).slice(0,1200),
-            conversation_context:turnRef.current[next].slice(-4),
-            studio_transcript:studioTranscriptRef.current.slice(-12),
-            autonomous_turn:true,
-            bob_voice:bobVoice,include_audio:true
-          }),
-          signal:controller.signal
-        });
-        nextTurnRef.current={who:next,controller,promise};
-        void promise.catch(()=>{}); // Prevent an unhandled rejection before consumption.
-        setDebateState('Mesa activa: preparando a '+next.toUpperCase()+' mientras '+who.toUpperCase()+' habla.');
-      }
+      // SAFETY: disable speculative concurrent Qwen/TTS until the Mac's capacity
+      // is validated. Simultaneous generation could exhaust memory and freeze both.
+      nextTurnRef.current?.controller.abort();nextTurnRef.current=null;
       if(brainOnly){await signal(who,'IDLE');setAudioStatus('Voz desactivada: casilla «Probar solo cerebro Qwen» marcada');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');answered=true;return;}
       if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
@@ -441,6 +425,7 @@ export default function StudioConversationLab() {
           publishedTrack=null;publishedRoom=null;
         }
         await Promise.all([signal(who,'SPEAKING'),signal(who==='bob'?'lina':'bob','LISTENING')]);
+        startInterruptMonitor();
         setAudioStatus('Reproduciendo '+(json.data.voice_engine||'voz local')+' · '+delivery);
         setStatus(who.toUpperCase()+' hablando ('+delivery+'). Reconocimiento pausado.');
         await new Promise<void>((resolve,reject)=>{
@@ -465,8 +450,9 @@ export default function StudioConversationLab() {
       await signal(who,'IDLE');
       setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
       setAudioStatus('Error de generación o reproducción de voz; revisar Estado');
-      // Avoid repeated local retries after failure; preserve resources.
-      liveRef.current=false;setLive(false);
+      // Stop automatic debate but preserve microphone/session for a new topic.
+      clearDebate();
+      setAudioStatus('Turno detenido por error o espera excesiva. Reintenta con una pregunta corta.');
     }finally{
       interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;
       activeRequestRef.current=null;
@@ -474,7 +460,7 @@ export default function StudioConversationLab() {
       if(answered && debateRef.current && !interruptedRef.current && !brainOnly && liveRef.current){
         const next=who==='bob'?'lina':'bob';
         setDebateState('Debate abierto bajo la dirección de Felencho: '+next.toUpperCase()+' responderá a '+who.toUpperCase()+'.');
-        debateTimerRef.current=setTimeout(()=>{if(!busyRef.current && !interruptedRef.current && liveRef.current && debateRef.current)void processRef.current('__debate__'+next);},180);
+        debateTimerRef.current=setTimeout(()=>{if(!busyRef.current && !interruptedRef.current && liveRef.current && debateRef.current)void processRef.current('__debate__'+next);},350);
       } else if(answered && scheduledReply && !interruptedRef.current && liveRef.current){
         setStatus('Cediendo la palabra a '+scheduledReply.toUpperCase()+' por instrucción de Felencho.');
         setTimeout(()=>{if(!busyRef.current)void processRef.current('__handoff__'+scheduledReply);},400);
