@@ -37,6 +37,19 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
       let message: {target?: string; action?: string};
       try { message = JSON.parse(event.data) as typeof message; } catch { return; }
       if (message.target !== persona) return;
+      if (message.action === 'SPEAKING') {
+        if (idleTimer) clearTimeout(idleTimer);
+        sleepingRef.current = false;
+        hologram.setState('speaking');
+        setWakeStatus(persona.toUpperCase() + ' respondiendo desde consola local');
+        return;
+      }
+      if (message.action === 'IDLE') {
+        if (idleTimer) clearTimeout(idleTimer);
+        if (!sleepingRef.current) hologram.setState('idle');
+        setWakeStatus('Puente de escucha conectado · esperando nombre');
+        return;
+      }
       if (message.action === 'SLEEP') {
         if (idleTimer) clearTimeout(idleTimer);
         sleepingRef.current = true;
