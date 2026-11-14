@@ -42,8 +42,13 @@ const system:Record<Persona,string>={
   lina:'Eres Lina, coanfitriona del podcast Felencho Mundial. Analista social, calida, curiosa y rigurosa. Responde en espanol natural, maximo 3 frases, no inventes hechos, dialoga con Felencho sin monopolizar el programa.'
 };
 async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[]):Promise<string>{
+  // Resolve date from the Mac clock on every turn. No static model date.
+  const clock = new Date();
+  const dateNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(clock);
+  const timeNY = new Intl.DateTimeFormat('es-ES',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false}).format(clock);
+  const currentFacts='FECHA Y HORA VERIFICADAS DEL RELOJ LOCAL: Hoy es '+dateNY+', hora en Nueva York: '+timeNY+'. Usa esta fecha para responder preguntas temporales. No calcules la fecha usando datos del entrenamiento. No inventes clima, temperaturas, resultados de actualidad o cronologías de canciones sin fuentes. Si no puedes comprobarlo, dilo.';
   const messages=[
-    {role:'system',content:system[persona]+'\n\n'+STUDIO_FELENCHO_FACTS},
+    {role:'system',content:system[persona]+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS},
     ...turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}]),
     {role:'user',content:question}
   ];
