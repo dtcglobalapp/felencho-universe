@@ -42,6 +42,7 @@ export default function StudioConversationLab() {
   const [typed,setTyped] = useState('');
   const [history,setHistory] = useState<{who: string; text: string}[]>([]);
   const [localOk,setLocalOk] = useState(false);
+  const [readiness,setReadiness] = useState('Comprobando credenciales de Brain y voz...');
   const activeRef = useRef<Persona | null>(null);
   const liveRef = useRef(false);
   const busyRef = useRef(false);
@@ -51,7 +52,13 @@ export default function StudioConversationLab() {
   const turnRef = useRef<Record<Persona, Turn[]>>({bob:[],lina:[]});
   const processRef = useRef<(text: string) => Promise<void>>(async () => {});
   const runningRef = useRef(false);
-  useEffect(() => {setLocalOk(isLocal());},[]);
+  useEffect(() => {
+    setLocalOk(isLocal());
+    if(!isLocal())return;
+    fetch('/api/studio-local-health',{cache:'no-store'}).then(r=>r.json()).then((j:{ready?:boolean;missing?:string[]})=>{
+      setReadiness(j.ready?'Brain y voz: credenciales disponibles (pendiente prueba real).':'Faltan credenciales locales: '+(j.missing||[]).join(', '));
+    }).catch(()=>setReadiness('No se pudo comprobar la configuración local.'));
+  },[]);
 
   const signal = useCallback(async(persona: Persona,action:'LISTENING'|'SLEEP'|'SPEAKING'|'IDLE')=>{
     if(!isLocal()) return;
@@ -67,6 +74,7 @@ export default function StudioConversationLab() {
 
   const endPlayback = useCallback(() => {
     playerRef.current?.pause();
+    playerRef.current?.dispatchEvent(new Event('ended'));
     playerRef.current = null;
   },[]);
   const stopRecognizer = () => {
@@ -225,6 +233,7 @@ export default function StudioConversationLab() {
       <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público.</p>
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
+        <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
         <div className="flex flex-wrap gap-3">
