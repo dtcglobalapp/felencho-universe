@@ -432,9 +432,14 @@ export default function StudioConversationLab() {
         setAudioStatus('Reproduciendo '+(json.data.voice_engine||'voz local')+' · '+delivery);
         setStatus(who.toUpperCase()+' hablando ('+delivery+'). Reconocimiento pausado.');
         await new Promise<void>((resolve,reject)=>{
-          player.onended=()=>resolve();
-          player.onerror=()=>reject(new Error('Fallo al reproducir audio generado'));
-          void player.play().catch(reject);
+          // Some browsers never fire ended when the output device suspends.
+          // Release the studio in that case, instead of hanging the debate.
+          let settled=false;
+          const finish=(error?:Error)=>{if(settled)return;settled=true;clearTimeout(watchdog);error?reject(error):resolve();};
+          const watchdog=setTimeout(()=>finish(new Error('Reproducción de voz sin finalizar tras 65 segundos')),65000);
+          player.onended=()=>finish();
+          player.onerror=()=>finish(new Error('Fallo al reproducir audio generado'));
+          void player.play().catch(e=>finish(e instanceof Error?e:new Error(String(e))));
         });
       } finally{
         if(publishedTrack&&publishedRoom) {
