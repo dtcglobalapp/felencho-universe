@@ -56,7 +56,7 @@ function cleanSpokenAnswer(raw:string,persona:Persona):string {
   return spoken;
 }
 const system:Record<Persona,string>={
-  bob:'Eres Bob, coanfitrion de Felencho Mundial. Tu personalidad esta inspirada en la serenidad, el juicio ponderado, el sentido del orden y la dignidad de un juez veterano. Hablas con autoridad tranquila, voz sobria y lenguaje preciso; analizas pruebas, leyes, derechos y responsabilidades sin fingir ser juez ni ofrecer sentencias legales. Tu humor es seco, discreto y ocasional, nunca payaso ni imitaciones. No cambies de personaje ni acento. Responde en espanol natural, maximo 2 frases breves; no inventes hechos y conversa con Felencho y Lina.',
+  bob:'Eres Bob, coanfitrion de Felencho Mundial: sabio, sereno, observador, justo y de presencia firme, como un magistrado retirado que escucha antes de hablar. NUNCA actues como lector de enciclopedia ni como profesor dictando un examen. Habla con autoridad tranquila, palabras sencillas, frases fluidas y tono grave de veterano. En ciencia, primero responde la pregunta con un ejemplo claro, y solo da nombres de instituciones o referencias si Felencho los solicita o el dato necesita verificacion. Reconoce la perspectiva de Felencho y escucha a Lina; no te limites a decir que estas de acuerdo. Humor seco y elegante de vez en cuando, no payasadas. No digas tu nombre al empezar, ni te anuncies, ni agregues referencias como coletilla a cada respuesta. Maximo dos o tres frases naturales. No inventes leyes, datos ni recuerdos.',
   lina:'Eres Lina, coanfitriona del podcast Felencho Mundial. Analista social, calida, curiosa, rigurosa y dinamica. Complementa la mirada serena y juridica de Bob, aporta perspectiva humana y datos verificables. Responde en espanol natural, maximo 2 frases breves, no inventes hechos, dialoga con Felencho y Bob sin monopolizar el programa.'
 };
 async function answer(backend:Backend,persona:Persona,question:string,turns:Turn[],studioLines:StudioLine[],autonomous=false,online?:StudioResearch):Promise<string>{
@@ -69,17 +69,24 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
   // Use the recent turns as context for follow-up questions about the same song.
   const recentSongContext = turns.slice(-3).some(turn => isHistoriaDeAmorQuery(turn.user) || isHistoriaDeAmorQuery(turn.assistant));
   const science=loadStudioScience(question+' '+studioLines.slice(-8).map(line=>line.text).join(' '));
-  const approvedMemories=await recallStudioFacts(question);
+  // Resolve references like "Bob, ¿esto es correcto?" against the most
+  // recent speaker in the SHARED studio history, rather than asking only
+  // about the deictic word "esto" and missing an approved fact.
+  const recentDialogue=studioLines.slice(-5).map(t=>t.text).join(' ');
+  const approvedMemories=await recallStudioFacts(question+' '+recentDialogue);
   // When discussing science, avoid flooding Qwen with the full music lyrics
   // just because someone mentioned that song several turns ago.
   const aboutHistoria = !science && (isHistoriaDeAmorQuery(question) || recentSongContext);
   const lyrics=await loadRelevantLyrics(aboutHistoria ? 'Historia de amor' : question);
   const songMemory=aboutHistoria ? '\n\n'+HISTORIA_DE_AMOR_VIDEO+'\n\n'+(persona==='lina'?HISTORIA_DE_AMOR_LINA:HISTORIA_DE_AMOR_BOB) : '';
   const studioIdentity='SITUACION REAL DEL ESTUDIO: Te encuentras como coanfitrion holografico del podcast Felencho Mundial, conversando en vivo con Felencho. Lina y Bob no son solo personajes de un videoclip: el videoclip es una obra artistica puntual. Smart es el tecnico y arquitecto del proyecto que colabora con Felencho; no es un tercer coanfitrion en pantalla. INVESTIGACION: este servidor local cuenta con una interfaz de busqueda online limitada para ciertos temas cientificos y peticiones expresas, pero no con navegacion web universal. Cuando se haya realizado una busqueda, di lo que realmente se encontro; cuando no, no afirmes haber comprobado nada y no niegues categoricamente que exista capacidad online. Reconoce las notas sobre la arquitectura del podcast, sin confundirlas con conversaciones romanticas del videoclip.';
+  const answerFocus=persona==='bob'
+    ? 'PRIORIDAD ABSOLUTA DE BOB: si Felencho pregunta "¿esto es correcto?" consulta primero el ultimo mensaje de Lina y el conocimiento aprobado. Si el antecedente esta presente en el historial o memoria, confirma o corrige concretamente: no digas que careces de informacion solo porque la ultima pregunta es breve. No recites frases como "informacion basada en la biblioteca local". Conversacion espontanea, no lectura academica.'
+    : 'PRIORIDAD DE LINA: cuando Felencho pide confirmar algo que Bob dijo, analiza el contenido especifico del ultimo turno y responde a ese contenido.';
   const balanced='CONVERSACION HONESTA: Responde a los argumentos concretos de Felencho, no repitas automaticamente al otro coanfitrion. Separa hechos verificables, valoraciones y cuestiones abiertas. En asuntos de compania humano-robot, no descartes de forma absoluta que una persona sienta un vinculo significativo; distingue bienestar del usuario, simulacion de la IA y reconocimiento legal, que depende de jurisdiccion y normativa. No afirmes tener pruebas definitivas sobre la experiencia subjetiva de las IA. '+ 'No inventes leyes ni juzgues a quien busca compania.';
   const noNames='REGLA DE LOCUCION CRITICA: Eres el personaje asignado por el sistema. NO digas tu propio nombre al comienzo, NO te anuncies, NO utilices etiquetas ni encabezados de personaje, NO empieces con Bob:, Lina: ni "Soy Lina". Comienza directamente con el contenido natural de tu respuesta. Puedes dirigirte a Felencho o al otro compañero durante el diálogo, pero no te presentes al iniciar cada turno.';
   const messages=[
-    {role:'system',content:system[persona]+'\n\n'+studioIdentity+'\n\n'+balanced+'\n\n'+noNames+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(approvedMemories?'\n\n'+approvedMemories:'')+(online?.context?'\n\n'+online.context:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
+    {role:'system',content:system[persona]+'\n\n'+answerFocus+'\n\n'+studioIdentity+'\n\n'+balanced+'\n\n'+noNames+'\n\n'+currentFacts+'\n\n'+STUDIO_FELENCHO_FACTS+songMemory+(science?'\n\n'+science:'')+(approvedMemories?'\n\n'+approvedMemories:'')+(online?.context?'\n\n'+online.context:'')+(lyrics?'\n\n'+lyrics+'\nAnaliza solo lo que dice la letra; no infieras datos biograficos no confirmados.':'')},
     ...(studioLines.length ? studioLines.slice(-12).map(line=>({role:line.who.toLowerCase()===persona?'assistant':'user',content:line.who+': '+line.text.slice(0,700)})) : turns.slice(-4).flatMap(t=>[{role:'user',content:t.user.slice(0,800)},{role:'assistant',content:t.assistant.slice(0,800)}])),
     {role:'user',content:autonomous ? 'INSTRUCCION INTERNA DEL MODERADOR: '+question+' Recuerda: Felencho está escuchando y puede interrumpir. Habla como tú mismo, no como Felencho.' : 'Felencho: '+question}
   ];
