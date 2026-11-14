@@ -28,7 +28,9 @@ export async function POST(request:NextRequest){
   const input=join(folder,'input.webm'),wav=join(folder,'mono.wav'),prefix=join(folder,'transcript');
   await writeFile(input,Buffer.from(await raw.arrayBuffer()));
   await run('ffmpeg',['-hide_banner','-loglevel','error','-y','-i',input,'-ar','16000','-ac','1','-c:a','pcm_s16le',wav],12000);
-  await run('whisper-cli',['-m',model,'-f',wav,'-l','es','-nt','-otxt','-of',prefix,'-np'],40000);
+  // Hint proper names to the local decoder; this is not an automatic replacement of unclear speech.
+  await run('whisper-cli',['-m',model,'-f',wav,'-l','es','-nt','-otxt','-of',prefix,'-np',
+    '--prompt','Conversación del podcast Felencho Mundial con Felencho, cuyo nombre real es Martín Félix Durán Guzmán, y los coanfitriones Bob y Lina.'],40000);
   const text=(await readFile(prefix+'.txt','utf8')).trim().slice(0,1200);
   return NextResponse.json({text},{headers:{'Cache-Control':'no-store'}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'No se pudo transcribir'},{status:502})}
