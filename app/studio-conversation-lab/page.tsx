@@ -73,6 +73,7 @@ export default function StudioConversationLab() {
   const interruptionMonitorRef = useRef<(()=>void)|null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const publisherRef = useRef<Room | null>(null);
+  const publisherPendingRef = useRef<Promise<Room> | null>(null);
   const turnRef = useRef<Record<Persona, Turn[]>>({bob:[],lina:[]});
   const studioTranscriptRef = useRef<Array<{who:'Felencho'|'BOB'|'LINA';text:string}>>([]);
 
@@ -103,6 +104,30 @@ export default function StudioConversationLab() {
     }catch(e){setBridgeStatus('Puente visual desconectado: '+String(e));}
   },[]);
 
+  const ensurePublisher=useCallback(():Promise<Room>=>{
+    if(publisherRef.current && publisherRef.current.state==='connected')return Promise.resolve(publisherRef.current);
+    if(publisherPendingRef.current)return publisherPendingRef.current;
+    const pending=(async()=>{
+      const response=await fetch('/api/studio-local-publisher',{cache:'no-store'});
+      const credentials=await response.json() as {server?:string;token?:string;error?:string};
+      if(!response.ok||!credentials.token||credentials.server!=='ws://127.0.0.1:7880')
+        throw new Error(credentials.error||'No se pudo preparar LiveKit');
+      const previous=publisherRef.current;
+      if(previous){await previous.disconnect();publisherRef.current=null;}
+      const room=new Room();
+      try {
+        await room.connect(credentials.server,credentials.token);
+        publisherRef.current=room;
+        return room;
+      } catch(error){
+        await room.disconnect().catch(()=>{});
+        throw error;
+      }
+    })();
+    publisherPendingRef.current=pending;
+    void pending.finally(()=>{if(publisherPendingRef.current===pending)publisherPendingRef.current=null;}).catch(()=>{});
+    return pending;
+  },[]);
   const clearDebate = () => { debateRef.current=null; if(debateTimerRef.current)clearTimeout(debateTimerRef.current);debateTimerRef.current=null;setDebateState('Debate pausado; Felencho tiene la palabra.'); };
   const startInterruptMonitor=()=>{
     const stream=microphoneRef.current;
@@ -345,15 +370,7 @@ export default function StudioConversationLab() {
         // Send the same actual audio samples to both Mac output and the LiveKit
         // portrait receiver, rather than merely toggling a visual SPEAKING flag.
         try {
-          const response=await fetch('/api/studio-local-publisher',{cache:'no-store'});
-          const credentials=await response.json() as {server?:string;token?:string;error?:string};
-          if(!response.ok||!credentials.token||!credentials.server)throw new Error(credentials.error || 'Sin token');
-          if(!publisherRef.current){
-            const room=new Room();
-            await room.connect(credentials.server,credentials.token);
-            publisherRef.current=room;
-          }
-          publishedRoom=publisherRef.current;
+          publishedRoom=await ensurePublisher();
           ctx=new AudioContext();
           await ctx.resume();
           const src=ctx.createMediaElementSource(player);
@@ -417,7 +434,7 @@ export default function StudioConversationLab() {
         setTimeout(()=>{if(liveRef.current && !busyRef.current && !recorderRef.current) void processRef.current('__restart__');},350);
       }
     }
-  },[signal,brainOnly,bobVoice]);
+  },[signal,brainOnly,bobVoice,ensurePublisher]);
   processRef.current=processText;
 
   const saveLyrics=async()=>{
@@ -437,11 +454,14 @@ export default function StudioConversationLab() {
     try {
       microphoneRef.current=await navigator.mediaDevices.getUserMedia({audio:selectedDevice?{deviceId:{exact:selectedDevice},echoCancellation:true,noiseSuppression:true}:{echoCancellation:true,noiseSuppression:true},video:false});
       void navigator.mediaDevices.enumerateDevices().then(list=>setDevices(list.filter(d=>d.kind==='audioinput').map(d=>({id:d.deviceId,label:d.label||'Micrófono'})))).catch(()=>{});
-      liveRef.current=true;setLive(true);setStatus('Micrófono habilitado: Whisper local.');
+      liveRef.current=true;setLive(true);setStatus('Micrófono habilitado: Whisper local. Preparando LiveKit...');
+      // Connect in parallel with microphone listening, not during the first spoken reply.
+      void ensurePublisher().then(()=>setAudioStatus('LiveKit preparado para las voces locales'))
+        .catch(e=>setAudioStatus('LiveKit aún no preparado: '+String(e)));
       await processRef.current('__restart__');
     }catch(e){setStatus('Permiso de micrófono o dispositivo: '+String(e));liveRef.current=false;setLive(false);}
   };
-  const stop=()=>{interruptedRef.current=true;clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;if(interruptCaptureRef.current?.state==='recording')interruptCaptureRef.current.stop();activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
+  const stop=()=>{interruptedRef.current=true;clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;if(interruptCaptureRef.current?.state==='recording')interruptCaptureRef.current.stop();activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;publisherPendingRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
   useEffect(()=>()=>{liveRef.current=false;stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());playerRef.current?.pause();publisherRef.current?.disconnect();},[]);
 
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
