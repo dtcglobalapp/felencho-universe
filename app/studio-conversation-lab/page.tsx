@@ -68,6 +68,7 @@ export default function StudioConversationLab() {
   const debateRef = useRef<{remaining:number;topic:string}|null>(null);
   const debateTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null);
   const interruptedRef = useRef(false);
+  const interruptCaptureRef = useRef<MediaRecorder|null>(null);
   const activeRequestRef = useRef<AbortController|null>(null);
   const interruptionMonitorRef = useRef<(()=>void)|null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
@@ -103,6 +104,63 @@ export default function StudioConversationLab() {
   },[]);
 
   const clearDebate = () => { debateRef.current=null; if(debateTimerRef.current)clearTimeout(debateTimerRef.current);debateTimerRef.current=null;setDebateState('Debate pausado; Felencho tiene la palabra.'); };
+  const startInterruptMonitor=()=>{
+    const stream=microphoneRef.current;
+    if(!stream || !liveRef.current)return;
+    interruptionMonitorRef.current?.();
+    const context=new AudioContext();
+    const input=context.createMediaStreamSource(stream);
+    const analyser=context.createAnalyser();analyser.fftSize=2048;
+    input.connect(analyser);
+    const buffer=new Float32Array(analyser.fftSize);
+    let speechMs=0,disarmed=false,lastTick=Date.now();
+    const warmup=Date.now();
+    const cleanup=()=>{clearInterval(interval);input.disconnect();void context.close().catch(()=>{});};
+    const interval=setInterval(()=>{
+      if(disarmed||!liveRef.current)return;
+      // Avoid reacting to leftover audio on startup.
+      if(Date.now()-warmup<500)return;
+      analyser.getFloatTimeDomainData(buffer);
+      let energy=0;for(let i=0;i<buffer.length;i++)energy+=buffer[i]*buffer[i];
+      const rms=Math.sqrt(energy/buffer.length);
+      const now=Date.now(),elapsed=Math.min(200,now-lastTick);lastTick=now;
+      if(rms>0.045)speechMs+=elapsed;else speechMs=0;
+      if(speechMs<450)return;
+      disarmed=true;
+      cleanup();interruptionMonitorRef.current=null;
+      interruptedRef.current=true;
+      clearDebate();
+      activeRequestRef.current?.abort();
+      endPlayback();
+      setStatus('Interrupción detectada: Bob y Lina guardan silencio. Escuchando a Felencho...');
+      // Capture a fresh spoken intervention on the microphone while the agents are silent.
+      try{
+        const recorder=new MediaRecorder(stream,{mimeType:'audio/webm'});
+        interruptCaptureRef.current=recorder;
+        const chunks:Blob[]=[];
+        recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+        recorder.onstop=async()=>{
+          if(interruptCaptureRef.current===recorder)interruptCaptureRef.current=null;
+          const blob=new Blob(chunks,{type:'audio/webm'});
+          if(blob.size<100){if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
+          try{
+            const data=new FormData();data.append('audio',blob,'interrupt.webm');
+            const response=await fetch('/api/studio-local-transcribe',{method:'POST',body:data,signal:AbortSignal.timeout(65000)});
+            const json=await response.json() as {text?:string;error?:string};
+            if(!response.ok)throw new Error(json.error||'Whisper no pudo transcribir la interrupción');
+            const phrase=(json.text||'').trim();
+            if(!phrase){if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
+            setTranscript(phrase);
+            const submit=()=>{if(busyRef.current){setTimeout(submit,150);return;}void processRef.current(phrase);};
+            submit();
+          }catch(e){setStatus('Interrupción: '+String(e));if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);}
+        };
+        recorder.start();
+        setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},5000);
+      }catch(e){setStatus('No se pudo capturar interrupción: '+String(e));}
+    },100);
+    interruptionMonitorRef.current=cleanup;
+  };
   const endPlayback = useCallback(() => {
     playerRef.current?.pause();
     playerRef.current?.dispatchEvent(new Event('ended'));
@@ -217,7 +275,7 @@ export default function StudioConversationLab() {
       if(debateTimerRef.current)clearTimeout(debateTimerRef.current);
       debateTimerRef.current=null;
       const n=normalize(text);
-      const startsDebate=/\\b(hablemos de|vamos a hablar|quiero hablar|el tema es|tema de hoy|debatan|conversen entre ustedes|discutan sobre|quiero que debatan|que opinan los dos)\\b/.test(n);
+      const startsDebate=/\b(hablemos de|vamos a hablar|quiero hablar|el tema es|tema de hoy|debatan|conversen entre ustedes|discutan sobre|quiero que debatan|que opinan los dos)\b/.test(n);
       if(startsDebate){debateRef.current={remaining:3,topic:text};setDebateState('Debate automático sobre el tema de Felencho: hasta cuatro intervenciones en total.');}
       else {debateRef.current=null;setDebateState('Mesa en escucha: esperando el próximo tema.');}
     }
@@ -240,6 +298,7 @@ export default function StudioConversationLab() {
     activeRef.current=who;setActive(who);
     busyRef.current=true;setBusy(true);
     stopRecognizer();
+    startInterruptMonitor();
     if(!internal){
       studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:'Felencho',text}];
       setHistory(h=>[...h.slice(-18),{who:'Felencho',text}]);
@@ -339,6 +398,7 @@ export default function StudioConversationLab() {
       // Avoid repeated local retries after failure; preserve resources.
       liveRef.current=false;setLive(false);
     }finally{
+      interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;
       activeRequestRef.current=null;
       busyRef.current=false;setBusy(false);
       if(answered && debateRef.current && !interruptedRef.current && !brainOnly && liveRef.current && debateRef.current.remaining>0){
@@ -378,7 +438,7 @@ export default function StudioConversationLab() {
       await processRef.current('__restart__');
     }catch(e){setStatus('Permiso de micrófono o dispositivo: '+String(e));liveRef.current=false;setLive(false);}
   };
-  const stop=()=>{clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
+  const stop=()=>{clearDebate();interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;if(interruptCaptureRef.current?.state==='recording')interruptCaptureRef.current.stop();activeRequestRef.current?.abort();liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
   useEffect(()=>()=>{liveRef.current=false;stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());playerRef.current?.pause();publisherRef.current?.disconnect();},[]);
 
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
