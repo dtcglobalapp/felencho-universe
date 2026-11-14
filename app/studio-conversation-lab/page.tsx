@@ -42,7 +42,7 @@ export default function StudioConversationLab() {
   const [typed,setTyped] = useState('');
   const [history,setHistory] = useState<{who: string; text: string}[]>([]);
   const [localOk,setLocalOk] = useState(false);
-  const [readiness,setReadiness] = useState('Integración comercial deshabilitada. Pendiente conectar Qwen y TTS locales.');
+  const [readiness,setReadiness] = useState('Comprobando motor Qwen local y voz macOS...');
   const activeRef = useRef<Persona | null>(null);
   const liveRef = useRef(false);
   const busyRef = useRef(false);
@@ -55,7 +55,9 @@ export default function StudioConversationLab() {
   useEffect(() => {
     setLocalOk(isLocal());
     if(!isLocal())return;
-
+    fetch('/api/studio-local-conversation',{cache:'no-store'}).then(r=>r.json()).then((j:{ready?:boolean;brain?:string;tts?:string})=>{
+      setReadiness(j.ready?'Motor listo: '+j.brain+' · '+j.tts:'Falta iniciar un servidor Qwen local (Ollama, LM Studio o MLX). Voz macOS disponible.');
+    }).catch(()=>setReadiness('No se pudo detectar Qwen local.'));
   },[]);
 
   const signal = useCallback(async(persona: Persona,action:'LISTENING'|'SLEEP'|'SPEAKING'|'IDLE')=>{
@@ -133,13 +135,9 @@ export default function StudioConversationLab() {
     setStatus('Consultando Felencho Brain para '+who.toUpperCase()+'...');
     await signal(who,'LISTENING');
     try{
-      // Local-only policy: NEVER call the legacy commercial OpenAI/ElevenLabs endpoint.
-      // Conversational replies remain disabled until Qwen + local TTS are wired.
-      throw new Error('Motor local Qwen/TTS pendiente. No se llamará a OpenAI ni ElevenLabs.');
-      /* PAID LEGACY ROUTE DISABLED
-      const res=await fetch('/api/felencho-forever/conversation',{
+      const res=await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({character_key:who,message:text,include_audio:true,conversation_context:turnRef.current[who].slice(-4)}),
+        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4)}),
         signal:AbortSignal.timeout(90000)
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string};error?:string};
@@ -201,7 +199,6 @@ export default function StudioConversationLab() {
         URL.revokeObjectURL(url);
       }
       await signal(who,'IDLE');
-      */
     }catch(error){
       setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
       await signal(who,'IDLE');
@@ -233,7 +230,7 @@ export default function StudioConversationLab() {
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-2xl font-bold">Felencho Mundial · Conversación local</h1>
-      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Motor de respuesta deshabilitado hasta integración 100% local.</p>
+      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local y sintetizador integrado de macOS: sin APIs comerciales.</p>
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-sm text-amber-300">{readiness}</p>
@@ -255,7 +252,7 @@ export default function StudioConversationLab() {
         {history.map((h,i)=><p key={i} className="border-b border-slate-700 py-2 text-sm"><strong>{h.who}:</strong> {h.text}</p>)}
         {!history.length&&<p className="text-slate-400">Sin intervenciones todavía.</p>}
       </section>
-      <p className="text-xs text-slate-400">No se utilizan servicios comerciales en este laboratorio. Qwen, Whisper y TTS locales todavía deben conectarse antes de habilitar respuestas habladas.</p>
+      <p className="text-xs text-slate-400">Sin APIs comerciales: motor Qwen local + voz integrada macOS. El reconocimiento de Chrome puede usar servidores de Google; para operación totalmente offline se sustituirá por Whisper instalado en La Bestia.</p>
       {reply && <p className="sr-only" aria-live="polite">{reply}</p>}
     </div>
   </main>;
