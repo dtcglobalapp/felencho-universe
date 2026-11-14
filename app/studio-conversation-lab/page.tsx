@@ -16,7 +16,10 @@ function classify(text: string, active: Persona | null) {
   }
   const words = normalize(text).match(/[a-z0-9]+/g) || [];
   const bob = words.includes('bob'), lina = words.includes('lina');
-  if (bob && lina) return {persona: null as Persona | null, command: 'ambiguous'};
+  // If both cohosts are mentioned, the first name is the addressee.
+  // Example: "Bob, preguntale a Lina..." must go to Bob, not be rejected.
+  const firstBob = words.indexOf('bob'), firstLina = words.indexOf('lina');
+  if (bob && lina) return {persona: (firstBob < firstLina ? 'bob' : 'lina') as Persona, command: 'question'};
   const persona: Persona | null = bob ? 'bob' : lina ? 'lina' : active;
   if (!persona) return {persona: null as Persona | null, command: 'unaddressed'};
   const sleeping = /\b(a dormir|duerme|descansa|vete a dormir)\b/.test(normalize(text));
@@ -34,7 +37,7 @@ export default function StudioConversationLab() {
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
   const [bobVoice,setBobVoice] = useState<'Uncle_Fu'|'Ryan'|'Aiden'|'Eric'|'Dylan'>('Uncle_Fu');
-  const [lastSpeaker,setLastSpeaker] = useState<Persona|null>(null);
+
   const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [songTitle,setSongTitle] = useState('');
   const [songLyrics,setSongLyrics] = useState('');
@@ -65,7 +68,7 @@ export default function StudioConversationLab() {
   const publisherRef = useRef<Room | null>(null);
   const turnRef = useRef<Record<Persona, Turn[]>>({bob:[],lina:[]});
   const studioTranscriptRef = useRef<Array<{who:'Felencho'|'BOB'|'LINA';text:string}>>([]);
-  const lastSpeakerRef = useRef<Persona|null>(null);
+
   const processRef = useRef<(text: string) => Promise<void>>(async () => {});
   const runningRef = useRef(false);
   useEffect(() => {
@@ -189,9 +192,14 @@ export default function StudioConversationLab() {
       }catch(e){setStatus('No se pudo grabar: '+String(e));liveRef.current=false;setLive(false);}
       return;
     }
-    const text=raw.trim().slice(0,1200);
+    const handoff = raw==='__handoff__bob' ? 'bob' : raw==='__handoff__lina' ? 'lina' : null;
+    const text=(handoff
+      ? (handoff==='bob'
+          ? 'Bob, responde a lo que dijo Lina en la mesa. Aporta tu perspectiva brevemente.'
+          : 'Lina, responde a lo que dijo Bob en la mesa. Aporta tu perspectiva brevemente.')
+      : raw.trim()).slice(0,1200);
     if(!text || busyRef.current || !isLocal())return;
-    const routed=classify(text,activeRef.current);
+    const routed=handoff ? {persona:handoff as Persona,command:'question'} : classify(text,activeRef.current);
     if(routed.command==='ambient'){
       setStatus('Sonido ambiental ignorado. Esperando una pregunta dirigida a Bob o Lina.');
       if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);
@@ -209,10 +217,21 @@ export default function StudioConversationLab() {
     activeRef.current=who;setActive(who);
     busyRef.current=true;setBusy(true);
     stopRecognizer();
-    studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:'Felencho',text}];
-    setHistory(h=>[...h.slice(-18),{who:'Felencho',text}]);
+    if(!handoff){
+      studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:'Felencho',text}];
+      setHistory(h=>[...h.slice(-18),{who:'Felencho',text}]);
+    }
     setStatus('Consultando Felencho Brain para '+who.toUpperCase()+'...');
     await signal(who,'LISTENING');
+    // A spoken request to one cohost to ask the other schedules exactly one
+    // response from the second cohost. It is not an autonomous infinite loop.
+    const spoken = normalize(text);
+    const scheduledReply: Persona|null = !handoff && (
+      who==='bob' && /(?:preguntale|habla con|dirigete a|consulta a)\s+lina/.test(spoken) ? 'lina' :
+      who==='lina' && /(?:preguntale|habla con|dirigete a|consulta a)\s+bob/.test(spoken) ? 'bob' :
+      null
+    );
+    let answered=false;
     try{
       const res=await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
@@ -223,11 +242,10 @@ export default function StudioConversationLab() {
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
       studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:who.toUpperCase() as 'BOB'|'LINA',text:json.data.text!}];
-      lastSpeakerRef.current=who;setLastSpeaker(who);
       setHistory(h=>[...h.slice(-18),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
-      if(brainOnly){await signal(who,'IDLE');setAudioStatus('Voz desactivada: casilla «Probar solo cerebro Qwen» marcada');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');return;}
+      if(brainOnly){await signal(who,'IDLE');setAudioStatus('Voz desactivada: casilla «Probar solo cerebro Qwen» marcada');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');answered=true;return;}
       if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
       setAudioStatus('Audio generado por '+(json.data.voice_engine||'motor local')+'; preparando reproducción');
@@ -287,6 +305,7 @@ export default function StudioConversationLab() {
       }
       await signal(who,'IDLE');
       setAudioStatus('Reproducción finalizada · '+(json.data.voice_engine||'voz local'));
+      answered=true;
     }catch(error){
       await signal(who,'IDLE');
       setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
@@ -295,7 +314,10 @@ export default function StudioConversationLab() {
       liveRef.current=false;setLive(false);
     }finally{
       busyRef.current=false;setBusy(false);
-      if(liveRef.current) {
+      if(answered && scheduledReply){
+        setStatus('Cediendo la palabra a '+scheduledReply.toUpperCase()+' por instrucción de Felencho.');
+        setTimeout(()=>{if(!busyRef.current)void processRef.current('__handoff__'+scheduledReply);},400);
+      } else if(liveRef.current) {
         setStatus('Escuchando: '+who.toUpperCase()+' conserva el turno. Puedes llamar al otro por su nombre.');
         setTimeout(()=>{if(liveRef.current && !busyRef.current && !recorderRef.current) void processRef.current('__restart__');},350);
       }
@@ -303,15 +325,6 @@ export default function StudioConversationLab() {
   },[signal,brainOnly,bobVoice]);
   processRef.current=processText;
 
-  const passTurn=()=>{
-    const previous=lastSpeakerRef.current;
-    if(!previous||busyRef.current)return;
-    const next=previous==='bob'?'lina':'bob';
-    const previousName=previous==='bob'?'Bob':'Lina';
-    const request=next.toUpperCase()+', escucha lo que acaba de decir '+previousName+
-      ' y responde brevemente con tu propia opinion. Puedes hacerle una pregunta. No repitas todo su mensaje.';
-    void processRef.current(request);
-  };
   const saveLyrics=async()=>{
     if(!songTitle.trim()||songLyrics.trim().length<30){setSongStatus('Introduce un título y la letra original completa.');return;}
     setSongStatus('Guardando letra únicamente en La Bestia...');
@@ -363,10 +376,7 @@ export default function StudioConversationLab() {
             <option value="Dylan">Dylan · alternativa</option>
           </select>
         </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <button disabled={!lastSpeaker||busy||!localOk} onClick={passTurn} className="rounded bg-indigo-500 px-4 py-2 font-semibold text-white disabled:opacity-40">Dar turno a {lastSpeaker==='bob'?'Lina':'Bob'}</button>
-          <span className="text-xs text-slate-400">Los dos comparten la conversacion. Un solo turno por pulsacion, sin dialogos infinitos.</span>
-        </div>
+        <p className="text-xs text-slate-400">Control de mesa por voz: «Bob, pregunta a Lina sobre Historia de amor» o «Lina, responde a lo que dijo Bob». Sin botón para ceder turnos.</p>
         <label className="block text-sm">Final de turno
           <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'vad'|'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
             <option value="vad">Manos libres: detectar silencio al terminar (recomendado)</option>
