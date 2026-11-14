@@ -52,6 +52,8 @@ export default function StudioConversationLab() {
   const [songCount,setSongCount] = useState(0);
   const [recording,setRecording] = useState(false);
   const [audioStatus,setAudioStatus] = useState('Voz todavía no probada');
+  const [researchStatus,setResearchStatus] = useState('Sin búsqueda online en esta sesión');
+  const [researchSources,setResearchSources] = useState<Array<{title:string;url:string;publisher:string;date?:string}>>([]);
   const [devices,setDevices] = useState<Array<{id:string;label:string}>>([]);
   const [selectedDevice,setSelectedDevice] = useState('');
   const [lastAudioUrl,setLastAudioUrl] = useState<string|null>(null);
@@ -370,10 +372,15 @@ export default function StudioConversationLab() {
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:controller.signal
       });
-      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;brain_ms?:number;tts_ms?:number};error?:string};
+      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;brain_ms?:number;tts_ms?:number;research_status?:'online'|'offline'|'not-needed';research_ms?:number;sources?:Array<{title:string;url:string;publisher:string;date?:string}>};error?:string};
       if(controller.signal.aborted || interruptedRef.current)return;
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
+      setResearchSources(json.data.sources||[]);
+      setResearchStatus(json.data.research_status==='online' ?
+        'Fuentes online encontradas (investigación '+((json.data.research_ms||0)/1000).toFixed(1)+' s)' :
+        json.data.research_status==='offline' ? 'Internet no disponible: respuesta con conocimiento local' :
+        'Respuesta local; investigación online no necesaria para esta intervención');
       studioTranscriptRef.current=[...studioTranscriptRef.current.slice(-15),{who:who.toUpperCase() as 'BOB'|'LINA',text:json.data.text!}];
       setHistory(h=>[...h.slice(-18),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
@@ -514,6 +521,15 @@ export default function StudioConversationLab() {
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-xs text-amber-300">{bridgeStatus}</p>
         <p className="text-sm">Audio: {audioStatus}</p>
+        <details className="rounded border border-slate-700 p-2">
+          <summary className="cursor-pointer text-sm">Fuentes de investigación · {researchStatus}</summary>
+          {researchSources.length ? <ul className="mt-2 space-y-1 text-xs">
+            {researchSources.map((source,i)=><li key={source.url+i}>
+              <a href={source.url} target="_blank" rel="noreferrer" className="text-cyan-300 underline">{source.title}</a>
+              {' · '+source.publisher+(source.date?' · '+source.date:'')}
+            </li>)}
+          </ul> : <p className="mt-2 text-xs text-slate-400">No se utilizaron fuentes web verificables en el turno anterior.</p>}
+        </details>
         <p className="text-sm">Mesa: {debateState}</p>
         {lastAudioUrl && <audio controls src={lastAudioUrl} className="w-full" aria-label="Reproducir la última voz de Bob o Lina" />}
         <label className="block text-sm">Entrada de voz (selecciona RØDECaster si aparece)
