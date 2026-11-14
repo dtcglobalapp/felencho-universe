@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 export function validWakeEvent(body) {
   return body !== null && typeof body === 'object' && !Array.isArray(body) &&
     (body.target === 'bob' || body.target === 'lina') &&
-    (body.action === 'LISTENING' || body.action === 'SLEEP');
+    ['LISTENING', 'SLEEP', 'SPEAKING', 'IDLE'].includes(body.action);
 }
 const isAllowedOrigin = value => !value || /^http:\/\/(localhost|127\.0\.0\.1):3001$/.test(value);
 const clients = new Set();
