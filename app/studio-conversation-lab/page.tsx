@@ -25,6 +25,12 @@ function classify(text: string, active: Persona | null) {
   const sleeping = /\b(a dormir|duerme|descansa|vete a dormir)\b/.test(normalize(text));
   return {persona, command: sleeping ? 'sleep' : 'question'};
 }
+function debatePrompt(persona: Persona, topic: string): string {
+  const other=persona==='bob'?'Lina':'Bob';
+  return (persona==='bob'?'Bob':'Lina')+', continúa el debate con '+other+
+    '. Retoma el tema propuesto por Felencho: '+topic.slice(0,400)+
+    '. Responde al argumento más reciente de '+other+' y aporta una idea nueva en dos frases breves. No repitas el mismo dato.';
+}
 const base64Audio = (encoded: string, mime: string) => {
   const binary = atob(encoded);
   const bytes = new Uint8Array(binary.length);
@@ -70,6 +76,7 @@ export default function StudioConversationLab() {
   const interruptedRef = useRef(false);
   const interruptCaptureRef = useRef<MediaRecorder|null>(null);
   const activeRequestRef = useRef<AbortController|null>(null);
+  const nextTurnRef = useRef<{who:Persona;controller:AbortController;promise:Promise<Response>}|null>(null);
   const interruptionMonitorRef = useRef<(()=>void)|null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const publisherRef = useRef<Room | null>(null);
@@ -128,7 +135,7 @@ export default function StudioConversationLab() {
     void pending.finally(()=>{if(publisherPendingRef.current===pending)publisherPendingRef.current=null;}).catch(()=>{});
     return pending;
   },[]);
-  const clearDebate = () => { debateRef.current=null; if(debateTimerRef.current)clearTimeout(debateTimerRef.current);debateTimerRef.current=null;setDebateState('Debate pausado; Felencho tiene la palabra.'); };
+  const clearDebate = () => {nextTurnRef.current?.controller.abort();nextTurnRef.current=null; debateRef.current=null; if(debateTimerRef.current)clearTimeout(debateTimerRef.current);debateTimerRef.current=null;setDebateState('Debate pausado; Felencho tiene la palabra.'); };
   const startInterruptMonitor=()=>{
     const stream=microphoneRef.current;
     if(!stream || !liveRef.current)return;
@@ -287,9 +294,7 @@ export default function StudioConversationLab() {
     const handoff = raw==='__handoff__bob' ? 'bob' : raw==='__handoff__lina' ? 'lina' : null;
     const internal = automatic || handoff;
     const text=(automatic
-       ? (automatic==='bob'
-          ? 'Bob, continúa el debate reaccionando directamente al argumento más reciente de Lina. Aporta una idea nueva y una pregunta breve.'
-          : 'Lina, continúa el debate reaccionando directamente al argumento más reciente de Bob. Aporta una perspectiva nueva y una pregunta breve.')
+       ? debatePrompt(automatic,debateRef.current?.topic||'el tema conversado')
        : handoff
        ? (handoff==='bob'
           ? 'Bob, responde a lo que dijo Lina en la mesa. Aporta tu perspectiva brevemente.'
@@ -297,6 +302,7 @@ export default function StudioConversationLab() {
        : raw.trim()).slice(0,1200);
     if(!text || busyRef.current || !isLocal())return;
     if(!internal){
+      nextTurnRef.current?.controller.abort();nextTurnRef.current=null;
       interruptedRef.current=false;
       if(debateTimerRef.current)clearTimeout(debateTimerRef.current);
       debateTimerRef.current=null;
@@ -356,8 +362,10 @@ export default function StudioConversationLab() {
     );
     let answered=false;
     try{
-      const controller=new AbortController();activeRequestRef.current=controller;
-      const res=await fetch('/api/studio-local-conversation',{
+      const cached=automatic && nextTurnRef.current?.who===who ? nextTurnRef.current : null;
+      if(cached)nextTurnRef.current=null;
+      const controller=cached?.controller||new AbortController();activeRequestRef.current=controller;
+      const res=cached ? await cached.promise : await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:controller.signal
@@ -370,6 +378,28 @@ export default function StudioConversationLab() {
       setHistory(h=>[...h.slice(-18),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
+      // Generate the NEXT cohost's whole response while this cohost is speaking.
+      // This hides Qwen + Qwen3-TTS time behind audible playback without
+      // changing cadence or voices. Cancel prefetch on a real interruption.
+      if(debateRef.current && liveRef.current && !brainOnly && !interruptedRef.current){
+        const next:Persona=who==='bob'?'lina':'bob';
+        const controller=new AbortController();
+        const promise=fetch('/api/studio-local-conversation',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            character_key:next,
+            message:debatePrompt(next,debateRef.current.topic).slice(0,1200),
+            conversation_context:turnRef.current[next].slice(-4),
+            studio_transcript:studioTranscriptRef.current.slice(-12),
+            autonomous_turn:true,
+            bob_voice:bobVoice,include_audio:true
+          }),
+          signal:controller.signal
+        });
+        nextTurnRef.current={who:next,controller,promise};
+        void promise.catch(()=>{}); // Prevent an unhandled rejection before consumption.
+        setDebateState('Mesa activa: preparando a '+next.toUpperCase()+' mientras '+who.toUpperCase()+' habla.');
+      }
       if(brainOnly){await signal(who,'IDLE');setAudioStatus('Voz desactivada: casilla «Probar solo cerebro Qwen» marcada');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');answered=true;return;}
       if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
