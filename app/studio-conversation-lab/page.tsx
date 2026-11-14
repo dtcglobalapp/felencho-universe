@@ -34,6 +34,10 @@ export default function StudioConversationLab() {
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
   const [turnMode,setTurnMode] = useState<'manual'|'auto'>('manual');
+  const [songTitle,setSongTitle] = useState('');
+  const [songLyrics,setSongLyrics] = useState('');
+  const [songStatus,setSongStatus] = useState('Sin letras cargadas en esta sesión');
+  const [songCount,setSongCount] = useState(0);
   const [recording,setRecording] = useState(false);
   const [audioStatus,setAudioStatus] = useState('Voz todavía no probada');
   const [devices,setDevices] = useState<Array<{id:string;label:string}>>([]);
@@ -64,6 +68,7 @@ export default function StudioConversationLab() {
       void navigator.mediaDevices.enumerateDevices().then(list=>setDevices(list.filter(d=>d.kind==='audioinput').map(d=>({id:d.deviceId,label:d.label||'Micrófono (permiso pendiente)'})))).catch(()=>{});
     }
     setLocalOk(isLocal());
+    if(isLocal())void fetch('/api/studio-local-lyrics',{cache:'no-store'}).then(r=>r.json()).then((d:{count?:number})=>setSongCount(d.count||0)).catch(()=>{});
     if(!isLocal())return;
     fetch('/api/studio-local-conversation',{cache:'no-store'}).then(r=>r.json()).then((j:{ready?:boolean;brain?:string;tts?:string})=>{
       setReadiness(j.ready?'Motor listo: '+j.brain+' · '+j.tts:'Falta iniciar un servidor Qwen local (Ollama, LM Studio o MLX). Voz macOS disponible.');
@@ -255,6 +260,18 @@ export default function StudioConversationLab() {
   },[signal,brainOnly]);
   processRef.current=processText;
 
+  const saveLyrics=async()=>{
+    if(!songTitle.trim()||songLyrics.trim().length<30){setSongStatus('Introduce un título y la letra original completa.');return;}
+    setSongStatus('Guardando letra únicamente en La Bestia...');
+    try{
+      const response=await fetch('/api/studio-local-lyrics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:songTitle,lyrics:songLyrics})});
+      const data=await response.json() as {error?:string};
+      if(!response.ok)throw new Error(data.error||'No se pudo guardar la letra');
+      setSongStatus('Letra guardada localmente; ahora puedes pedir a Bob o Lina que analicen esa canción.');
+      setSongTitle('');setSongLyrics('');
+      void fetch('/api/studio-local-lyrics',{cache:'no-store'}).then(r=>r.json()).then((d:{count?:number})=>setSongCount(d.count||0));
+    }catch(error){setSongStatus('Error: '+String(error));}
+  };
   const start=async()=> {
     if(!isLocal() || liveRef.current)return;
     try {
@@ -309,6 +326,14 @@ export default function StudioConversationLab() {
         {history.map((h,i)=><p key={i} className="border-b border-slate-700 py-2 text-sm"><strong>{h.who}:</strong> {h.text}</p>)}
         {!history.length&&<p className="text-slate-400">Sin intervenciones todavía.</p>}
       </section>
+      <details className="rounded-xl border border-slate-700 bg-slate-900 p-4">
+        <summary className="cursor-pointer font-semibold">Biblioteca local de letras originales ({songCount})</summary>
+        <p className="mt-2 text-xs text-slate-400">Copia aquí únicamente letras originales de Felencho aprobadas. Se guardan en La Bestia, no se envían a servicios externos. Para corregir una canción vuelve a guardar el mismo título.</p>
+        <input value={songTitle} onChange={e=>setSongTitle(e.target.value)} placeholder="Título exacto de la canción" className="mt-3 w-full rounded bg-slate-950 p-2" />
+        <textarea value={songLyrics} onChange={e=>setSongLyrics(e.target.value)} placeholder="Pega aquí la letra original completa..." className="mt-2 min-h-48 w-full rounded bg-slate-950 p-2" />
+        <button onClick={()=>void saveLyrics()} className="mt-2 rounded bg-cyan-500 px-4 py-2 font-semibold text-black">Guardar letra en La Bestia</button>
+        <p className="mt-2 text-sm">{songStatus}</p>
+      </details>
       <p className="text-xs text-slate-400">Sin APIs comerciales: Qwen local + Whisper local + voz integrada macOS; modo manual de turnos o segmentos automáticos de 18 segundos.</p>
       {reply && <p className="sr-only" aria-live="polite">{reply}</p>}
     </div>
