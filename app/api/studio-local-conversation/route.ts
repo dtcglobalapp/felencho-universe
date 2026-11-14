@@ -168,7 +168,7 @@ export async function POST(request:NextRequest){
     const brain_ms=Date.now()-began-research_ms;
     if(body.include_audio===false)return NextResponse.json({data:{character_key:persona,text:reply,backend:backend.name,voice_engine:'desactivado para diagnóstico',research_status:research.status,sources:research.sources}});
     const voice=await speech(reply,persona,bobVoice);
-    const tts_ms=Date.now()-began-brain_ms;
+    const tts_ms=Date.now()-began-research_ms-brain_ms;
     return NextResponse.json({data:{character_key:persona,text:reply,audio_base64:voice.audio,audio_mime:'audio/wav',backend:backend.name,voice_engine:voice.engine,brain_ms,tts_ms,research_ms,research_status:research.status,sources:research.sources}});
   }catch(e){
     return NextResponse.json({error:e instanceof Error?e.message:'Error local de conversacion'},{status:502});
