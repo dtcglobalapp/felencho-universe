@@ -33,6 +33,8 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
+  const [turnMode,setTurnMode] = useState<'manual'|'auto'>('manual');
+  const [recording,setRecording] = useState(false);
   const [audioStatus,setAudioStatus] = useState('Voz todavía no probada');
   const [devices,setDevices] = useState<Array<{id:string;label:string}>>([]);
   const [selectedDevice,setSelectedDevice] = useState('');
@@ -50,6 +52,7 @@ export default function StudioConversationLab() {
   const liveRef = useRef(false);
   const busyRef = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const turnModeRef = useRef<'manual'|'auto'>('manual');
   const microphoneRef = useRef<MediaStream | null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const publisherRef = useRef<Room | null>(null);
@@ -87,7 +90,9 @@ export default function StudioConversationLab() {
   },[]);
   const stopRecognizer = () => {
     if(recorderRef.current?.state==='recording')recorderRef.current.stop();
+    setRecording(false);
   };
+  const finishTurn=()=>{if(recorderRef.current?.state==='recording')recorderRef.current.stop();setRecording(false);};
   const resumeListening = () => {
     busyRef.current = false;setBusy(false);
     if(liveRef.current) {
@@ -110,6 +115,7 @@ export default function StudioConversationLab() {
         recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
         recorder.onstop=async()=>{
           if(recorderRef.current===recorder)recorderRef.current=null;
+          setRecording(false);
           if(!liveRef.current||busyRef.current)return;
           try{
             const blob=new Blob(chunks,{type:'audio/webm'});
@@ -128,8 +134,13 @@ export default function StudioConversationLab() {
           }
         };
         recorder.start();
-        setStatus('Escuchando localmente (segmento de 6 segundos).');
-        setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},6000);
+        setRecording(true);
+        if(turnModeRef.current==='auto'){
+          setStatus('Escuchando localmente. Segmento automático de 18 segundos.');
+          setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},18000);
+        } else {
+          setStatus('Escuchando tu intervención completa. Pulsa «Terminé de hablar» cuando quieras que responda.');
+        }
       }catch(e){setStatus('No se pudo grabar: '+String(e));liveRef.current=false;setLive(false);}
       return;
     }
@@ -274,7 +285,14 @@ export default function StudioConversationLab() {
         <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
+        <label className="block text-sm">Final de turno
+          <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
+            <option value="manual">Yo indico cuándo terminé (recomendado para entrevistas)</option>
+            <option value="auto">Automático, cada 18 segundos (prueba)</option>
+          </select>
+        </label>
         <div className="flex flex-wrap gap-3">
+          {live && recording && turnMode==='manual' && <button onClick={finishTurn} className="rounded bg-amber-400 px-4 py-3 font-semibold text-black">Terminé de hablar</button>}
           <button disabled={!localOk||live||busy} className="rounded bg-cyan-500 px-4 py-3 font-semibold text-black disabled:opacity-40" onClick={start}>Iniciar conversación</button>
           <button disabled={!live&&!busy} className="rounded border px-4 py-3 disabled:opacity-40" onClick={stop}>Detener conversación</button>
         </div>
@@ -291,7 +309,7 @@ export default function StudioConversationLab() {
         {history.map((h,i)=><p key={i} className="border-b border-slate-700 py-2 text-sm"><strong>{h.who}:</strong> {h.text}</p>)}
         {!history.length&&<p className="text-slate-400">Sin intervenciones todavía.</p>}
       </section>
-      <p className="text-xs text-slate-400">Sin APIs comerciales: Qwen local + Whisper local + voz integrada macOS; los intervalos de reconocimiento son de 6 segundos.</p>
+      <p className="text-xs text-slate-400">Sin APIs comerciales: Qwen local + Whisper local + voz integrada macOS; modo manual de turnos o segmentos automáticos de 18 segundos.</p>
       {reply && <p className="sr-only" aria-live="polite">{reply}</p>}
     </div>
   </main>;
