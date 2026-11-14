@@ -87,7 +87,8 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     if (sessionRef.current) return;
     setStatus('Conectando...');
     setDiagnostic('Esperando pistas'); setAudioLevel(0); setPeakLevel(0); setAudioFrames(0);
-    // Browser audio must be unlocked synchronously from this user click.
+    // Best-effort audio analysis. TV auto-connects without a click; Chrome may suspend
+    // AudioContext until a user gesture, but LiveKit track and bridge states remain active.
     const ctx = new AudioContext();
     void ctx.resume();
     const room = new Room({adaptiveStream: true});
@@ -226,20 +227,18 @@ export default function LocalAudioHologram({ persona }: { persona: Persona }) {
     }
   }, [persona]);
 
+  // The portrait TV is an output-only display. No on-screen buttons or labels.
+  // Reconnect locally if LiveKit starts after the TV loads or temporarily drops.
+  useEffect(() => {
+    void connect();
+    const retry = setInterval(() => {
+      if (!sessionRef.current) void connect();
+    }, 5000);
+    return () => clearInterval(retry);
+  }, [connect]);
+
   return <main className="relative h-[100dvh] w-full overflow-hidden bg-black">
     {persona === 'bob' ? <Bob config={characters.bob} storage="local" /> : <Lina config={characters.lina} storage="local" />}
-    <aside className="fixed bottom-3 left-3 right-3 z-30 mx-auto max-w-xl rounded-lg border border-cyan-500/50 bg-black/90 p-3 text-xs text-white">
-      <strong>{persona.toUpperCase()} · LABORATORIO LOCAL · {speaking ? 'SPEAKING' : 'IDLE'}</strong>
-      <div className="mt-2 flex gap-2">
-        <button type="button" disabled={connected} onClick={() => void connect()} className="rounded bg-cyan-500 px-3 py-2 text-black disabled:opacity-40">Conectar</button>
-        <button type="button" disabled={!connected} onClick={disconnect} className="rounded border px-3 py-2 disabled:opacity-40">Desconectar</button>
-      </div>
-      <p className="mt-2" role="status">{status}</p>
-      <p className="mt-1 text-cyan-300">Diagnóstico: {diagnostic}</p>
-      <p className="mt-1 text-amber-300">{wakeStatus}</p>
-      <p className="mt-1 text-cyan-300">Audio real: {audioLevel}% · Pico: {peakLevel}% · Frames con sonido: {audioFrames}</p>
-      <div aria-label="Nivel de audio real" className="mt-1 h-2 overflow-hidden rounded bg-zinc-700"><div className="h-full bg-cyan-400 transition-[width] duration-150" style={{width: audioLevel + '%'}} /></div>
-      <p className="mt-1 text-zinc-400">Sin micrófono, sin audio en esta pantalla. Control de pruebas solamente; no es la ruta final para TV.</p>
-    </aside>
+
   </main>;
 }
