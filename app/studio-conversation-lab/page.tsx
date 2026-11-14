@@ -227,15 +227,15 @@ export default function StudioConversationLab() {
     // response from the second cohost. It is not an autonomous infinite loop.
     const spoken = normalize(text);
     const scheduledReply: Persona|null = !handoff && (
-      who==='bob' && /(?:preguntale|habla con|dirigete a|consulta a)\s+lina/.test(spoken) ? 'lina' :
-      who==='lina' && /(?:preguntale|habla con|dirigete a|consulta a)\s+bob/.test(spoken) ? 'bob' :
+      who==='bob' && /(?:preguntale|pregunta a|habla con|dirigete a|consulta a)\s+lina/.test(spoken) ? 'lina' :
+      who==='lina' && /(?:preguntale|pregunta a|habla con|dirigete a|consulta a)\s+bob/.test(spoken) ? 'bob' :
       null
     );
     let answered=false;
     try{
       const res=await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:studioTranscriptRef.current.slice(-12,-1),bob_voice:bobVoice,include_audio:!brainOnly}),
+        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(handoff?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),bob_voice:bobVoice,include_audio:!brainOnly}),
         signal:AbortSignal.timeout(210000)
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string};error?:string};
