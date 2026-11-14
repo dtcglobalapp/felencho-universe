@@ -5,15 +5,6 @@ import { Room } from 'livekit-client';
 
 type Persona = 'bob' | 'lina';
 type Turn = {user: string; assistant: string};
-type SpeechEvent = {results: ArrayLike<ArrayLike<{transcript: string}>>};
-type SpeechRecognizer = {
-  lang: string; continuous: boolean; interimResults: boolean;
-  onresult: ((event: SpeechEvent) => void) | null;
-  onerror: ((event: {error: string}) => void) | null;
-  onend: (() => void) | null;
-  start: () => void; stop: () => void; abort: () => void;
-};
-type SpeechCtor = new () => SpeechRecognizer;
 const isLocal = () => typeof window !== 'undefined' && ['localhost','127.0.0.1'].includes(window.location.hostname);
 const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function classify(text: string, active: Persona | null) {
@@ -33,7 +24,7 @@ const base64Audio = (encoded: string, mime: string) => {
 };
 
 export default function StudioConversationLab() {
-  const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono en Chrome.');
+  const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [live,setLive] = useState(false);
   const [busy,setBusy] = useState(false);
   const [active,setActive] = useState<Persona | null>(null);
@@ -46,7 +37,8 @@ export default function StudioConversationLab() {
   const activeRef = useRef<Persona | null>(null);
   const liveRef = useRef(false);
   const busyRef = useRef(false);
-  const speechRef = useRef<SpeechRecognizer | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const microphoneRef = useRef<MediaStream | null>(null);
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const publisherRef = useRef<Room | null>(null);
   const turnRef = useRef<Record<Persona, Turn[]>>({bob:[],lina:[]});
@@ -78,43 +70,51 @@ export default function StudioConversationLab() {
     playerRef.current = null;
   },[]);
   const stopRecognizer = () => {
-    try {speechRef.current?.abort();} catch {}
-    speechRef.current = null;
+    if(recorderRef.current?.state==='recording')recorderRef.current.stop();
   };
   const resumeListening = () => {
     busyRef.current = false;setBusy(false);
     if(liveRef.current) {
       setStatus('Escuchando. Di Bob o Lina para dirigir una pregunta.');
       setTimeout(() => {
-        if(liveRef.current && !busyRef.current && !speechRef.current) processRef.current('__restart__');
+        if(liveRef.current && !busyRef.current && !recorderRef.current) processRef.current('__restart__');
       },250);
     }
   };
 
   const processText = useCallback(async (raw: string) => {
     if (raw === '__restart__') {
-      if(!liveRef.current || busyRef.current || speechRef.current) return;
-      const w = window as unknown as {SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor};
-      const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
-      if(!Ctor){setStatus('Reconocimiento de voz no disponible. Usa Chrome o escribe tu pregunta.');liveRef.current=false;setLive(false);return;}
-      try{
-        const recognizer = new Ctor();
-        recognizer.lang='es-US'; recognizer.continuous=false;recognizer.interimResults=false;
-        recognizer.onresult=(event) => {
-          const value = Array.from(event.results).map(item=>item[0]?.transcript || '').join(' ').trim();
-          if(value) { setTranscript(value); void processRef.current(value); }
+      if(!liveRef.current || busyRef.current || recorderRef.current) return;
+      const stream=microphoneRef.current;
+      if(!stream){setStatus('Micrófono no disponible');liveRef.current=false;setLive(false);return;}
+      try {
+        const recorder=new MediaRecorder(stream,{mimeType:'audio/webm'});
+        recorderRef.current=recorder;
+        const chunks:Blob[]=[];
+        recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+        recorder.onstop=async()=>{
+          if(recorderRef.current===recorder)recorderRef.current=null;
+          if(!liveRef.current||busyRef.current)return;
+          try{
+            const blob=new Blob(chunks,{type:'audio/webm'});
+            if(!blob.size)throw new Error('Segmento sin audio');
+            const data=new FormData();data.append('audio',blob,'voice.webm');
+            setStatus('Whisper local: transcribiendo...');
+            const res=await fetch('/api/studio-local-transcribe',{method:'POST',body:data,signal:AbortSignal.timeout(65000)});
+            const json=await res.json() as {text?:string;error?:string};
+            if(!res.ok)throw new Error(json.error||'Falló Whisper');
+            const phrase=(json.text||'').trim();
+            if(phrase){setTranscript(phrase);await processRef.current(phrase);}
+            else if(liveRef.current&&!busyRef.current) setTimeout(()=>void processRef.current('__restart__'),100);
+          }catch(e){
+            setStatus('Whisper local: '+String(e));liveRef.current=false;setLive(false);
+            microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;
+          }
         };
-        recognizer.onerror=(event) => {
-          if(event.error==='no-speech' || event.error==='aborted')return;
-          setStatus('Micrófono/reconocimiento: '+event.error);
-          if(event.error==='not-allowed' || event.error==='service-not-allowed') {liveRef.current=false;setLive(false);}
-        };
-        recognizer.onend=()=> {
-          if(speechRef.current===recognizer)speechRef.current=null;
-          if(liveRef.current&&!busyRef.current) setTimeout(()=>{if(liveRef.current && !busyRef.current && !speechRef.current)void processRef.current('__restart__');},300);
-        };
-        speechRef.current=recognizer;recognizer.start();
-      }catch(error) {speechRef.current=null;setStatus('No se pudo iniciar el micrófono: '+String(error));liveRef.current=false;setLive(false);}
+        recorder.start();
+        setStatus('Escuchando localmente (segmento de 6 segundos).');
+        setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},6000);
+      }catch(e){setStatus('No se pudo grabar: '+String(e));liveRef.current=false;setLive(false);}
       return;
     }
     const text=raw.trim().slice(0,1200);
@@ -214,18 +214,16 @@ export default function StudioConversationLab() {
   },[signal]);
   processRef.current=processText;
 
-  const start=()=> {
-    if(!isLocal())return;
-    if(runningRef.current)return;
-    const w=window as unknown as {SpeechRecognition?:SpeechCtor;webkitSpeechRecognition?:SpeechCtor};
-    if(!w.SpeechRecognition&&!w.webkitSpeechRecognition){setStatus('Chrome no ofrece SpeechRecognition. Usa preguntas escritas.');return;}
-    runningRef.current=true;liveRef.current=true;setLive(true);
-    setStatus('Iniciando reconocimiento de voz...');
-    void processRef.current('__restart__');
-    runningRef.current=false;
+  const start=async()=> {
+    if(!isLocal() || liveRef.current)return;
+    try {
+      microphoneRef.current=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+      liveRef.current=true;setLive(true);setStatus('Micrófono habilitado: Whisper local.');
+      await processRef.current('__restart__');
+    }catch(e){setStatus('Permiso de micrófono o dispositivo: '+String(e));liveRef.current=false;setLive(false);}
   };
-  const stop=()=>{liveRef.current=false;setLive(false);stopRecognizer();endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
-  useEffect(()=>()=>{liveRef.current=false;stopRecognizer();playerRef.current?.pause();publisherRef.current?.disconnect();},[]);
+  const stop=()=>{liveRef.current=false;setLive(false);stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());microphoneRef.current=null;endPlayback();publisherRef.current?.disconnect();publisherRef.current=null;busyRef.current=false;setBusy(false);if(activeRef.current)void signal(activeRef.current,'IDLE');setStatus('Conversación pausada.');};
+  useEffect(()=>()=>{liveRef.current=false;stopRecognizer();microphoneRef.current?.getTracks().forEach(t=>t.stop());playerRef.current?.pause();publisherRef.current?.disconnect();},[]);
 
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
     <div className="mx-auto max-w-3xl space-y-5">
@@ -252,7 +250,7 @@ export default function StudioConversationLab() {
         {history.map((h,i)=><p key={i} className="border-b border-slate-700 py-2 text-sm"><strong>{h.who}:</strong> {h.text}</p>)}
         {!history.length&&<p className="text-slate-400">Sin intervenciones todavía.</p>}
       </section>
-      <p className="text-xs text-slate-400">Sin APIs comerciales: motor Qwen local + voz integrada macOS. El reconocimiento de Chrome puede usar servidores de Google; para operación totalmente offline se sustituirá por Whisper instalado en La Bestia.</p>
+      <p className="text-xs text-slate-400">Sin APIs comerciales: Qwen local + Whisper local + voz integrada macOS; los intervalos de reconocimiento son de 6 segundos.</p>
       {reply && <p className="sr-only" aria-live="polite">{reply}</p>}
     </div>
   </main>;
