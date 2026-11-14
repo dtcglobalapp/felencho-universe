@@ -150,7 +150,7 @@ export default function StudioConversationLab() {
       setHistory(h=>[...h.slice(-12),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
-      if(brainOnly){setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');return;}
+      if(brainOnly){await signal(who,'IDLE');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');return;}
       if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
       const player=new Audio(url);playerRef.current=player;
