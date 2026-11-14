@@ -8,6 +8,12 @@ type Turn = {user: string; assistant: string};
 const isLocal = () => typeof window !== 'undefined' && ['localhost','127.0.0.1'].includes(window.location.hostname);
 const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function classify(text: string, active: Persona | null) {
+  // Whisper may return non-speech sound annotations; never send them to Qwen.
+  const cleaned = normalize(text).trim();
+  if (!cleaned || /^\s*[\[(].*[\])]\s*$/.test(text.trim()) ||
+      /^(musica|motor|ruido|silencio|aplausos|sonido de la ventana|sonido del motor|subtitulos|gracias por ver)$/.test(cleaned)) {
+    return {persona: null as Persona | null, command: 'ambient'};
+  }
   const words = normalize(text).match(/[a-z0-9]+/g) || [];
   const bob = words.includes('bob'), lina = words.includes('lina');
   if (bob && lina) return {persona: null as Persona | null, command: 'ambiguous'};
@@ -27,6 +33,10 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
+  const [audioStatus,setAudioStatus] = useState('Voz todavía no probada');
+  const [devices,setDevices] = useState<Array<{id:string;label:string}>>([]);
+  const [selectedDevice,setSelectedDevice] = useState('');
+  const [lastAudioUrl,setLastAudioUrl] = useState<string|null>(null);
   const [live,setLive] = useState(false);
   const [busy,setBusy] = useState(false);
   const [active,setActive] = useState<Persona | null>(null);
@@ -47,6 +57,9 @@ export default function StudioConversationLab() {
   const processRef = useRef<(text: string) => Promise<void>>(async () => {});
   const runningRef = useRef(false);
   useEffect(() => {
+    if(navigator.mediaDevices?.enumerateDevices) {
+      void navigator.mediaDevices.enumerateDevices().then(list=>setDevices(list.filter(d=>d.kind==='audioinput').map(d=>({id:d.deviceId,label:d.label||'Micrófono (permiso pendiente)'})))).catch(()=>{});
+    }
     setLocalOk(isLocal());
     if(!isLocal())return;
     fetch('/api/studio-local-conversation',{cache:'no-store'}).then(r=>r.json()).then((j:{ready?:boolean;brain?:string;tts?:string})=>{
@@ -123,6 +136,11 @@ export default function StudioConversationLab() {
     const text=raw.trim().slice(0,1200);
     if(!text || busyRef.current || !isLocal())return;
     const routed=classify(text,activeRef.current);
+    if(routed.command==='ambient'){
+      setStatus('Sonido ambiental ignorado. Esperando una pregunta dirigida a Bob o Lina.');
+      if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);
+      return;
+    }
     if(routed.command==='ambiguous'){setStatus('Nombraste a Bob y Lina juntos. Llama a uno para tomar su turno.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
     if(!routed.persona){setStatus('No hay personaje activo. Empieza diciendo Bob o Lina.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
     const who=routed.persona;
@@ -144,15 +162,19 @@ export default function StudioConversationLab() {
         body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),include_audio:!brainOnly}),
         signal:AbortSignal.timeout(210000)
       });
-      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string};error?:string};
+      const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string};error?:string};
       if(!res.ok || !json.data?.text)throw new Error(json.error || 'Brain o voz sin respuesta. Verifica credenciales locales.');
       setReply(json.data.text);
       setHistory(h=>[...h.slice(-12),{who:who.toUpperCase(),text:json.data!.text!}]);
       turnRef.current[who].push({user:text,assistant:json.data.text});
       turnRef.current[who]=turnRef.current[who].slice(-4);
-      if(brainOnly){await signal(who,'IDLE');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');return;}
+      if(brainOnly){await signal(who,'IDLE');setAudioStatus('Voz desactivada: casilla «Probar solo cerebro Qwen» marcada');setStatus('Qwen local respondió correctamente. Voz no solicitada en esta prueba.');return;}
       if(!json.data.audio_base64)throw new Error('Qwen local devolvió texto, pero el TTS local no generó audio.');
       const url=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/mpeg');
+      setAudioStatus('Audio generado por '+(json.data.voice_engine||'motor local')+'; preparando reproducción');
+      if(lastAudioUrl) URL.revokeObjectURL(lastAudioUrl);
+      const saved=base64Audio(json.data.audio_base64,json.data.audio_mime || 'audio/wav');
+      setLastAudioUrl(saved);
       const player=new Audio(url);playerRef.current=player;
       let ctx: AudioContext | null=null;
       let publishedTrack: MediaStreamTrack | null=null;
@@ -188,6 +210,7 @@ export default function StudioConversationLab() {
           publishedTrack=null;publishedRoom=null;
         }
         await signal(who,'SPEAKING');
+        setAudioStatus('Reproduciendo '+(json.data.voice_engine||'voz local')+' · '+delivery);
         setStatus(who.toUpperCase()+' hablando ('+delivery+'). Reconocimiento pausado.');
         await new Promise<void>((resolve,reject)=>{
           player.onended=()=>resolve();
@@ -204,9 +227,11 @@ export default function StudioConversationLab() {
         URL.revokeObjectURL(url);
       }
       await signal(who,'IDLE');
+      setAudioStatus('Reproducción finalizada · '+(json.data.voice_engine||'voz local'));
     }catch(error){
       await signal(who,'IDLE');
       setStatus('Fallo de conversación: '+(error instanceof Error?error.message:String(error)));
+      setAudioStatus('Error de generación o reproducción de voz; revisar Estado');
       // Avoid repeated local retries after failure; preserve resources.
       liveRef.current=false;setLive(false);
     }finally{
@@ -222,7 +247,8 @@ export default function StudioConversationLab() {
   const start=async()=> {
     if(!isLocal() || liveRef.current)return;
     try {
-      microphoneRef.current=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+      microphoneRef.current=await navigator.mediaDevices.getUserMedia({audio:selectedDevice?{deviceId:{exact:selectedDevice},echoCancellation:true,noiseSuppression:true}:{echoCancellation:true,noiseSuppression:true},video:false});
+      void navigator.mediaDevices.enumerateDevices().then(list=>setDevices(list.filter(d=>d.kind==='audioinput').map(d=>({id:d.deviceId,label:d.label||'Micrófono'})))).catch(()=>{});
       liveRef.current=true;setLive(true);setStatus('Micrófono habilitado: Whisper local.');
       await processRef.current('__restart__');
     }catch(e){setStatus('Permiso de micrófono o dispositivo: '+String(e));liveRef.current=false;setLive(false);}
@@ -237,6 +263,14 @@ export default function StudioConversationLab() {
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-xs text-amber-300">{bridgeStatus}</p>
+        <p className="text-sm">Audio: {audioStatus}</p>
+        {lastAudioUrl && <audio controls src={lastAudioUrl} className="w-full" aria-label="Reproducir la última voz de Bob o Lina" />}
+        <label className="block text-sm">Entrada de voz (selecciona RØDECaster si aparece)
+          <select disabled={live} className="mt-1 w-full rounded bg-slate-950 p-2" value={selectedDevice} onChange={e=>setSelectedDevice(e.target.value)}>
+            <option value="">Micrófono predeterminado de macOS</option>
+            {devices.map(d=><option key={d.id} value={d.id}>{d.label}</option>)}
+          </select>
+        </label>
         <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
