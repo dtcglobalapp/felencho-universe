@@ -40,11 +40,14 @@ function cleanBobSpeech(raw:string){
 }
 export async function POST(request:NextRequest){
  if(!local(request))return NextResponse.json({error:'Laboratorio local puerto 3002 solamente'},{status:403});
- let body:{persona?:'bob'|'lina';text?:string;allowFallback?:boolean};
+ let body:{persona?:'bob'|'lina';text?:string;allowFallback?:boolean;bobVoice?:string};
  try{body=await request.json() as typeof body;}catch{return NextResponse.json({error:'JSON inválido'},{status:400})}
  if((body.persona!=='bob'&&body.persona!=='lina')||typeof body.text!=='string'||body.text.trim().length<3||body.text.length>350)
    return NextResponse.json({error:'Frase inválida (máximo 350 caracteres)'},{status:400});
  const cleaned=body.persona==='bob'?cleanBobSpeech(body.text):body.text.trim();
+ // This selection is restricted to the experimental laboratory, never production.
+ const maleVoices=new Set(['Eric','Aiden','Dylan']);
+ const voice=body.persona==='lina'?'Serena':maleVoices.has(body.bobVoice||'')?body.bobVoice!:'Eric';
  if(cleaned.length<3)return NextResponse.json({error:'Texto de Bob vacío tras limpiar muletillas'},{status:422});
   if(process.platform!=='darwin')return NextResponse.json({error:'Esta prueba necesita La Bestia (macOS)'},{status:503});
  // Prefer the persistent local MLX worker; no paid APIs or additional voices.
@@ -56,7 +59,7 @@ export async function POST(request:NextRequest){
    const response=await fetch('http://127.0.0.1:7894/synthesize',{
      method:'POST',
      headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({text:cleaned,voice:body.persona==='bob'?'Ryan':'Serena'}),
+     body:JSON.stringify({text:cleaned,voice}),
      signal:AbortSignal.any([request.signal,AbortSignal.timeout(25000)]),
      cache:'no-store'
    });
@@ -67,7 +70,7 @@ export async function POST(request:NextRequest){
        'Content-Type':'audio/wav','Cache-Control':'no-store',
        'X-TTS-Ms':String(Math.round(performance.now()-startedPersistent)),
        'X-TTS-Worker-Ms':response.headers.get('X-TTS-Ms')||'',
-       'X-Voice':body.persona==='bob'?'Ryan':'Serena',
+       'X-Voice':voice,
        'X-TTS-Engine':'Qwen3-Persistent'
      }});
    }
@@ -88,7 +91,6 @@ export async function POST(request:NextRequest){
  try{
   const python=join(homedir(),'felencho-qwen3-tts-lab/.venv/bin/python');
   await access(python);
-  const voice=body.persona==='bob'?'Ryan':'Serena';
   await exec(python,['-m','mlx_audio.tts.generate','--model','mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit',
     '--text',cleaned,'--voice',voice,'--lang_code','Spanish','--output_path',join(dir,'qwen')],request.signal,45000);
   const audio=await readFile(join(dir,'qwen','audio_000.wav'));
