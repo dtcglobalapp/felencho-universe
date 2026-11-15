@@ -25,6 +25,31 @@ export async function POST(request:NextRequest){
  if((body.persona!=='bob'&&body.persona!=='lina')||typeof body.text!=='string'||body.text.trim().length<3||body.text.length>350)
    return NextResponse.json({error:'Frase inválida (máximo 350 caracteres)'},{status:400});
  if(process.platform!=='darwin')return NextResponse.json({error:'Esta prueba necesita La Bestia (macOS)'},{status:503});
+ // Prefer the persistent local MLX worker; no paid APIs or additional voices.
+ // If the worker is not started, retain the former per-request generator
+ // for an apples-to-apples comparison in the isolated laboratory.
+ const startedPersistent=performance.now();
+ try {
+   const response=await fetch('http://127.0.0.1:7894/synthesize',{
+     method:'POST',
+     headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({text:body.text.trim(),voice:body.persona==='bob'?'Ryan':'Serena'}),
+     signal:AbortSignal.any([request.signal,AbortSignal.timeout(25000)]),
+     cache:'no-store'
+   });
+   if(response.ok){
+     const audio=new Uint8Array(await response.arrayBuffer());
+     if(audio.byteLength>100)return new Response(audio,{headers:{
+       'Content-Type':'audio/wav','Cache-Control':'no-store',
+       'X-TTS-Ms':String(Math.round(performance.now()-startedPersistent)),
+       'X-Voice':body.persona==='bob'?'Ryan':'Serena',
+       'X-TTS-Engine':'Qwen3-Persistent'
+     }});
+   }
+ }catch(error){
+   if(request.signal.aborted)return NextResponse.json({error:'Cancelado'},{status:499});
+   console.warn('[Realtime Lab] Persistent voice unavailable; using baseline generator:',String(error));
+ }
  const dir=await mkdtemp(join(tmpdir(),'felencho-realtime-voice-'));
  const started=performance.now();
  try{
@@ -37,7 +62,7 @@ export async function POST(request:NextRequest){
   if(audio.length<100)throw new Error('Audio no generado');
   return new Response(new Uint8Array(audio),{headers:{
     'Content-Type':'audio/wav','Cache-Control':'no-store','X-TTS-Ms':String(Math.round(performance.now()-started)),
-    'X-Voice':voice
+    'X-Voice':voice, 'X-TTS-Engine':'Qwen3-Per-Request'
   }});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:502})}
  finally{await rm(dir,{recursive:true,force:true})}
