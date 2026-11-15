@@ -23,10 +23,10 @@ export async function GET(request:NextRequest){
  try{
   const res=await fetch('http://127.0.0.1:7894/health',{signal:AbortSignal.timeout(1500),cache:'no-store'});
   if(!res.ok)throw new Error('Worker HTTP '+res.status);
-  const info=await res.json() as {ok?:boolean;model?:string};
-  return NextResponse.json({ready:info.ok===true,engine:'Qwen3-Persistent',model:info.model||null},{headers:{'Cache-Control':'no-store'}});
+  const info=await res.json() as {ok?:boolean;model?:string;voices?:string[]};
+  return NextResponse.json({ready:info.ok===true,engine:'Qwen3-Persistent',model:info.model||null,voices:Array.isArray(info.voices)?info.voices:[]},{headers:{'Cache-Control':'no-store'}});
  }catch(e){
-  return NextResponse.json({ready:false,engine:'Qwen3-Persistent',reason:e instanceof Error?e.message:String(e)},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({ready:false,engine:'Qwen3-Persistent',voices:[],reason:e instanceof Error?e.message:String(e)},{headers:{'Cache-Control':'no-store'}});
  }
 }
 // This filter only affects Bob. Do not touch Lina/Serena.
@@ -50,7 +50,24 @@ export async function POST(request:NextRequest){
  const voice=body.persona==='lina'?'Serena':maleVoices.has(body.bobVoice||'')?body.bobVoice!:'Eric';
  if(cleaned.length<3)return NextResponse.json({error:'Texto de Bob vacío tras limpiar muletillas'},{status:422});
   if(process.platform!=='darwin')return NextResponse.json({error:'Esta prueba necesita La Bestia (macOS)'},{status:503});
- // Prefer the persistent local MLX worker; no paid APIs or additional voices.
+ // Report unsupported voices before trying to synthesize them.
+ // A stale 7894 process may advertise only Ryan/Serena after a code update.
+ try {
+   const health=await fetch('http://127.0.0.1:7894/health',{cache:'no-store',signal:AbortSignal.timeout(1500)});
+   if(!health.ok)throw new Error('Health HTTP '+health.status);
+   const capabilities=await health.json() as {voices?:string[]};
+   if(!Array.isArray(capabilities.voices)||!capabilities.voices.includes(voice))
+     return NextResponse.json({
+       error:'El worker 7894 activo no admite la voz '+voice+'. Detén el proceso antiguo y reinicia persistent_tts.py actualizado.',
+       detail:'Voces anunciadas por worker: '+(capabilities.voices||[]).join(', '),
+       requiredVoice:voice,
+       availableVoices:capabilities.voices||[]
+     },{status:409,headers:{'Cache-Control':'no-store'}});
+ }catch(e){
+   return NextResponse.json({error:'El servidor TTS 7894 no está disponible',
+      detail:e instanceof Error?e.message:String(e)},{status:503});
+ }
+  // Prefer the persistent local MLX worker; no paid APIs or additional voices.
  // If the worker is not started, retain the former per-request generator
  // for an apples-to-apples comparison in the isolated laboratory.
  const startedPersistent=performance.now();
@@ -82,7 +99,7 @@ export async function POST(request:NextRequest){
  // Never silently switch back to the slow generator during latency tests.
  // Fallback is available only when the operator explicitly opts in.
  if(body.allowFallback!==true)return NextResponse.json({
-   error:'Qwen3-Persistent no responde en 127.0.0.1:7894. Revisa la terminal del worker.',
+   error:'El servidor Qwen3-Persistent falló al generar la voz '+voice+'.',
    detail:persistentError,
    engine:'Qwen3-Persistent'
  },{status:503,headers:{'Cache-Control':'no-store'}});
