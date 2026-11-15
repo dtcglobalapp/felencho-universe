@@ -13,6 +13,7 @@ export default function RealtimeLab(){
  const [busy,setBusy]=useState(false);
  const [times,setTimes]=useState<{stt:number|null;firstText:number|null;tts:number|null;firstVoice:number|null;total:number|null}>({stt:null,firstText:null,tts:null,firstVoice:null,total:null});
  const [voice,setVoice]=useState('');
+ const [engine,setEngine]=useState('');
  const rec=useRef<MediaRecorder|null>(null);
  const mic=useRef<MediaStream|null>(null);
  const abort=useRef<AbortController|null>(null);
@@ -24,7 +25,7 @@ export default function RealtimeLab(){
  const test=async(q:string,endTime:number)=>{
   if(abort.current)return;
   const ctrl=new AbortController();abort.current=ctrl;
-  setBusy(true);setStatus('Qwen respondiendo en streaming...');setAnswer('');setVoice('');
+  setBusy(true);setStatus('Qwen respondiendo en streaming...');setAnswer('');setVoice('');setEngine('');
   const started=performance.now();
   let startedTts=false;
   try{
@@ -61,6 +62,7 @@ export default function RealtimeLab(){
         audio.onerror=()=>URL.revokeObjectURL(url);
         await audio.play();
         setVoice(result.headers.get('X-Voice')||'');
+        setEngine(result.headers.get('X-TTS-Engine')||'Sin identificar');
         setTimes(x=>({...x,firstVoice:Math.round(performance.now()-endTime)}));
         setStatus('¡Bob/Lina hablando! Primer audio medido desde que terminaste tu pregunta.');
        }catch(e){if(!speech.signal.aborted)setStatus('Voz no disponible: '+String(e));}
@@ -121,6 +123,7 @@ export default function RealtimeLab(){
     <div className="text-cyan-300">Primera voz audible <strong>{sec(times.firstVoice)}</strong></div>
     <div>Qwen completo <strong>{sec(times.total)}</strong></div>
     <div>Voz utilizada <strong>{voice||'—'}</strong></div>
+    <div>Motor TTS <strong>{engine||'—'}</strong></div>
    </div>
    <p className="text-sm">Whisper entendió: {transcript||'—'}</p>
    <p className="whitespace-pre-wrap text-sm">Respuesta: {answer||'—'}</p>
