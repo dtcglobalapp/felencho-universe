@@ -72,7 +72,7 @@ class Handler(BaseHTTPRequestHandler):
                 chunks.append(audio)
             if not chunks:
                 raise RuntimeError("No audio was generated")
-            samples = mx.concatenate(chunks).astype(mx.float32)
+            samples = mx.concatenate(chunks).reshape((-1,)).astype(mx.float32)
             mx.eval(samples)
             # Use the library's sample rate, avoiding an invented rate.
             sample_rate = int(model.sample_rate)
