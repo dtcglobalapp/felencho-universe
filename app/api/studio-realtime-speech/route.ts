@@ -1,0 +1,44 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { spawn } from 'node:child_process';
+import { mkdtemp, readFile, rm, access } from 'node:fs/promises';
+import { tmpdir, homedir } from 'node:os';
+import { join } from 'node:path';
+export const runtime='nodejs';
+export const dynamic='force-dynamic';
+const local=(r:NextRequest)=>process.env.NODE_ENV==='development'&&['localhost:3002','127.0.0.1:3002'].includes(r.headers.get('host')||'');
+function exec(cmd:string,args:string[],signal:AbortSignal,timeout:number):Promise<void>{
+ return new Promise((resolve,reject)=>{
+  const child=spawn(cmd,args,{stdio:'ignore'});
+  let finished=false;
+  const end=(e?:Error)=>{if(finished)return;finished=true;clearTimeout(timer);signal.removeEventListener('abort',cancel);e?reject(e):resolve();};
+  const cancel=()=>{child.kill('SIGTERM');end(new Error('Síntesis cancelada'))};
+  const timer=setTimeout(()=>{child.kill('SIGTERM');end(new Error('Síntesis agotó tiempo'))},timeout);
+  if(signal.aborted){cancel();return}
+  signal.addEventListener('abort',cancel,{once:true});
+  child.once('error',e=>end(e));child.once('close',code=>end(code===0?undefined:new Error('Síntesis terminó con código '+code)));
+ });
+}
+export async function POST(request:NextRequest){
+ if(!local(request))return NextResponse.json({error:'Laboratorio local puerto 3002 solamente'},{status:403});
+ let body:{persona?:'bob'|'lina';text?:string};
+ try{body=await request.json() as typeof body;}catch{return NextResponse.json({error:'JSON inválido'},{status:400})}
+ if((body.persona!=='bob'&&body.persona!=='lina')||typeof body.text!=='string'||body.text.trim().length<3||body.text.length>350)
+   return NextResponse.json({error:'Frase inválida (máximo 350 caracteres)'},{status:400});
+ if(process.platform!=='darwin')return NextResponse.json({error:'Esta prueba necesita La Bestia (macOS)'},{status:503});
+ const dir=await mkdtemp(join(tmpdir(),'felencho-realtime-voice-'));
+ const started=performance.now();
+ try{
+  const python=join(homedir(),'felencho-qwen3-tts-lab/.venv/bin/python');
+  await access(python);
+  const voice=body.persona==='bob'?'Ryan':'Serena';
+  await exec(python,['-m','mlx_audio.tts.generate','--model','mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit',
+    '--text',body.text.trim(),'--voice',voice,'--lang_code','Spanish','--output_path',join(dir,'qwen')],request.signal,45000);
+  const audio=await readFile(join(dir,'qwen','audio_000.wav'));
+  if(audio.length<100)throw new Error('Audio no generado');
+  return new Response(new Uint8Array(audio),{headers:{
+    'Content-Type':'audio/wav','Cache-Control':'no-store','X-TTS-Ms':String(Math.round(performance.now()-started)),
+    'X-Voice':voice
+  }});
+ }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:502})}
+ finally{await rm(dir,{recursive:true,force:true})}
+}
