@@ -14,13 +14,22 @@ export default function RealtimeLab(){
  const [times,setTimes]=useState<{stt:number|null;firstText:number|null;tts:number|null;firstVoice:number|null;total:number|null}>({stt:null,firstText:null,tts:null,firstVoice:null,total:null});
  const [voice,setVoice]=useState('');
  const [engine,setEngine]=useState('');
+ const [worker,setWorker]=useState<'checking'|'ready'|'offline'>('checking');
  const rec=useRef<MediaRecorder|null>(null);
  const mic=useRef<MediaStream|null>(null);
  const abort=useRef<AbortController|null>(null);
  const ttsAbort=useRef<AbortController|null>(null);
  const player=useRef<HTMLAudioElement|null>(null);
  const mark=useRef(0);
- const stop=()=>{abort.current?.abort();ttsAbort.current?.abort();player.current?.pause();setBusy(false);setStatus('Interrumpido.');};
+ const checkWorker=async()=>{
+   try{
+     const response=await fetch('/api/studio-realtime-speech',{cache:'no-store'});
+     const body=await response.json() as {ready?:boolean};
+     setWorker(body.ready?'ready':'offline');
+   }catch{setWorker('offline');}
+ };
+ useEffect(()=>{void checkWorker();const timer=setInterval(()=>void checkWorker(),5000);return()=>clearInterval(timer);},[]);
+  const stop=()=>{abort.current?.abort();ttsAbort.current?.abort();player.current?.pause();setBusy(false);setStatus('Interrumpido.');};
  useEffect(()=>()=>{abort.current?.abort();ttsAbort.current?.abort();player.current?.pause();mic.current?.getTracks().forEach(x=>x.stop());},[]);
  const test=async(q:string,endTime:number)=>{
   if(abort.current)return;
@@ -105,10 +114,13 @@ export default function RealtimeLab(){
  return <main className="min-h-screen bg-slate-950 p-6 text-white"><div className="mx-auto max-w-3xl space-y-5">
   <h1 className="text-2xl font-bold">Felencho Brain · Prueba de voz en tiempo real</h1>
   <p className="text-slate-300">Pregunta hablando. Medimos la espera hasta oír la primera palabra de Bob o Lina. Estudio principal y pantallas intactos.</p>
-  <section className="space-y-3 rounded-xl bg-slate-900 p-4">
+  <p className={worker==='ready'?'text-green-300':'text-amber-300'} role="status">
+   Voz persistente 7894: {worker==='ready'?'Conectada':worker==='checking'?'Comprobando':'Desconectada — enciende el servidor TTS en la Terminal'}
+  </p>
+   <section className="space-y-3 rounded-xl bg-slate-900 p-4">
    <label className="block">Voz <select value={persona} disabled={recording||busy} onChange={e=>setPersona(e.target.value as Persona)} className="mt-1 w-full rounded bg-slate-800 p-2"><option value="bob">Bob · Ryan</option><option value="lina">Lina · Serena</option></select></label>
    <div className="flex flex-wrap gap-2">
-    <button disabled={recording||busy} onClick={()=>void startMic()} className="rounded bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">Preguntar con micrófono</button>
+    <button disabled={recording||busy||worker!=='ready'} onClick={()=>void startMic()} className="rounded bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-40">Preguntar con micrófono</button>
     <button disabled={!recording} onClick={()=>rec.current?.stop()} className="rounded bg-amber-400 px-4 py-3 font-semibold text-black disabled:opacity-40">Terminé de hablar</button>
     <button disabled={!busy} onClick={stop} className="rounded border px-4 py-3 disabled:opacity-40">Interrumpir</button>
    </div>
