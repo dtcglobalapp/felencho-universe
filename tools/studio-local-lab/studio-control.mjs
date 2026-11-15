@@ -51,7 +51,7 @@ function recentLog(key){
   if(!existsSync(path))return 'Todavía no hay registro de arranque.';
   try{
     const data=readFileSync(path,'utf8').slice(-6000);
-    return data.split('\n').slice(-16).join('\\n').slice(-2400);
+    return data.split('\n').slice(-16).join('\n').slice(-2400);
   }catch(e){return 'No se pudo leer el registro: '+e.message}
 }
 async function status(){
