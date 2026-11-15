@@ -44,7 +44,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/health":
             self.respond(404, b'{"error":"Not found"}')
             return
-        self.respond(200, json.dumps({"ok": True, "model": MODEL, "voices": ["Ryan", "Serena"]}).encode())
+        self.respond(200, json.dumps({"ok": True, "model": MODEL, "voices": ["Eric", "Aiden", "Dylan", "Ryan", "Serena"]}).encode())
 
     def do_POST(self):
         if self.path != "/synthesize":
@@ -58,7 +58,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             text = payload.get("text", "")
             voice = payload.get("voice", "")
-            if not isinstance(text, str) or len(text.strip()) < 3 or len(text) > 350 or voice not in ("Ryan", "Serena"):
+            if not isinstance(text, str) or len(text.strip()) < 3 or len(text) > 350 or voice not in ("Eric", "Aiden", "Dylan", "Ryan", "Serena"):
                 self.respond(400, b'{"error":"Invalid voice or text"}')
                 return
             begin = time.monotonic()
