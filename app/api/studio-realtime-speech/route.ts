@@ -55,6 +55,7 @@ export async function POST(request:NextRequest){
      if(audio.byteLength>100)return new Response(audio,{headers:{
        'Content-Type':'audio/wav','Cache-Control':'no-store',
        'X-TTS-Ms':String(Math.round(performance.now()-startedPersistent)),
+       'X-TTS-Worker-Ms':response.headers.get('X-TTS-Ms')||'',
        'X-Voice':body.persona==='bob'?'Ryan':'Serena',
        'X-TTS-Engine':'Qwen3-Persistent'
      }});
