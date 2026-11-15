@@ -62,3 +62,17 @@ No concluyas que hay ganancia de velocidad hasta medir la primera voz audible co
 
 ### Control y recuperación
 El worker no es una tarea de producción ni un daemon. Para detenerlo usa Ctrl+C en su terminal. La API de voz tiene respaldo automático por petición. Si la prueba falla, el estudio en puerto 3001 sigue intacto.
+
+## Fase siguiente: voz completa por segmentos (15 nov 2026)
+`/studio-realtime-lab` ahora encola todos los eventos `sentence` de Qwen y los sintetiza uno por uno con Qwen3-Persistent (puerto 7894). El navegador reproduce cada WAV por orden. Se mide primera voz, cantidad de segmentos y pausa máxima entre frases.
+
+El botón **Interrumpir** cancela la petición a Qwen, las solicitudes de TTS pendientes y el audio en reproducción. Se añadió un interruptor **experimental** de interrupción acústica mediante el micrófono; requiere micrófono del presentador **aislado** de las voces sintetizadas por mix-minus. Detecta sonido, **no autentica a Felencho**. No activar durante grabación oficial hasta verificar falsos positivos.
+
+Limitaciones: el worker TTS persistente aún genera un WAV completo por segmento; todavía no entrega muestras PCM en tiempo real. La cola reduce solapamientos y mantiene Ryan/Serena, pero puede producir pausas audibles. El límite actual es de ocho segmentos por respuesta de ensayo. El laboratorio no está conectado a las TVs ni a LiveKit.
+
+### Para probar
+1. Con `7894/health` listo, actualizar la rama experimental y reiniciar únicamente Next.js en 3002.
+2. Seleccionar Bob o Lina y preguntar por micrófono. Escuchar todas las frases, comprobar fragmentos reproducidos y pausa máxima.
+3. Repetir la prueba y pulsar Interrumpir cuando la voz esté sonando: el audio debe cesar.
+4. Solo después, activar el interruptor acústico con salida de la RØDECaster configurada como **micrófono aislado**. Hablar mientras Bob o Lina reproducen audio y comprobar la cancelación.
+5. No llevar a producción ni asegurar latencia menor hasta pruebas auditivas reales. El tiempo de primer audio es inicio de `HTMLAudioElement.play()`, no tiempo de salida acústica medido por hardware.
