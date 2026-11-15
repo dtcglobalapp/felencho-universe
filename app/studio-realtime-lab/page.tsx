@@ -19,6 +19,7 @@ export default function RealtimeLab(){
  const [working,setWorking]=useState(false);
  const [speaking,setSpeaking]=useState(false);
  const [worker,setWorker]=useState<'checking'|'ready'|'offline'>('checking');
+ const [availableVoices,setAvailableVoices]=useState<string[]>([]);
  const [interruptEnabled,setInterruptEnabled]=useState(false);
  const [interruptStatus,setInterruptStatus]=useState('No activado');
  const [metrics,setMetrics]=useState<Metrics>(zero);
@@ -72,9 +73,10 @@ export default function RealtimeLab(){
   const checkWorker=async()=>{
    try{
     const result=await fetch(source,{cache:'no-store',signal:AbortSignal.timeout(2000)});
-    const value=await result.json() as {ready?:boolean};
+    const value=await result.json() as {ready?:boolean;voices?:string[]};
     setWorker(value.ready?'ready':'offline');
-   }catch{setWorker('offline')}
+    setAvailableVoices(Array.isArray(value.voices)?value.voices:[]);
+   }catch{setWorker('offline');setAvailableVoices([])}
  };
  useEffect(()=>{
    void checkWorker();
@@ -257,14 +259,15 @@ export default function RealtimeLab(){
     <select value={persona} disabled={working||recording} onChange={e=>setPersona(e.target.value as Persona)} className="mt-1 w-full rounded bg-slate-800 p-2">
      <option value="bob">Bob · Ryan</option><option value="lina">Lina · Serena</option>
     </select></label>
-   {persona==='bob'&&<label className="block text-sm">Voz masculina de Bob · audición
+   {persona==='bob'&&worker==='ready'&&!availableVoices.includes(bobVoice)&&<p className="text-amber-300 text-sm">El servidor 7894 activo no admite {bobVoice}. Voces disponibles: {availableVoices.join(', ')||'ninguna'}. Debes reiniciar el worker actualizado, no Next.js.</p>}
+    {persona==='bob'&&<label className="block text-sm">Voz masculina de Bob · audición
     <select value={bobVoice} disabled={working||recording} onChange={e=>setBobVoice(e.target.value as 'Eric'|'Aiden'|'Dylan')} className="mt-1 w-full rounded bg-slate-800 p-2">
      <option value="Eric">Eric</option><option value="Aiden">Aiden</option><option value="Dylan">Dylan</option>
     </select>
    </label>}
-   {persona==='bob'&&<button disabled={working||recording||worker!=='ready'} onClick={()=>void audition()} className="rounded border border-cyan-300 px-3 py-2 text-sm disabled:opacity-50">Escuchar frase de prueba · {bobVoice}</button>}
+   {persona==='bob'&&<button disabled={working||recording||worker!=='ready'||!availableVoices.includes(bobVoice)} onClick={()=>void audition()} className="rounded border border-cyan-300 px-3 py-2 text-sm disabled:opacity-50">Escuchar frase de prueba · {bobVoice}</button>}
     <div className="flex flex-wrap gap-2">
-    <button disabled={working||recording||worker!=='ready'} onClick={()=>void startMic()} className="rounded bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-50">Preguntar con micrófono</button>
+    <button disabled={working||recording||worker!=='ready'||(persona==='bob'&&!availableVoices.includes(bobVoice))} onClick={()=>void startMic()} className="rounded bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-50">Preguntar con micrófono</button>
     <button disabled={!recording} onClick={()=>recorder.current?.stop()} className="rounded bg-amber-400 px-4 py-3 font-semibold text-black disabled:opacity-50">Terminé de hablar</button>
     <button disabled={!working} onClick={cancel} className="rounded border px-4 py-3 disabled:opacity-50">Interrumpir</button>
    </div>
