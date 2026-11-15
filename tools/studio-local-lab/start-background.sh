@@ -15,7 +15,15 @@ if /usr/sbin/lsof -nP -iTCP:7892 -sTCP:LISTEN >/dev/null 2>&1; then
   exit 1
 fi
 cd "$ROOT"
-nohup /opt/homebrew/bin/node tools/studio-local-lab/studio-control.mjs </dev/null >> "$LOGDIR/studio-control.log" 2>&1 &
+# Resolve the installed Node instead of assuming Homebrew's Apple Silicon path.
+# The Mac may use nvm, fnm, Volta, asdf or a different Homebrew prefix.
+NODE_BIN="$(command -v node || true)"
+if [ -z "$NODE_BIN" ] || [ ! -x "$NODE_BIN" ]; then
+  echo "Node.js no encontrado en PATH. Comprueba con: command -v node"
+  exit 1
+fi
+echo "Usando Node.js: $NODE_BIN"
+nohup "$NODE_BIN" tools/studio-local-lab/studio-control.mjs </dev/null >> "$LOGDIR/studio-control.log" 2>&1 &
 # Check the lightweight root page, not /api/status: the latter probes all
 # ports serially and can take seconds while other services are offline.
 READY=0
