@@ -121,7 +121,7 @@ def versions():
         exe = shutil.which(name)
         data[name] = {"installed": bool(exe)}
     for name, cmd in {
-        "python": ("python3", "--version"),
+        "python3": ("python3", "--version"),
         "node": ("node", "--version"),
         "npm": ("npm", "--version"),
         "brew": ("brew", "--version"),
@@ -153,7 +153,7 @@ def main():
     for name, raw in ROOTS.items():
         path = (repo / raw) if not raw.startswith(("~", "/")) else Path(raw).expanduser()
         roots[name] = root_info(path)
-    # Name of secret files is not output; only existence counts.
+    # Secret file contents and locations are never output; only existence count.
     secret_count = 0
     for parent in (repo, repo / "tools", Path.home()):
         for name in SECRET_NAMES:
