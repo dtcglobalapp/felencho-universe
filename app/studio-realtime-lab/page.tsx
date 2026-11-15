@@ -10,6 +10,7 @@ const source='/api/studio-realtime-speech';
 
 export default function RealtimeLab(){
  const [persona,setPersona]=useState<Persona>('bob');
+ const [bobVoice,setBobVoice]=useState<'Eric'|'Aiden'|'Dylan'>('Eric');
  const [question,setQuestion]=useState('¿Qué es más importante en la vida, el dinero o la sabiduría?');
  const [transcript,setTranscript]=useState('');
  const [reply,setReply]=useState('');
@@ -34,6 +35,8 @@ export default function RealtimeLab(){
  const speakingRef=useRef(false);
  const selected=useRef<Persona>('bob');
  selected.current=persona;
+ const selectedVoice=useRef<'Eric'|'Aiden'|'Dylan'>('Eric');
+ selectedVoice.current=bobVoice;
  const cancel=()=>{
    generation.current++;
    workAbort.current?.abort();speechAbort.current?.abort();
@@ -117,7 +120,7 @@ export default function RealtimeLab(){
      const start=performance.now();
      try{
       const response=await fetch(source,{method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({persona:selected.current,text:text.slice(0,350)}),
+       body:JSON.stringify({persona:selected.current,bobVoice:selectedVoice.current,text:text.slice(0,350)}),
        signal:AbortSignal.any([ctrl.signal,speechCtrl.signal])});
       if(!response.ok){
        const details=await response.json() as {error?:string};
@@ -231,7 +234,12 @@ export default function RealtimeLab(){
     <select value={persona} disabled={working||recording} onChange={e=>setPersona(e.target.value as Persona)} className="mt-1 w-full rounded bg-slate-800 p-2">
      <option value="bob">Bob · Ryan</option><option value="lina">Lina · Serena</option>
     </select></label>
-   <div className="flex flex-wrap gap-2">
+   {persona==='bob'&&<label className="block text-sm">Voz masculina de Bob · audición
+    <select value={bobVoice} disabled={working||recording} onChange={e=>setBobVoice(e.target.value as 'Eric'|'Aiden'|'Dylan')} className="mt-1 w-full rounded bg-slate-800 p-2">
+     <option value="Eric">Eric</option><option value="Aiden">Aiden</option><option value="Dylan">Dylan</option>
+    </select>
+   </label>}
+    <div className="flex flex-wrap gap-2">
     <button disabled={working||recording||worker!=='ready'} onClick={()=>void startMic()} className="rounded bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-50">Preguntar con micrófono</button>
     <button disabled={!recording} onClick={()=>recorder.current?.stop()} className="rounded bg-amber-400 px-4 py-3 font-semibold text-black disabled:opacity-50">Terminé de hablar</button>
     <button disabled={!working} onClick={cancel} className="rounded border px-4 py-3 disabled:opacity-50">Interrumpir</button>
