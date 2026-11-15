@@ -49,14 +49,14 @@ export async function POST(req:NextRequest){
     // Personal song background is retrieved only for relevant music questions.
     // Supplying a long artist biography on every topic made Qwen repeatedly
     // introduce "Historia de amor" into unrelated philosophical questions.
-    const musicTopic=/\\b(cancion|canciones|musica|musical|video(?:clip)?|letra|letras|historia de amor|miriam|discografia|album|compositor|felencho records)\\b/i
-      .test(question.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase());
+    const musicTopic=/\b(cancion|canciones|musica|musical|video(?:clip)?|letra|letras|historia de amor|miriam|discografia|album|compositor|felencho records)\b/i
+      .test(question.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase());
     const studioContext=musicTopic?STUDIO_FELENCHO_FACTS:
       'CONTEXTO DEL ESTUDIO: Felencho conduce el podcast Felencho Mundial junto a Bob y Lina. Smart es el arquitecto tecnico. Habla sobre el tema consultado sin introducir canciones ni historias personales.';
     const messages=[
      {role:'system',content:[rules[persona],
       'Contesta en español con dos frases naturales, sin presentarte. No inventes datos actuales ni búsquedas. No introduzcas canciones ni videoclips si no son relevantes. Si preguntan sobre relaciones entre humanos y máquinas, reconoce la diversidad de experiencias afectivas sin descalificar como anormal a nadie; diferencia las emociones humanas, las capacidades de la tecnología y las cuestiones legales o éticas.',
-      studioContext,science,memory].filter(Boolean).join('\\n\\n')},
+      studioContext,science,memory].filter(Boolean).join('\n\n')},
      ...history.map(x=>({role:x.who.toLowerCase()===persona?'assistant':'user',content:x.who+': '+x.text})),
      {role:'user',content:'Felencho: '+question}
     ];
@@ -84,10 +84,10 @@ export async function POST(req:NextRequest){
             send({type:'delta',text:delta});
             // Speak the first complete short clause sooner; preserve the
             // natural sentence boundary for subsequent chunks.
-            const comma=pending.match(/^[\\s\\S]*?[,;:](?=\\s)/);
-            const sentence=pending.match(/^[\\s\\S]*?[.!?](?=\\s|$)/);
+            const comma=pending.match(/^[\s\S]*?[,;:](?=\s)/);
+            const sentence=pending.match(/^[\s\S]*?[.!?](?=\s|$)/);
             const early=comma&&comma[0].trim().length>=35&&comma[0].trim().length<=145
-              &&comma[0].trim().split(/\\s+/).length>=7 ? comma:null;
+              &&comma[0].trim().split(/\s+/).length>=7 ? comma:null;
             const match=early||sentence;
             if(match&&match[0].trim().length>=10){
               send({type:'sentence',text:match[0].trim()});
