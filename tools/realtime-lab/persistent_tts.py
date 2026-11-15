@@ -10,7 +10,8 @@ import os
 import struct
 import time
 import wave
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Lock
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
@@ -22,6 +23,7 @@ PORT = 7894
 print("[Felencho TTS] Loading cached model once...", flush=True)
 from mlx_audio.tts.utils import load_model
 model = load_model(MODEL)
+model_lock = Lock()
 print("[Felencho TTS] Ready on http://%s:%d" % (HOST, PORT), flush=True)
 
 class Handler(BaseHTTPRequestHandler):
@@ -64,16 +66,19 @@ class Handler(BaseHTTPRequestHandler):
             begin = time.monotonic()
             # Single HTTPServer worker serializes jobs; no competing GPU jobs.
             import mlx.core as mx
-            results = model.generate_custom_voice(text.strip(), speaker=voice, language="Spanish")
-            chunks = []
-            for result in results:
-                audio = result.audio
-                mx.eval(audio)
-                chunks.append(audio)
-            if not chunks:
-                raise RuntimeError("No audio was generated")
-            samples = mx.concatenate(chunks).reshape((-1,)).astype(mx.float32)
-            mx.eval(samples)
+            # Multiple health checks must not block behind synthesis.
+            # Only one request at a time may use the MLX model/GPU.
+            with model_lock:
+                results = model.generate_custom_voice(text.strip(), speaker=voice, language="Spanish")
+                chunks = []
+                for result in results:
+                    audio = result.audio
+                    mx.eval(audio)
+                    chunks.append(audio)
+                if not chunks:
+                    raise RuntimeError("No audio was generated")
+                samples = mx.concatenate(chunks).reshape((-1,)).astype(mx.float32)
+                mx.eval(samples)
             # Use the library's sample rate, avoiding an invented rate.
             sample_rate = int(model.sample_rate)
             # 16-bit PCM WAV, no additional library dependency.
@@ -91,4 +96,8 @@ class Handler(BaseHTTPRequestHandler):
             print("[Felencho TTS] Error:", str(error), flush=True)
             self.respond(500, json.dumps({"error": str(error)[:200]}).encode())
 
-HTTPServer((HOST, PORT), Handler).serve_forever()
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+print("[Felencho TTS] Binding server on %s:%d" % (HOST, PORT), flush=True)
+Server((HOST, PORT), Handler).serve_forever()
