@@ -9,7 +9,7 @@ type Persona='bob'|'lina';
 type Line={who:'Felencho'|'BOB'|'LINA';text:string};
 const encoder=new TextEncoder();
 const local=(req:NextRequest)=>process.env.NODE_ENV==='development'&&
-  ['localhost:3001','127.0.0.1:3001'].includes(req.headers.get('host')||'');
+  ['localhost:3001','127.0.0.1:3001','localhost:3002','127.0.0.1:3002'].includes(req.headers.get('host')||'');
 const rules:Record<Persona,string>={
  bob:'Eres Bob, coanfitrion de Felencho Mundial. Habla con la serenidad y autoridad de un juez veterano, palabras naturales, humor sobrio. Escucha y respeta al presentador. No anuncies tu nombre.',
  lina:'Eres Lina, coanfitriona de Felencho Mundial, analista social calida y rigurosa. Escucha y respeta al presentador. No anuncies tu nombre.'
