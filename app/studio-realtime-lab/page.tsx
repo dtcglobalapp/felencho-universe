@@ -46,7 +46,30 @@ export default function RealtimeLab(){
    setWorking(false);setSpeaking(false);
    setStatus('Interrupción: respuesta y reproducción detenidas.');
  };
- const checkWorker=async()=>{
+ const audition=async()=>{
+   if(workingRef.current||worker!=='ready')return;
+   workingRef.current=true;setWorking(true);
+   const control=new AbortController();workAbort.current=control;
+   const auditionText='La justicia comienza escuchando con respeto, examinando las pruebas y pensando antes de hablar.';
+   try{
+     setStatus('Probando '+bobVoice+' con la misma frase...');
+     const response=await fetch(source,{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({persona:'bob',bobVoice,text:auditionText}),signal:control.signal});
+     if(!response.ok){const details=await response.json() as {error?:string;detail?:string};throw new Error(details.detail||details.error||'Error TTS')}
+     const blob=await response.blob();if(control.signal.aborted)return;
+     const url=URL.createObjectURL(blob),audio=new Audio(url);playback.current=audio;
+     try{
+      await new Promise<void>((resolve,reject)=>{
+       audio.onended=resolve;audio.onerror=()=>reject(new Error('Audio no disponible'));
+       void audio.play().catch(reject);
+      });
+      setVoice(response.headers.get('X-Voice')||bobVoice);
+      setStatus('Audición terminada. Compara con otra voz.');
+     }finally{URL.revokeObjectURL(url);}
+   }catch(e){if(!control.signal.aborted)setStatus('Audición fallida: '+String(e));}
+   finally{if(workAbort.current===control)workAbort.current=null;workingRef.current=false;setWorking(false);playback.current=null;}
+ };
+  const checkWorker=async()=>{
    try{
     const result=await fetch(source,{cache:'no-store',signal:AbortSignal.timeout(2000)});
     const value=await result.json() as {ready?:boolean};
@@ -239,6 +262,7 @@ export default function RealtimeLab(){
      <option value="Eric">Eric</option><option value="Aiden">Aiden</option><option value="Dylan">Dylan</option>
     </select>
    </label>}
+   {persona==='bob'&&<button disabled={working||recording||worker!=='ready'} onClick={()=>void audition()} className="rounded border border-cyan-300 px-3 py-2 text-sm disabled:opacity-50">Escuchar frase de prueba · {bobVoice}</button>}
     <div className="flex flex-wrap gap-2">
     <button disabled={working||recording||worker!=='ready'} onClick={()=>void startMic()} className="rounded bg-cyan-400 px-4 py-3 font-semibold text-black disabled:opacity-50">Preguntar con micrófono</button>
     <button disabled={!recording} onClick={()=>recorder.current?.stop()} className="rounded bg-amber-400 px-4 py-3 font-semibold text-black disabled:opacity-50">Terminé de hablar</button>
