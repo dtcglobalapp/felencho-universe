@@ -47,7 +47,7 @@ export async function POST(req:NextRequest){
     const science=loadStudioScience(question);
     const memory=await recallStudioFacts(question+' '+history.slice(-4).map(x=>x.text).join(' '));
     const messages=[
-     {role:'system',content:[rules[persona],'Contesta en español con dos frases naturales. No inventes datos actuales ni anuncies búsquedas que no hiciste.',STUDIO_FELENCHO_FACTS,science,memory].filter(Boolean).join('\n\n')},
+     {role:'system',content:[rules[persona],'Contesta en español con dos frases naturales. No inventes datos actuales ni anuncies búsquedas que no hiciste. No introduzcas canciones, videoclips ni detalles personales de Felencho cuando no tengan relación directa con la pregunta. Responde sin fórmulas de presentación.',STUDIO_FELENCHO_FACTS,science,memory].filter(Boolean).join('\n\n')},
      ...history.map(x=>({role:x.who.toLowerCase()===persona?'assistant':'user',content:x.who+': '+x.text})),
      {role:'user',content:'Felencho: '+question}
     ];
