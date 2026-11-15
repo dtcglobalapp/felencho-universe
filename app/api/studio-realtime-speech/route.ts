@@ -29,13 +29,24 @@ export async function GET(request:NextRequest){
   return NextResponse.json({ready:false,engine:'Qwen3-Persistent',reason:e instanceof Error?e.message:String(e)},{headers:{'Cache-Control':'no-store'}});
  }
 }
+// This filter only affects Bob. Do not touch Lina/Serena.
+function cleanBobSpeech(raw:string){
+ return raw
+  .replace(/^(?:\\s*(?:ah+|eh+|mmm+|hmm+|uf+|ja+|pues|bueno|vaya|caramba)[!,.…:;\\s-]+)+/iu,'')
+  .replace(/^[\\s]*(?:Bob|Felencho)[,:;!\\s-]+/iu,'')
+  .replace(/\\b([a-záéíóúüñ])\\1{3,}\\b/giu,'$1$1')
+  .replace(/[.][.][.]+/g,'.')
+  .trim();
+}
 export async function POST(request:NextRequest){
  if(!local(request))return NextResponse.json({error:'Laboratorio local puerto 3002 solamente'},{status:403});
  let body:{persona?:'bob'|'lina';text?:string;allowFallback?:boolean};
  try{body=await request.json() as typeof body;}catch{return NextResponse.json({error:'JSON inválido'},{status:400})}
  if((body.persona!=='bob'&&body.persona!=='lina')||typeof body.text!=='string'||body.text.trim().length<3||body.text.length>350)
    return NextResponse.json({error:'Frase inválida (máximo 350 caracteres)'},{status:400});
- if(process.platform!=='darwin')return NextResponse.json({error:'Esta prueba necesita La Bestia (macOS)'},{status:503});
+ const cleaned=body.persona==='bob'?cleanBobSpeech(body.text):body.text.trim();
+ if(cleaned.length<3)return NextResponse.json({error:'Texto de Bob vacío tras limpiar muletillas'},{status:422});
+  if(process.platform!=='darwin')return NextResponse.json({error:'Esta prueba necesita La Bestia (macOS)'},{status:503});
  // Prefer the persistent local MLX worker; no paid APIs or additional voices.
  // If the worker is not started, retain the former per-request generator
  // for an apples-to-apples comparison in the isolated laboratory.
@@ -45,7 +56,7 @@ export async function POST(request:NextRequest){
    const response=await fetch('http://127.0.0.1:7894/synthesize',{
      method:'POST',
      headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({text:body.text.trim(),voice:body.persona==='bob'?'Ryan':'Serena'}),
+     body:JSON.stringify({text:cleaned,voice:body.persona==='bob'?'Ryan':'Serena'}),
      signal:AbortSignal.any([request.signal,AbortSignal.timeout(25000)]),
      cache:'no-store'
    });
@@ -79,7 +90,7 @@ export async function POST(request:NextRequest){
   await access(python);
   const voice=body.persona==='bob'?'Ryan':'Serena';
   await exec(python,['-m','mlx_audio.tts.generate','--model','mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit',
-    '--text',body.text.trim(),'--voice',voice,'--lang_code','Spanish','--output_path',join(dir,'qwen')],request.signal,45000);
+    '--text',cleaned,'--voice',voice,'--lang_code','Spanish','--output_path',join(dir,'qwen')],request.signal,45000);
   const audio=await readFile(join(dir,'qwen','audio_000.wav'));
   if(audio.length<100)throw new Error('Audio no generado');
   return new Response(new Uint8Array(audio),{headers:{
