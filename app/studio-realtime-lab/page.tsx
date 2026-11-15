@@ -121,6 +121,7 @@ export default function RealtimeLab(){
       return {audio,voice:response.headers.get('X-Voice')||'',ms:Math.round(performance.now()-start),text};
      }finally{if(speechAbort.current===speechCtrl)speechAbort.current=null;}
    })();
+   void promise.catch(()=>{}); // The consumer may await this after later streaming events.
    pending.push(promise);
    setSegmentTexts(v=>[...v,text]);
   };
@@ -184,7 +185,7 @@ export default function RealtimeLab(){
    if(isCurrent())setStatus('Error de prueba: '+String(err));
   }finally{
    if(workAbort.current===ctrl)workAbort.current=null;
-   if(isCurrent()){workingRef.current=false;setWorking(false);}
+   if(isCurrent()){speakingRef.current=false;setSpeaking(false);workingRef.current=false;setWorking(false);}
   }
  };
  const startMic=async()=>{
