@@ -3,8 +3,8 @@ import {useEffect,useRef,useState} from 'react';
 
 type Persona='bob'|'lina';
 type EventData={type:string;text?:string;model?:string;total_ms?:number;message?:string};
-type Metrics={stt:number|null;firstText:number|null;tts:number|null;firstVoice:number|null;total:number|null;segments:number;longestGap:number|null};
-const zero=():Metrics=>({stt:null,firstText:null,tts:null,firstVoice:null,total:null,segments:0,longestGap:null});
+type Metrics={stt:number|null;firstText:number|null;tts:number|null;firstVoice:number|null;total:number|null;segments:number;longestGap:number|null;firstClause:number|null;firstTtsRoundTrip:number|null;firstWorkerMs:number|null;firstBrowserMs:number|null};
+const zero=():Metrics=>({stt:null,firstText:null,tts:null,firstVoice:null,total:null,segments:0,longestGap:null,firstClause:null,firstTtsRoundTrip:null,firstWorkerMs:null,firstBrowserMs:null});
 const seconds=(n:number|null)=>n===null?'—':(n/1000).toFixed(2)+' s';
 const source='/api/studio-realtime-speech';
 
@@ -95,12 +95,17 @@ export default function RealtimeLab(){
   setReply('');setStatus('Qwen generando texto progresivo...');setMetrics({...zero(),stt:sttMs});setVoice('');setSegmentTexts([]);
   const ctrl=new AbortController();workAbort.current=ctrl;
   const began=performance.now();
+  let firstClauseRegistered=false;
   const pending:Promise<{audio:Blob,voice:string,ms:number,text:string}>[]=[];
   let queued=0,startedPlayback=false,voiceWait=0,voiceTotal=0,lastEnd:number|null=null,longest=0;
   const isCurrent=()=>epoch===generation.current&&!ctrl.signal.aborted;
   const enqueue=(text:string)=>{
    if(!isCurrent()||!text.trim()||queued>=8)return;
    queued++;
+   if(!firstClauseRegistered){
+     firstClauseRegistered=true;
+     setMetrics(v=>({...v,firstClause:Math.round(performance.now()-endedAt)}));
+   }
    const speechCtrl=new AbortController();
    // Limit to one synthetic audio job at a time and respect order.
    const previous=pending[pending.length-1];
@@ -118,7 +123,12 @@ export default function RealtimeLab(){
        throw new Error(details.error||'TTS HTTP '+response.status);
       }
       const audio=await response.blob();
-      return {audio,voice:response.headers.get('X-Voice')||'',ms:Math.round(performance.now()-start),text};
+      const elapsed=Math.round(performance.now()-start);
+      if(queued>=1 && pending.length===0){
+        const workerMs=Number(response.headers.get('X-TTS-Worker-Ms'));
+        setMetrics(v=>({...v,firstTtsRoundTrip:elapsed,firstWorkerMs:Number.isFinite(workerMs)&&workerMs>0?workerMs:null}));
+      }
+      return {audio,voice:response.headers.get('X-Voice')||'',ms:elapsed,text};
      }finally{if(speechAbort.current===speechCtrl)speechAbort.current=null;}
    })();
    void promise.catch(()=>{}); // The consumer may await this after later streaming events.
@@ -168,7 +178,7 @@ export default function RealtimeLab(){
         const time=performance.now();
         if(!startedPlayback){
          startedPlayback=true;voiceWait=time-endedAt;
-         setMetrics(v=>({...v,firstVoice:Math.round(voiceWait)}));
+         setMetrics(v=>({...v,firstVoice:Math.round(voiceWait),firstBrowserMs:Math.round(time-began)-(v.firstClause===null?0:(v.firstClause-(began-endedAt)))-(v.firstTtsRoundTrip||0)}));
         } else if(lastEnd!==null){longest=Math.max(longest,time-lastEnd);setMetrics(v=>({...v,longestGap:Math.round(longest)}));}
         speakingRef.current=true;setSpeaking(true);
         setStatus('Respuesta hablada en curso · fragmento '+(segmentTexts.length||queued));
@@ -239,6 +249,9 @@ export default function RealtimeLab(){
    <p>{status}</p>
    <div className="grid grid-cols-2 gap-3 text-sm">
     <p>Whisper: <strong>{seconds(metrics.stt)}</strong></p>
+    <p>Primera cláusula lista desde fin de pregunta: <strong>{seconds(metrics.firstClause)}</strong></p>
+    <p>Primera síntesis TTS (ida y vuelta): <strong>{seconds(metrics.firstTtsRoundTrip)}</strong></p>
+    <p>Motor TTS (solo generación): <strong>{seconds(metrics.firstWorkerMs)}</strong></p>
     <p>Primer texto Qwen: <strong>{seconds(metrics.firstText)}</strong></p>
     <p>Tiempo total TTS: <strong>{seconds(metrics.tts)}</strong></p>
     <p>Primera voz audible: <strong>{seconds(metrics.firstVoice)}</strong></p>
