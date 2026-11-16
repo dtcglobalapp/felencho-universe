@@ -31,3 +31,11 @@
 
 ## Criterio final
 Elegir la voz que mejor funcione para Bob como coanfitrión maduro, expresivo y reflexivo; la rapidez y la estabilidad importan, pero no justifican una voz poco natural. Tras la selección, separar una prueba técnica de integración y latencia antes de cualquier cambio en los personajes visuales.
+
+## Decisión del productor — 16/11/2026
+- Felencho escuchó las voces y eligió **Dylan como voz PROVISIONAL de Bob**: es la que mejor encaja de las probadas, aunque todavía no la considera perfecta.
+- **Lina conserva Serena.** Ryan continúa descartado para Bob.
+- No bloquear el avance buscando otras voces; explorar opciones adicionales después.
+- En la captura Realtime Lab mostró «Audición terminada», voz Dylan. Esto prueba el fin del flujo de audición reportado por la UI, **no** una conversación completa: las métricas del turno conversacional seguían vacías y «Fragmentos reproducidos: 0».
+- Próxima validación: seleccionar Bob en Realtime Lab, usar Dylan para síntesis y hacer pregunta por micrófono; comprobar texto, audio real, primera voz audible y cortes. La selección persistente del coanfitrión puede seguir indicando «Bob · Ryan» hasta modificar el código **del laboratorio local real**, no asumir que el selector de audición cambia la voz de conversación.
+- No cambiar hologramas, servidores en operación ni configuración de Lina sin ensayo.
