@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room } from 'livekit-client';
+import { routeProducerTurn } from '@/lib/studioTurnProtocol.mjs';
 
 type Persona = 'bob' | 'lina';
 type Turn = {user: string; assistant: string};
@@ -274,7 +275,7 @@ export default function StudioConversationLab() {
         setRecording(true);
         void Promise.all([signal('bob','LISTENING'),signal('lina','LISTENING')]);
         if(turnModeRef.current==='vad'){
-          setStatus('Escuchando en modo manos libres. Lina responderá cuando termines y haya una pausa natural.');
+          setStatus('Escuchando a Felencho. Bob y Lina esperan una invitación explícita para hablar.');
           // Browser-side acoustic detection only. No streaming audio leaves this Mac.
           // The microphone is never connected to the speakers (avoids feedback).
           const context=new AudioContext();
@@ -329,56 +330,36 @@ export default function StudioConversationLab() {
       if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),180);
       return;
     }
+    const producerRoute = internal ? null : routeProducerTurn(text);
     if(!internal){
       nextTurnRef.current?.controller.abort();nextTurnRef.current=null;
-      interruptedRef.current=false;
       if(debateTimerRef.current)clearTimeout(debateTimerRef.current);
       debateTimerRef.current=null;
-      const n=normalize(text);
-      const bothNamed=/\bbob\b/.test(n) && /\blina\b/.test(n);
-      // Covers the actual live introduction: "Bob y Lina, vamos a debatir
-      // sobre el cerebro humano..." (previous rule forgot "vamos a debatir").
-      // A substantive topic addressed to both also starts their roundtable.
-      // Only a deliberate invitation starts autonomous cross-talk.
-      // Asking "Qué opina Bob de lo que Lina dijo" is a single directed turn.
-      const debateCue=/\b(vamos a debatir|quiero que debatan|debatan entre ustedes|conversen entre ustedes|dialoguen entre ustedes|discutan entre ustedes|debatamos entre los tres|continuen el debate|sigan debatiendo)\b/.test(n);
-      const startsDebate=debateCue && (bothNamed || /\b(entre ustedes|entre los tres|ambos|los dos|continu|sigan)\b/.test(n));
-      if(/\b(terminamos|terminen|finalicen|se acabo el tema|cambien de tema|paren el debate|silencio los dos|basta de debate|detengan el debate)\b/.test(n)){
-        clearDebate();
-      } else if(startsDebate){
-        debateRef.current={topic:text};
-        setDebateState('Mesa activa: Bob y Lina debatirán hasta que Felencho los interrumpa o cierre el tema.');
-      } else {
-        debateRef.current=null;
-        setDebateState('Felencho tiene el turno. Solo responde el coanfitrión interpelado.');
+      debateRef.current=null; // No autonomous discussion; producer owns every new turn.
+      setDebateState('Felencho dirige. Bob y Lina esperan autorización.');
+      // 'A dormir' remains a control command, not permission to speak.
+      const sleeping = /\\b(a dormir|duerme|descansa|vete a dormir)\\b/.test(normalize(text));
+      const mentioned = normalize(text).match(/\\b(bob|lina)\\b/g) || [];
+      if(sleeping && mentioned.length) {
+        activeRef.current=null;setActive(null);
+        await Promise.all([...new Set(mentioned)].map(persona=>signal(persona as Persona,'SLEEP')));
+        setStatus('En descanso por orden de Felencho.');
+        if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);
+        return;
+      }
+      if(producerRoute?.kind !== 'grant'){
+        activeRef.current=null;setActive(null);
+        setStatus(producerRoute?.reason==='producer_interruption'
+          ? 'Felencho interrumpió: Bob y Lina esperan su turno.'
+          : 'Felencho tiene la palabra. Bob y Lina escuchan sin responder.');
+        if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);
+        return;
       }
     }
-    const routed=internal ? {persona:internal as Persona,command:'question'} : classify(text,activeRef.current);
-    if(!internal && /\b(smart|nuestro tecnico|nuestro arquitecto|notas para ti smart)\b/.test(normalize(text))){
-      // Smart is the technical architect, not an on-air cohost. Producer notes
-      // should not be treated as a question to whichever agent last spoke.
-      setStatus('Nota técnica para Smart registrada; Bob y Lina escuchando a Felencho.');
-      if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),220);
-      return;
-    }
-    if(!internal && !routed.persona && debateRef.current)routed.persona='bob';
-    if(routed.command==='ambient'){
-      setStatus('Sonido ambiental ignorado. Esperando una pregunta dirigida a Bob o Lina.');
-      if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);
-      return;
-    }
-    if(routed.command==='ambiguous'){setStatus('Nombraste a Bob y Lina juntos. Llama a uno para tomar su turno.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
-    if(!routed.persona){setStatus('No hay personaje activo. Empieza diciendo Bob o Lina.');if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);return;}
-    const who=routed.persona;
-    if(debateRef.current && !internal){
-      setStatus('Debate iniciado: primero '+who.toUpperCase()+', después '+(who==='bob'?'LINA':'BOB')+'.');
-    }
-    if(routed.command==='sleep'){
-      activeRef.current = null;setActive(null);
-      await signal(who,'SLEEP');setStatus(who.toUpperCase()+' dormido. Llama a Bob o Lina para continuar.');
-      if(liveRef.current)setTimeout(()=>void processRef.current('__restart__'),250);
-      return;
-    }
+    const who = (internal || producerRoute?.order[0]) as Persona;
+    if(!who) return;
+    if(!internal && producerRoute?.order.length===2)
+      setStatus('Felencho concedió dos turnos: '+who.toUpperCase()+' primero, '+producerRoute.order[1].toUpperCase()+' después.');
     activeRef.current=who;setActive(who);
     busyRef.current=true;setBusy(true);
     stopRecognizer();
@@ -392,12 +373,7 @@ export default function StudioConversationLab() {
     await Promise.all([signal(who,'LISTENING'),signal(who==='bob'?'lina':'bob','LISTENING')]);
     // A spoken request to one cohost to ask the other schedules exactly one
     // response from the second cohost. It is not an autonomous infinite loop.
-    const spoken = normalize(text);
-    const scheduledReply: Persona|null = !internal && (
-      who==='bob' && /(?:preguntale|pregunta a|habla con|dirigete a|consulta a)\s+lina/.test(spoken) ? 'lina' :
-      who==='lina' && /(?:preguntale|pregunta a|habla con|dirigete a|consulta a)\s+bob/.test(spoken) ? 'bob' :
-      null
-    );
+    const scheduledReply: Persona|null = !internal && producerRoute?.order[1] ? producerRoute.order[1] as Persona : null;
     let answered=false;
     try{
       const cached=automatic && nextTurnRef.current?.who===who ? nextTurnRef.current : null;
@@ -510,15 +486,11 @@ export default function StudioConversationLab() {
       interruptionMonitorRef.current?.();interruptionMonitorRef.current=null;
       activeRequestRef.current=null;
       busyRef.current=false;setBusy(false);
-      if(answered && debateRef.current && !interruptedRef.current && !brainOnly && liveRef.current){
-        const next=who==='bob'?'lina':'bob';
-        setDebateState('Debate abierto bajo la dirección de Felencho: '+next.toUpperCase()+' responderá a '+who.toUpperCase()+'.');
-        debateTimerRef.current=setTimeout(()=>{if(!busyRef.current && !interruptedRef.current && liveRef.current && debateRef.current)void processRef.current('__debate__'+next);},350);
-      } else if(answered && scheduledReply && !interruptedRef.current && liveRef.current){
-        setStatus('Cediendo la palabra a '+scheduledReply.toUpperCase()+' por instrucción de Felencho.');
-        setTimeout(()=>{if(!busyRef.current)void processRef.current('__handoff__'+scheduledReply);},400);
+      if(answered && scheduledReply && !interruptedRef.current && liveRef.current){
+        setStatus('Felencho cedió el segundo turno a '+scheduledReply.toUpperCase()+'.');
+        setTimeout(()=>{if(!busyRef.current && !interruptedRef.current && liveRef.current)void processRef.current('__handoff__'+scheduledReply);},400);
       } else if(liveRef.current && !interruptedRef.current) {
-        setStatus('Escuchando: '+who.toUpperCase()+' conserva el turno. Puedes llamar al otro por su nombre.');
+        setStatus('Felencho recupera el turno. Bob y Lina escuchan.');
         setTimeout(()=>{if(liveRef.current && !busyRef.current && !recorderRef.current) void processRef.current('__restart__');},350);
       }
     }
