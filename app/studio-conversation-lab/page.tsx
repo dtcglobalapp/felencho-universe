@@ -51,7 +51,7 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
-  const bobVoice = 'Ryan' as const; // One stable speaker identity until Felencho approves a replacement.
+  const bobVoice = 'Dylan' as const; // Voz provisional aprobada por Felencho (2026-11-16).
 
   const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [debateState,setDebateState] = useState('Mesa preparada: presenta un tema para iniciar el debate.');
@@ -555,7 +555,7 @@ export default function StudioConversationLab() {
   return <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-2xl font-bold">Felencho Mundial · Conversación local</h1>
-      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local + Whisper local + voces Qwen3-TTS Serena (Lina) y Ryan (Bob), sin alternar voces automáticamente: sin APIs comerciales.</p>
+      <p className="text-sm text-slate-300">Consola privada del Mac. Las TVs solo muestran a Bob y Lina. No transmite al público. Qwen local + Whisper local + voces Qwen3-TTS Serena (Lina) y Dylan (Bob), sin alternar voces automáticamente: sin APIs comerciales.</p>
       {!localOk && <p className="rounded bg-red-950 p-3">Disponible solamente en localhost / 127.0.0.1.</p>}
       <section className="space-y-3 rounded-xl border border-cyan-500/40 bg-slate-900 p-4">
         <p className="text-xs text-amber-300">{bridgeStatus}</p>
@@ -583,7 +583,7 @@ export default function StudioConversationLab() {
         <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
-        <p className="text-sm">Voz de Bob fijada en <strong>Ryan</strong> para esta prueba. Lina permanece Serena. No hay cambio automático de voz.</p>
+        <p className="text-sm">Voz provisional de Bob fijada en <strong>Dylan</strong> para esta prueba. Lina permanece Serena. No hay cambio automático de voz.</p>
         <p className="text-xs text-slate-400">Solo se activa el debate continuo si dices «Bob y Lina, debatan entre ustedes sobre Historia de amor». Para preguntar algo a uno de ellos, llama a Bob o Lina por su nombre.</p>
         <label className="block text-sm">Final de turno
           <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'vad'|'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
