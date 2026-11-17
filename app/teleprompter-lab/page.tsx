@@ -13,6 +13,11 @@ export default function TeleprompterLab() {
   const [playing, setPlaying] = useState(false);
   const [controls, setControls] = useState(true);
   const [ready, setReady] = useState(false);
+  const [scriptId, setScriptId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("Sin conexión al Director");
+  const [sourceTitle, setSourceTitle] = useState("");
   const textRef = useRef<HTMLDivElement>(null);
   const scrolling = useRef(0);
   const last = useRef(0);
@@ -51,6 +56,34 @@ export default function TeleprompterLab() {
     return () => { window.cancelAnimationFrame(scrolling.current); last.current = 0; };
   }, [playing, speed]);
   useEffect(() => {
+    if (!syncEnabled || !ready) return;
+    if (!scriptId.trim() || !accessToken.trim()) {
+      setSyncStatus("Introduce el ID y la clave local.");
+      return;
+    }
+    let active = true;
+    const read = async () => {
+      try {
+        const res = await fetch("/api/teleprompter-lab/script?script_id=" + encodeURIComponent(scriptId.trim()), {
+          headers: { "x-felencho-teleprompter-token": accessToken },
+          cache: "no-store"
+        });
+        const body = await res.json();
+        if (!active) return;
+        if (!res.ok) { setSyncStatus(body.error || "Error de conexión"); return; }
+        if (!body.updated || !body.text) { setSyncStatus("Guion sin texto asignado a Felencho"); return; }
+        setScript(String(body.text).slice(0,100000));
+        setSourceTitle(String(body.title || "").slice(0,180));
+        setSyncStatus("Guion recibido · Sincronización activa");
+      } catch {
+        if (active) setSyncStatus("Conexión interrumpida · Conservando último guion");
+      }
+    };
+    read();
+    const interval = window.setInterval(read, 8000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [syncEnabled, scriptId, accessToken, ready]);
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
       if (e.code === "Space") { e.preventDefault(); setPlaying(v => !v); }
@@ -74,6 +107,19 @@ export default function TeleprompterLab() {
           <label>Letra <input className="ml-1 w-28" aria-label="Tamaño de letra" type="range" min="24" max="100" value={size} onChange={e=>setSize(Number(e.target.value))}/>{size}px</label>
           <label>Velocidad <input className="ml-1 w-28" aria-label="Velocidad de desplazamiento" type="range" min="0" max="120" value={speed} onChange={e=>setSpeed(Number(e.target.value))}/>{speed}</label>
           <button className="rounded border border-white/30 px-3 py-2" onClick={() => { const el = document.getElementById("prompter-stage"); el?.requestFullscreen?.().catch(()=>{}); }}>Pantalla completa</button>
+          <details className="w-full rounded border border-cyan-900 p-2">
+            <summary className="cursor-pointer text-cyan-300">Conectar guion desde el Director (laboratorio)</summary>
+            <p className="my-2 text-xs text-gray-300">El servidor necesita FELENCHO_TELEPROMPTER_TOKEN configurado previamente. Solo en red privada de confianza; esta prueba no autentica usuarios individuales ni constituye acceso remoto seguro.</p>
+            <label className="block text-sm">ID del guion de Lumina
+              <input value={scriptId} onChange={e => { setSyncEnabled(false); setScriptId(e.target.value); }} autoComplete="off" className="ml-2 max-w-full rounded border border-white/40 bg-gray-950 p-2 text-white" />
+            </label>
+            <label className="mt-2 block text-sm">Clave local de prueba
+              <input type="password" value={accessToken} onChange={e => { setSyncEnabled(false); setAccessToken(e.target.value); }} autoComplete="off" className="ml-2 max-w-full rounded border border-white/40 bg-gray-950 p-2 text-white" />
+            </label>
+            <button className="mt-3 rounded border border-cyan-500 px-3 py-2" onClick={() => setSyncEnabled(v => !v)}>{syncEnabled ? "Desconectar" : "Sincronizar desde Director"}</button>
+            <p className="mt-2 text-sm" role="status">{syncStatus}{sourceTitle ? " · " + sourceTitle : ""}</p>
+            <p className="mt-1 text-xs text-gray-400">La clave no se guarda en este navegador. El último guion recibido sí queda almacenado localmente. No borres los datos de Safari antes de terminar el episodio.</p>
+          </details>
           <details className="w-full">
             <summary className="cursor-pointer text-cyan-300">Editar guion de prueba (solo en este navegador)</summary>
             <label className="mt-2 block text-xs text-gray-300" htmlFor="script-entry">Texto del presentador</label>
