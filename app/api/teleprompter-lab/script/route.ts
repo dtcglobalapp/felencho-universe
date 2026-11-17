@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   if (!/^[a-z0-9-]{8,80}$/i.test(scriptId)) return json({ error: "Se requiere un ID de guion válido." }, 400);
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return json({ error: "Fuente Lumina no configurada." }, 503);
+  if (!url || !key) return json({ error: "Fuente de guiones Felencho no configurada." }, 503);
   try {
     const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: script, error: scriptError } = await db.from("lumina_scripts").select("id,title").eq("id", scriptId).maybeSingle();
@@ -50,6 +50,6 @@ export async function GET(request: Request) {
     });
   } catch {
     // Never expose database errors, tokens, or SQL metadata to tablet clients.
-    return json({ error: "No se pudo leer el guion de Lumina." }, 502);
+    return json({ error: "No se pudo leer el guion de Felencho." }, 502);
   }
 }
