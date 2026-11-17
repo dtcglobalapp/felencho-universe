@@ -16,7 +16,7 @@ export default function TeleprompterLab() {
   const [scriptId, setScriptId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [syncEnabled, setSyncEnabled] = useState(false);
-  const [syncStatus, setSyncStatus] = useState("Sin conexión al Director");
+  const [syncStatus, setSyncStatus] = useState("Sin conexión a Felencho Director");
   const [sourceTitle, setSourceTitle] = useState("");
   const textRef = useRef<HTMLDivElement>(null);
   const scrolling = useRef(0);
@@ -97,7 +97,7 @@ export default function TeleprompterLab() {
     <main className="min-h-[100dvh] bg-black text-white">
       <header className="sticky top-0 z-20 border-b border-white/15 bg-black/95 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div><strong className="text-cyan-300">FELENCHO MUNDIAL</strong><span className="ml-3 text-xs text-gray-400">TELEPROMPTER · LAB LOCAL</span></div>
+          <div><strong className="text-cyan-300">FELENCHO MUNDIAL</strong><span className="ml-3 text-xs text-gray-400">ESTUDIO DE GUIONES · TELEPROMPTER</span></div>
           <button className="rounded border border-white/30 px-3 py-2" onClick={() => setControls(v => !v)}>{controls ? "Ocultar controles" : "Mostrar controles"}</button>
         </div>
         {controls && <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
@@ -108,23 +108,23 @@ export default function TeleprompterLab() {
           <label>Velocidad <input className="ml-1 w-28" aria-label="Velocidad de desplazamiento" type="range" min="0" max="120" value={speed} onChange={e=>setSpeed(Number(e.target.value))}/>{speed}</label>
           <button className="rounded border border-white/30 px-3 py-2" onClick={() => { const el = document.getElementById("prompter-stage"); el?.requestFullscreen?.().catch(()=>{}); }}>Pantalla completa</button>
           <details className="w-full rounded border border-cyan-900 p-2">
-            <summary className="cursor-pointer text-cyan-300">Conectar guion desde el Director (laboratorio)</summary>
+            <summary className="cursor-pointer text-cyan-300">Conectar guion desde Felencho Director (laboratorio)</summary>
             <p className="my-2 text-xs text-gray-300">El servidor necesita FELENCHO_TELEPROMPTER_TOKEN configurado previamente. Solo en red privada de confianza; esta prueba no autentica usuarios individuales ni constituye acceso remoto seguro.</p>
-            <label className="block text-sm">ID del guion de Lumina
+            <label className="block text-sm">ID del guion de Felencho
               <input value={scriptId} onChange={e => { setSyncEnabled(false); setScriptId(e.target.value); }} autoComplete="off" className="ml-2 max-w-full rounded border border-white/40 bg-gray-950 p-2 text-white" />
             </label>
             <label className="mt-2 block text-sm">Clave local de prueba
               <input type="password" value={accessToken} onChange={e => { setSyncEnabled(false); setAccessToken(e.target.value); }} autoComplete="off" className="ml-2 max-w-full rounded border border-white/40 bg-gray-950 p-2 text-white" />
             </label>
-            <button className="mt-3 rounded border border-cyan-500 px-3 py-2" onClick={() => setSyncEnabled(v => !v)}>{syncEnabled ? "Desconectar" : "Sincronizar desde Director"}</button>
+            <button className="mt-3 rounded border border-cyan-500 px-3 py-2" onClick={() => setSyncEnabled(v => !v)}>{syncEnabled ? "Desconectar" : "Sincronizar con Felencho Director"}</button>
             <p className="mt-2 text-sm" role="status">{syncStatus}{sourceTitle ? " · " + sourceTitle : ""}</p>
-            <p className="mt-1 text-xs text-gray-400">La clave no se guarda en este navegador. El último guion recibido sí queda almacenado localmente. No borres los datos de Safari antes de terminar el episodio.</p>
+            <p className="mt-1 text-xs text-gray-400">La clave no se guarda en este navegador. El último guion recibido sí queda almacenado localmente. No borres los datos del navegador antes de terminar el episodio.</p>
           </details>
           <details className="w-full">
             <summary className="cursor-pointer text-cyan-300">Editar guion de prueba (solo en este navegador)</summary>
             <label className="mt-2 block text-xs text-gray-300" htmlFor="script-entry">Texto del presentador</label>
             <textarea id="script-entry" className="mt-2 h-40 w-full rounded border border-white/30 bg-gray-950 p-3 text-white" value={script} onChange={e=>setScript(e.target.value.slice(0,100000))}/>
-            <p className="mt-1 text-xs text-gray-400">Guardado local en este navegador. NO está sincronizado con el Director ni con otros dispositivos. No introduzcas guiones privados en una versión pública.</p>
+            <p className="mt-1 text-xs text-gray-400">Guardado local en este navegador. NO está sincronizado con Felencho Director ni con otros dispositivos. No introduzcas guiones privados en una versión pública.</p>
           </details>
         </div>}
       </header>
