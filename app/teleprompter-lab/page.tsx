@@ -124,7 +124,7 @@ export default function TeleprompterLab() {
             <summary className="cursor-pointer text-cyan-300">Editar guion de prueba (solo en este navegador)</summary>
             <label className="mt-2 block text-xs text-gray-300" htmlFor="script-entry">Texto del presentador</label>
             <textarea id="script-entry" className="mt-2 h-40 w-full rounded border border-white/30 bg-gray-950 p-3 text-white" value={script} onChange={e=>setScript(e.target.value.slice(0,100000))}/>
-            <p className="mt-1 text-xs text-gray-400">Guardado local en este navegador. NO está sincronizado con Felencho Director ni con otros dispositivos. No introduzcas guiones privados en una versión pública.</p>
+            <p className="mt-1 text-xs text-gray-400">Este editor es una prueba manual, independiente de la sincronización. No introduzcas guiones privados en una versión pública.</p>
           </details>
         </div>}
       </header>
