@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Isolated Mac lab; never kills unknown PIDs or processes started outside this panel.
 import {createServer} from 'node:http';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {connect} from 'node:net';
 import {mkdirSync, existsSync, createWriteStream, writeFileSync, readFileSync} from 'node:fs';
 import {homedir} from 'node:os';
@@ -40,6 +40,17 @@ const isBusy=p=>new Promise(done=>{
  s.once('error',()=>done(false));
  s.setTimeout(1000,()=>{s.destroy();done(false)});
 });
+function busyForService(s){
+ if(!s.port)return Promise.resolve(false);
+ if(s.port!==3107)return isBusy(s.port);
+ try {
+  const output=execFileSync('/usr/sbin/lsof',['-nP','-iTCP:3107','-sTCP:LISTEN'],{stdio:['ignore','pipe','ignore'],timeout:2500}).toString();
+  return Promise.resolve(output.trim().length>0);
+ } catch(e){
+  if(e.status===1)return Promise.resolve(false);
+  return Promise.resolve(true); // fail closed: never spawn into uncertain port state
+ }
+}
 async function healthy(s) {
  if(!s.port)return false;
  if(!(await isBusy(s.port)))return false;
@@ -59,7 +70,7 @@ function recentLog(key){
 async function status(){
  const out={};
  for(const [key,s] of Object.entries(services)){
-  const child=owned.get(key),busy=s.port?await isBusy(s.port):false;
+  const child=owned.get(key),busy=s.port?await busyForService(s):false;
   out[key]={label:s.label,port:s.port,owned:!!child,external:busy&&!child,healthy:s.port?await healthy(s):!!child};
   if(key==='tts'||key==='realtime')out[key].lastLog=recentLog(key);
   if(key==='tts'&&busy){try{const response=await fetch('http://127.0.0.1:7894/health',{signal:AbortSignal.timeout(900)});const info=await response.json();out[key].voices=Array.isArray(info.voices)?info.voices:[];}catch{out[key].voices=[];}}
@@ -70,7 +81,7 @@ async function start(key){
  const s=services[key];
  if(!s)throw Error('Servicio desconocido');
  if(owned.has(key))throw Error('Ya iniciado desde este panel');
- if(s.port&&await isBusy(s.port))throw Error('Puerto '+s.port+' ocupado: no se toca ese proceso');
+ if(s.port&&await busyForService(s))throw Error('Puerto '+s.port+' ocupado: no se toca ese proceso');
  if(!existsSync(s.cwd))throw Error('Carpeta no encontrada: '+s.cwd);
  if(key==='web'&&!existsSync(join(root,'node_modules')))throw Error('Faltan node_modules en el repositorio');
  if(key==='realtime'&&!existsSync(join(realtimeRoot,'node_modules')))throw Error('Faltan node_modules en el laboratorio Realtime');
