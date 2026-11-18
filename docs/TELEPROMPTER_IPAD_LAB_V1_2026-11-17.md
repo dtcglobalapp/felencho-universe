@@ -13,3 +13,11 @@
 **Problema heredado pendiente:** el productor antiguo consulta `lumina_script_lines` aunque el generador escribe `lumina_scene_lines`. El panel usa un `script_id` fijo. Planificar migración con nombres Felencho sin cambiar aún los datos.
 
 **Próximos pasos:** verificar build, probar aislamiento, definir acceso local seguro, probar en iPad y después integrar selección de guion y avance del Director. No depende de ninguna aplicación BestView.
+
+## Etapa V2 — lectura manual / recuperación (17 nov 2026)
+- **Comprobación por Felencho en hardware:** aplicación V1 abre desde Safari en iPad Pro 12.9 (2.ª gen) y el mando BestView desplaza texto manualmente. Chrome mostró una advertencia de hidratación con atributo añadido por componente de navegador; Safari funcionó.
+- **Código V2:** `app/teleprompter-lab/page.tsx` elimina play/velocidad, preserva flechas y PageUp/PageDown, guarda guion, letra, espejo y `scrollTop` en localStorage (clave v2, lee v1 como respaldo); no reenvía audio ni activa parlantes.
+- **No probado todavía:** compilación V2 en La Bestia, restauración Safari tras recarga, uso prolongado de BestView, integración de Felencho Director.
+- **Arranque V2 opcional:** paquete separado ZIP, instala LaunchAgent `ai.felencho.teleprompter.lab` en usuario macOS para mantener un servicio Next.js en 3107 y crea respaldo de la página original. Rechaza ocupar puertos ajenos, detiene solo Next.js del laboratorio tras comprobar dueño del PID/cwd. Incluye script de reversión. No ejecutado por el asistente en La Bestia.
+- **Seguridad:** el servidor HTTP local en IP privada no ofrece confidencialidad ni control de acceso a la página. Únicamente guion de demostración hasta construir un canal autenticado y cifrado; el token de la API de guiones no autoriza publicar libremente la interfaz.
+- **Continuidad:** cambiar IP de Wi-Fi puede requerir reiniciar el agente dedicado. Safari puede borrar el almacenamiento local; no prometer recuperación ante fallo del iPad o limpieza de datos. Nunca conectar voces automáticamente ni ordenar intervenciones por una línea de guion.
