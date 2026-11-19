@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
-
 type LuminaMessage = {
   speaker: string;
   target: string | null;
@@ -56,6 +52,17 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // The OpenAI client must not be initialized during Next.js build-time
+    // route collection. Require credentials only when this endpoint is called.
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Servicio de IA no configurado." },
+        { status: 503 }
+      );
+    }
+    const openai = new OpenAI({ apiKey });
 
     const { data: character, error: characterError } = await supabaseAdmin
       .from("lumina_characters")
