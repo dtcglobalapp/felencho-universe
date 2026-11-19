@@ -2,6 +2,20 @@
 
 **Actualizado:** 2026-11-11 · **Estado:** integración de prueba, NO producción · **Repositorio:** dtcglobalapp/felencho-universe · **Rama:** `feature/lovable-hologram-studio-v1` · **PR:** #30 (borrador)
 
+## ESTADO VIGENTE Y POLITICA DE MARCA — 2026-11-18 (PR #31, laboratorio aislado)
+
+> **Esta sección prevalece sobre cualquier referencia técnica o decisión histórica contradictoria más abajo.** El documento conserva la bitácora previa como evidencia; que aparezca un nombre anterior en un identificador histórico NO autoriza su uso como marca.
+
+- **Marca única y vigente: Felencho.** Identidad: **Felencho Mundial — The New York's Podcast**, **Felencho Brain**, **Felencho Light Engine** y Felencho.ai según corresponda. La marca anterior citada en rutas/tablas heredadas está descartada y NO debe aparecer en UI nueva, prompts nuevos, documentación comercial, mensajes al público, títulos de componentes nuevos ni nombres de servicios nuevos.
+- **Compatibilidad histórica:** las rutas `/api/lumina/*` y tablas `lumina_*` aún existen como identificadores técnicos heredados; **NO eliminarlas ni renombrarlas automáticamente**. Requieren inventario de referencias, dependencias, permisos/RLS, migración reversible y pruebas antes de sustituirlas por identificadores `felencho_*`. No crear nuevas dependencias de esos identificadores. Los commits de reparación de build en rutas antiguas son medidas de compatibilidad, NO un restablecimiento de la marca.
+- **Laboratorio actual:** `~/Documents/felencho-light-integration-lab`, worktree en detached HEAD sobre rama remota `feature/felencho-light-presence-bridge-lab`, PR **#31 borrador/no fusionada**. Último estado de Terminal comprobado por el productor: commit `79b018e`; build de Next.js 16.2.6 compila y pasa TypeScript, pero falla al recopilar `/api/liveavatar/felencho-virtual/chat/completions` porque `lib/felenchoBrainEngine.ts` creaba OpenAI al importar. En GitHub se preparó corrección para inicialización en petición real; **falta validar el build en La Bestia**. No registrar código de salida 0 ni prueba visual E2E hasta observarlos.
+- **Visual original aprobado e inmutable:** motor Lovable 2.5D, tres texturas `bob-v1-portrait.jpg`, `lina-v2-portrait.jpg`, `lina-v2-sleep.webp` con hashes SHA-256 previamente verificados; originales locales sin registrar en `public/studio-light/` y `vendor/felencho-light/src/assets/`; 12 archivos del motor y rutas `/studio-light/bob`, `/studio-light/lina`. No alterar rostros, cabellos, armaduras, shaders, iluminación, partículas, estados ni añadir labios artificiales.
+- **Voces vigentes del laboratorio local:** Bob = **Dylan**, Lina = **Serena**, Qwen3-TTS local. Las referencias históricas a Uncle_Fu, Cartesia, ElevenLabs, LiveAvatar o HeyGen en este documento NO describen la voz ni el motor visual actuales.
+- **Arquitectura vigente:** Mac M4 Max «La Bestia» como maestro de audio hacia RØDECaster Pro II; LiveKit local en puerto 7880; servicios del estudio existentes 3001/3002/7890/7891/7892/7894, entre otros. Pantallas Samsung verticales dedicadas a Bob y Lina y tercera horizontal para pruebas visuales/evidencias; nunca duplicar audio en las TVs.
+- **Próximo paso:** validar compilación aislada sin credenciales reales; después iniciar visualización en un puerto nuevo comprobado libre, sin reiniciar servicios existentes; más tarde integrar Felencho Brain, Director de Turnos y pistas reales de voz mediante pruebas independientes.
+- **Protecciones:** nunca cambiar worktrees del estudio activo, fusionar PR #31, escribir en producción/Supabase ni ejecutar `npm audit fix --force` para superar pruebas. Conservar los assets sin registrar; no aceptar credenciales falsas que simulen acceso real.
+- **Conocimiento editorial:** los temas del podcast se incorporarán a la biblioteca local compartida de Bob y Lina solo con fuentes, evidencia y controles de privacidad; no asumir que la ingestión está implementada.
+
 > Este documento complementa `project-memory/current.json` y sustituye sus prioridades operativas obsoletas de octubre (LiveAvatar/ElevenLabs/avatar de video). No borrar la historia técnica previa. La prioridad es conservar la versión funcional y evolucionar por pruebas verificadas, no volver a empezar.
 
 ## Decisión del productor — Felencho
@@ -69,7 +83,7 @@
 
 ### Formularios ya construidos; NO volver a crearlos
 - `/felencho-brain` → `app/felencho-brain/FelenchoBrainClient.tsx`: formulario de Memoria Manual (categorías music/family/biography/projects/guests/studio/corrections, etc.), selección de personaje o `shared`, título, contenido, importancia, visibilidad, etiquetas; Memory Inbox con Aprobar/Rechazar; memorias aprobadas.
-- API existente `/api/felencho-brain/memories`, `/memory-inbox`, `/memory-inbox/approve`, `/memory-inbox/reject`, `/recall` y `/corrections`. Histórico antiguo `/api/lumina/brain-memory` — NO crear cerebro paralelo.
+- API existente `/api/felencho-brain/memories`, `/memory-inbox`, `/memory-inbox/approve`, `/memory-inbox/reject`, `/recall` y `/corrections`. Ruta heredada de compatibilidad `/api/lumina/brain-memory` — NO es una marca vigente ni debe utilizarse para crear un cerebro paralelo.
 - Inventario SQL READ ONLY confirmado del proyecto Supabase de producción `Felencho-ai`: `felencho_memories`, `felencho_memory_inbox`, `felencho_conversations`, `felencho_guests`, `felencho_corrections`, `felencho_memory_links`, `felencho_memory_topics`, `felencho_knowledge_entities`, `felencho_recall_logs`, `podcast_episodes`, `felencho_character_identity`. NO se hicieron escrituras a la base.
 - El agente `agents/lina/src/main.ts` envía sólo cuatro turnos recientes de su propia sesión a `/api/felencho-forever/conversation`; no transmite un resumen perdurable, `episode_id` ni identificador compartido de participante. Por tanto, recuerdos cross-session/cross-character NO están completos.
 - Prueba de aceptación propuesta: una conversación autorizada en Vega Baja, Puerto Rico, produce un resumen mínimo pendiente de aprobación; luego Bob y Lina recuperan contexto en NY, sin atribuir palabras que no fueron guardadas.
@@ -124,7 +138,7 @@ P0 inventario/autorización de formularios y memoria (proteger endpoints privado
 
 ### Hallazgos existentes (Supabase Felencho-ai, consulta READ ONLY)
 - `audience_profiles` YA EXISTE: nombre, correo, teléfono, Instagram, Facebook, TikTok, YouTube, idiomas, nivel de membresía, preferencias de comunicación. **No duplicar ni sobreescribir**.
-- `lumina_user_profiles` y `lumina_profile_memories` YA EXISTEN como sistema anterior; revisar inventario, migración y tratamiento de perfiles antes de reutilizar para miembros.
+- Las tablas heredadas `lumina_user_profiles` y `lumina_profile_memories` YA EXISTEN como identificadores internos; requieren inventario, revisión de seguridad y migración reversible antes de adoptar nombres Felencho.
 - `studio_members` YA EXISTE, pero corresponde al equipo/estudio, no se debe mezclar con audiencia o suscriptores.
 - Auditoría de catálogo: `audience_profiles`, `lumina_user_profiles`, `lumina_profile_memories`, `felencho_memories` y `felencho_memory_inbox` muestran RLS **desactivado** y sin políticas en la consulta. **P0 crítico:** no conectar miembros a estas tablas mediante API pública ni usar memorias de miembro en Brain sin aislamiento verificado. Revisar además permisos de tabla y todos los endpoints con `supabaseAdmin`.
 - Diseño de migración controlada revisable: `docs/sql/member_private_profiles_v1_REVIEW_ONLY.sql`, commit `f12b4b6`. **NO APLICADA**. Revisión y pruebas negativas con 2 usuarios + anónimo obligatorias antes de ejecutarla.
