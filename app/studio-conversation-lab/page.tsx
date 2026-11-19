@@ -23,7 +23,7 @@ function classify(text: string, active: Persona | null) {
       /^(musica|motor|ruido|silencio|aplausos|sonido de la ventana|sonido del motor|subtitulos|gracias por ver)$/.test(cleaned)) {
     return {persona: null as Persona | null, command: 'ambient'};
   }
-  const words = normalize(text).match(/[a-z0-9]+/g) || [];
+  const words: string[] = normalize(text).match(/[a-z0-9]+/g) ?? [];
   // Whisper often turns "Lina" into "Linas", "Linna" or "Lin".
   const bob = words.includes('bob'), lina = words.some(word=>['lina','linas','linna','lin','lino','linna'].includes(word));
   // If both cohosts are mentioned, the first name is the addressee.
