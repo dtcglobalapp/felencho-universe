@@ -30,7 +30,7 @@ const services={
  bridge:{label:'Puente Bob/Lina',port:7891,cmd:'node',args:[join(root,'tools','hologram-local-lab','wake-bridge.mjs')],cwd:root,probe:'/health'},
  whisper:{label:'Whisper mic (prueba)',port:null,cmd:'node',args:[join(root,'tools','hologram-local-lab','mic-whisper-wake.mjs'),'--device','0','--seconds','6','--bridge'],cwd:root},
  realtime:{label:'Realtime Lab · pruebas',port:3002,cmd:'npm',args:['run','dev','--','--hostname','127.0.0.1','--port','3002'],cwd:realtimeRoot,probe:'/studio-realtime-lab'},
- tts:{label:'Qwen3-TTS persistente · Ryan/Serena/candidatos',port:7894,cmd:realtimePython,args:[join(realtimeRoot,'tools','realtime-lab','persistent_tts.py')],cwd:realtimeRoot,probe:'/health'},
+ tts:{label:'Qwen3-TTS persistente · Dylan/Serena',port:7894,cmd:realtimePython,args:[join(realtimeRoot,'tools','realtime-lab','persistent_tts.py')],cwd:realtimeRoot,probe:'/health'},
  teleprompter:{label:'Felencho Teleprompter · lectura manual',port:3107,cmd:'npm',args:['run','dev','--','--hostname','0.0.0.0','--port','3107'],cwd:teleprompterRoot,probe:'/teleprompter-lab'},
 };
 const owned=new Map();
