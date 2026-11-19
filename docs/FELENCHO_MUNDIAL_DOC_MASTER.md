@@ -1,6 +1,6 @@
 # FELENCHO MUNDIAL — DOC MASTER / STUDIO HOLOGRAM MODE
 
-**Actualizado:** 2026-11-11 · **Estado:** integración de prueba, NO producción · **Repositorio:** dtcglobalapp/felencho-universe · **Rama:** `feature/lovable-hologram-studio-v1` · **PR:** #30 (borrador)
+**Actualizado:** 2026-11-18 · **Estado:** integración de prueba, NO producción · **Repositorio:** dtcglobalapp/felencho-universe · **Rama vigente del laboratorio:** `feature/felencho-light-presence-bridge-lab` · **PR vigente:** #31 (borrador). Las secciones posteriores conservan el historial de otras ramas/PR.
 
 ## ESTADO VIGENTE Y POLITICA DE MARCA — 2026-11-18 (PR #31, laboratorio aislado)
 
