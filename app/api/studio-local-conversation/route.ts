@@ -90,8 +90,8 @@ async function answer(backend:Backend,persona:Persona,question:string,turns:Turn
     {role:'user',content:autonomous ? 'INSTRUCCION INTERNA DEL MODERADOR: '+question+' Recuerda: Felencho está escuchando y puede interrumpir. Habla como tú mismo, no como Felencho.' : 'Felencho: '+question}
   ];
   const payload=backend.format==='ollama'
-    ? {model:backend.model,messages,stream:false,keep_alive:'30m',options:{num_predict:105,temperature:0.45}}
-    : {model:backend.model,messages,stream:false,max_tokens:125,temperature:0.45};
+    ? {model:backend.model,messages,stream:false,keep_alive:'30m',options:{num_predict:220,temperature:0.45}}
+    : {model:backend.model,messages,stream:false,max_tokens:240,temperature:0.45};
   const response=await json(backend.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},35000);
   const raw=backend.format==='ollama'
     ? (response.message as {content?:string}|undefined)?.content
@@ -112,6 +112,20 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
   if(process.platform!=='darwin')throw new Error('Se necesita La Bestia (macOS).');
   const dir=await mkdtemp(join(tmpdir(),'felencho-local-voice-'));
   try{
+    // Opt-in only. Default keeps the currently running Dylan path untouched.
+    // The producer-approved Bob Base voice is used only when explicitly enabled
+    // in an isolated development process.
+    if (persona==='bob' && process.env.FELENCHO_BOB_BASE_LIVE==='1') {
+      const python=join(homedir(),'felencho-qwen3-tts-lab/.venv/bin/python');
+      const script=join(homedir(),'Documents/felencho-light-integration-lab/tools/voice-library-lab/bob-clone-base.py');
+      const output=join(dir,'approved-bob.wav');
+      await access(python);
+      await access(script);
+      await run(python,[script,'--studio-text',text.slice(0,500),'--studio-output',output],110000);
+      const wav=await readFile(output);
+      if(wav.length<100)throw new Error('Bob Base devolvió un WAV vacío');
+      return {audio:wav.toString('base64'),engine:'Bob Qwen3 Base 1.7B / referencia oficial'};
+    }
     // Prefer voices already tested and approved by Felencho on his M4 Max.
     const python=join(homedir(),'felencho-qwen3-tts-lab/.venv/bin/python');
     try{
