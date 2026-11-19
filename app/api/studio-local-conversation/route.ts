@@ -15,8 +15,7 @@ export const dynamic = 'force-dynamic';
 type Persona = 'bob'|'lina';
 type Turn = {user:string;assistant:string};
 type StudioLine = {who:'Felencho'|'BOB'|'LINA';text:string};
-type BobVoice = 'Ryan'|'Aiden'|'Eric'|'Dylan';
-const permittedBobVoices = new Set<BobVoice>(['Ryan','Aiden','Eric','Dylan']);
+type BobVoice = 'Dylan';
 function localOnly(request: NextRequest) {
   const host=request.headers.get('host')||'';
   return process.env.NODE_ENV==='development' && ['localhost:3001','127.0.0.1:3001'].includes(host);
@@ -175,7 +174,7 @@ export async function POST(request:NextRequest){
     const backend=await discover();
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
     const studioLines:StudioLine[]=Array.isArray(body.studio_transcript)?body.studio_transcript.slice(-12).filter((line:unknown):line is StudioLine=>typeof line==='object'&&line!==null&&['Felencho','BOB','LINA'].includes((line as StudioLine).who)&&typeof (line as StudioLine).text==='string'&&(line as StudioLine).text.length<=1200):[];
-    const bobVoice:BobVoice='Dylan'; // Producer-approved Qwen3-TTS identity for Bob; do not substitute Ryan.
+    const bobVoice:BobVoice='Dylan'; // Exclusive producer-approved voice for Bob.
     const began=Date.now();
     // Only a small public topic query is sent to approved public research APIs.
     // Local memories, original lyrics, and the full studio transcript stay on La Bestia.
