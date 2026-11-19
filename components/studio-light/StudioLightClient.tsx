@@ -14,7 +14,7 @@ import { connectStudioLightAudioMonitor } from "@/lib/studioLightAudioMonitor";
 // Do not regenerate, relink to Lovable CDN or import the photos as Next Image objects.
 const configs: Record<LightCharacter, PresenceConfig> = {
   bob: {
-    character: "bob", name: "Bob", voiceName: "Dylan",
+    character: "bob", name: "Bob", voiceName: "Bob — voz oficial Base 1.7B",
     portrait: "/studio-light/assets/bob-v1-portrait.jpg",
     closed: "/studio-light/assets/bob-v1-portrait.jpg",
     palette: { cyan: [0.15, 0.55, 1], violet: [1, 0.7, 0.23], gold: [0.9, 0.63, 0.25] },
