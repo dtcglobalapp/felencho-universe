@@ -68,12 +68,9 @@ def main():
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-    from huggingface_hub import snapshot_download
-    try:
-        model_dir = snapshot_download(repo_id=MODEL_ID, local_files_only=True)
-    except Exception as exc:
-        print("ERROR: VoiceDesign model is not cached; download was NOT attempted.", file=sys.stderr)
-        print(str(exc), file=sys.stderr)
+    model_dir = Path.home() / "Documents" / "FelenchoMundial" / "voice-library" / "models" / "qwen3-voice-design-1.7b"
+    if not (model_dir / "config.json").is_file() or not list(model_dir.glob("*.safetensors")):
+        print("ERROR: VoiceDesign model not installed in isolated Voice Library. No download attempted.", file=sys.stderr)
         return 3
 
     from mlx_audio.tts.utils import load_model
@@ -89,9 +86,9 @@ def main():
         encoding="utf-8",
     )
     print("Loading VoiceDesign model from local cache...")
-    model = load_model(model_dir)
+    model = load_model(str(model_dir))
     sample_rate = int(getattr(model, "sample_rate", 24000))
-    for name, words in SAMPLES:
+    for name, words in SAMPLES[:1]:  # One short sample first; no batch load on La Bestia.
         start = time.monotonic()
         results = list(model.generate_voice_design(text=words, language="Spanish", instruct=PROMPT))
         if not results:
