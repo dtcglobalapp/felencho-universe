@@ -1,6 +1,7 @@
-import bob from '@/assets/bob-v1-portrait.jpg';
-import lina from '@/assets/lina-v2-portrait.jpg';
-import linaSleep from '@/assets/lina-v2-sleep.webp';
+// Local URL strings: binaries are staged into public/studio-light/assets by prepare-assets.sh.
+const bob = '/studio-light/assets/bob-v1-portrait.jpg';
+const lina = '/studio-light/assets/lina-v2-portrait.jpg';
+const linaSleep = '/studio-light/assets/lina-v2-sleep.webp';
 import type { Character } from '@/bridge/FelenchoPresenceBridge';
 export type PresenceConfig={character:Character;name:string;voiceName:string;portrait:string;closed:string;palette:{cyan:[number,number,number];violet:[number,number,number];gold:[number,number,number]};core:[number,number,number];coreUV:[number,number]};
 export const configs:Record<Character,PresenceConfig>={
