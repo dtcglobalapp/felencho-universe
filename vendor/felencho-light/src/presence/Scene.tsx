@@ -1,8 +1,7 @@
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useTexture } from '@react-three/drei';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { AdditiveBlending, NormalBlending, SRGBColorSpace, Color, DoubleSide, Group, Mesh, ShaderMaterial } from 'three';
+import { AdditiveBlending, NormalBlending, SRGBColorSpace, Color, DoubleSide, Group, Mesh, ShaderMaterial, TextureLoader } from 'three';
 import type { PresenceConfig } from './config';
 import { flowingParticles, hairFilaments, portraitRelief, samplePortrait } from '../light/v2/geometry';
 import { anchorVertex, flowVertex, hairFragment, hairVertex, lightFragment, portraitVertex } from '../light/v2/shaders';
@@ -12,7 +11,7 @@ import { type V3Controller } from '../light/v3/speech';
 import type { AudioPlayer } from './player';
 
 function World({ api, player, config, ready }: { api: V3Controller; player:AudioPlayer; config:PresenceConfig; ready: () => void }) {
-  const [openTexture,closedTexture]=useTexture([config.portrait,config.closed]);
+  const [openTexture,closedTexture]=useLoader(TextureLoader,[config.portrait,config.closed]);
   const optics=useMemo(()=>({cyan:new Color(...config.palette.cyan),violet:new Color(...config.palette.violet),gold:new Color(...config.palette.gold)}),[config]);
   const orbit1=useRef<Group>(null),orbit2=useRef<Group>(null),halo=useRef<Group>(null),pulse=useRef<Mesh>(null),throat=useRef<Mesh>(null);
   const frames=useRef(0);
