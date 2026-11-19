@@ -14,16 +14,20 @@ import time
 
 MODEL_ID = "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 PROMPT = (
-    "Native US Latino Spanish, Latin American seseo accent, as spoken by a "
-    "mature bilingual Latino radio broadcaster living in New York City. "
-    "Every Spanish z and c before e/i is pronounced like the Spanish letter s "
-    "(seseo), never the Castilian English-th sound. No European Spanish "
-    "accent, no Spain intonation, no ceceo or distincion. The vowels are "
-    "clear, natural Latin American Spanish. Warm, resonant low male baritone "
-    "with the calm authority of a seasoned radio host in his late fifties. "
-    "Natural New York Latino conversational delivery, steady and lively, "
-    "not slow, not youthful, no vocal fry, no grunts, no humming, no filler "
-    "sounds. A confident and respectful podcast co-host, not a narrator."
+    "A native-born Latin American Spanish-speaking man in his late fifties. "
+    "Spanish is his FIRST LANGUAGE and mother tongue, learned from birth in a "
+    "Latin American Spanish-speaking family and community. He lives in "
+    "New York City, but his Spanish has a fully native Latin American accent, "
+    "NOT a US English accent, NOT English-influenced Spanish, NOT a foreign "
+    "language learner, and NOT European Spanish. Natural Latin American "
+    "seseo: Spanish z, ce and ci are pronounced with the same s sound as s, "
+    "never the European Spanish th sound. Natural vowels, authentic Latino "
+    "cadence and fluent connected speech. A deep, mature, warm male baritone "
+    "with calm radio-host authority, clear articulation, confident yet "
+    "conversational pacing, not excessively slow, no exaggerated acting, "
+    "no filler noises, no humming and no grunting. The voice MUST sound like "
+    "an authentic native Spanish-speaking Latino radio veteran, not an "
+    "American English speaker speaking Spanish."
 )
 SAMPLES = (
     ("01-seseo-latino", "Felencho, desde Nueva York conversamos con cinco vecinos sobre la situación de la ciudad. Gracias por comenzar esta conversación."),
