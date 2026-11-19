@@ -9,11 +9,11 @@ export async function GET(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const origin = request.headers.get("origin");
   const localPorts = new Set(["3118", "3120"]);
-  const exactLocalHost = /^127\\.0\\.0\\.1:(3118|3120)$/.test(host);
+  const exactLocalHost = host === "127.0.0.1:3118" || host === "127.0.0.1:3120";
   if (!exactLocalHost || !localPorts.has(request.nextUrl.port) ||
       (origin && origin !== "http://" + host) ||
       request.nextUrl.hostname !== "127.0.0.1") {
-    return NextResponse.json({ error: "Solo laboratorio local 3118" }, { status: 403 });
+    return NextResponse.json({ error: "Solo laboratorio local 3118/3120" }, { status: 403 });
   }
   try {
     const upstream = await fetch("http://127.0.0.1:7890/token?role=B", {
