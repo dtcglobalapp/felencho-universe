@@ -65,7 +65,7 @@ export default function VoiceScreenPreview() {
       <div style={panel}>
         <h2 style={{marginTop:0}}>BOB · voz oficial</h2>
         <div style={{height:380,overflow:'hidden',borderRadius:12,background:'#01050c'}}>
-          <iframe title="Holograma Bob aprobado" src="http://127.0.0.1:3118/studio-light/bob?dev=1"
+          <iframe title="Holograma Bob aprobado" src="http://127.0.0.1:3118/studio-light/bob"
             style={{width:'100%',height:'100%',border:0}} />
         </div>
         <p style={{color:'#b0bdd4'}}>Motor Qwen3 Base 1.7B · referencia protegida</p>
@@ -73,7 +73,7 @@ export default function VoiceScreenPreview() {
       <div style={panel}>
         <h2 style={{marginTop:0}}>LINA · Serena</h2>
         <div style={{height:380,overflow:'hidden',borderRadius:12,background:'#01050c'}}>
-          <iframe title="Holograma Lina aprobado" src="http://127.0.0.1:3118/studio-light/lina?dev=1"
+          <iframe title="Holograma Lina aprobado" src="http://127.0.0.1:3118/studio-light/lina"
             style={{width:'100%',height:'100%',border:0}} />
         </div>
         <p style={{color:'#b0bdd4'}}>Serena CustomVoice · sin cambios</p>
