@@ -8,6 +8,7 @@ import { createAudioPlayer, type AudioPlayer } from "@/vendor/felencho-light/src
 import type { PresenceConfig } from "@/vendor/felencho-light/src/presence/config";
 import { connectLocalWakeEvents, type LightCharacter } from "@/lib/studioLightPresence";
 import { LIGHT_STATES } from "@/vendor/felencho-light/src/light/controller";
+import { connectStudioLightAudioMonitor } from "@/lib/studioLightAudioMonitor";
 
 // The exact approved assets are copied by the isolated installer into /public/studio-light/assets.
 // Do not regenerate, relink to Lovable CDN or import the photos as Next Image objects.
@@ -45,6 +46,9 @@ export default function StudioLightClient({ character, dev = false }: { characte
   const [rms, setRms] = useState(0);
   const [visiblePanel, setVisiblePanel] = useState(dev);
   const inputRef = useRef<HTMLInputElement>(null);
+  const stopMonitorRef = useRef<(() => void) | null>(null);
+  const monitorConnectingRef = useRef(false);
+  const [monitorStatus, setMonitorStatus] = useState("LiveKit sin conectar (prueba opcional)");
   const config = configs[character];
 
   useEffect(() => {
@@ -68,6 +72,34 @@ export default function StudioLightClient({ character, dev = false }: { characte
     }, 180);
     return () => window.clearInterval(interval);
   }, [api, player, visiblePanel]);
+
+  useEffect(() => () => { stopMonitorRef.current?.(); stopMonitorRef.current = null; }, []);
+
+  const connectSilentAudio = async () => {
+    if (monitorConnectingRef.current || stopMonitorRef.current) return;
+    if (window.location.hostname !== "127.0.0.1" || window.location.port !== "3118") {
+      setMonitorStatus("Disponible solamente en 127.0.0.1:3118");
+      return;
+    }
+    monitorConnectingRef.current = true;
+    try {
+      const stop = await connectStudioLightAudioMonitor(character, {
+        setState: (state) => api.setState(state),
+        pushAudio: (bands) => api.pushAudio(bands),
+      }, setMonitorStatus);
+      stopMonitorRef.current = stop;
+    } catch (e) {
+      setMonitorStatus("No conectado: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      monitorConnectingRef.current = false;
+    }
+  };
+
+  const disconnectSilentAudio = () => {
+    stopMonitorRef.current?.();
+    stopMonitorRef.current = null;
+    setMonitorStatus("Receptor de audio desconectado");
+  };
 
   const filePicked = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -96,7 +128,12 @@ export default function StudioLightClient({ character, dev = false }: { characte
         <button onClick={() => player.pause()}>Pausar</button>
         <button onClick={() => player.stop()}>Detener</button>
       </div>
-      <p>RMS real: {rms.toFixed(4)}</p>
+      <p>RMS del reproductor de archivo: {rms.toFixed(4)}</p>
+      <p>LiveKit: {monitorStatus}</p>
+      <div className="light-row">
+        <button onClick={() => void connectSilentAudio()}>Conectar analizador LiveKit (silencioso)</button>
+        <button onClick={disconnectSilentAudio}>Desconectar analizador</button>
+      </div>
       <button onClick={() => {player.stop(); api.rig.startDemo();}}>Demo luz 12 s (sin sonido)</button>
       <p className="hint">Audio de laboratorio solamente. No conectar audio del navegador al RØDECaster mientras suene la voz por LiveKit.</p>
       <div className="light-states">
