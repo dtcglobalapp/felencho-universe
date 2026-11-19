@@ -52,7 +52,7 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
-  const bobVoice = 'Dylan' as const; // Voz provisional aprobada por Felencho (2026-11-16).
+  const bobVoice = 'Dylan' as const; // Voz exclusiva aprobada por Felencho.
 
   const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [debateState,setDebateState] = useState('Mesa preparada: presenta un tema para iniciar el debate.');
@@ -555,7 +555,7 @@ export default function StudioConversationLab() {
         <p className="text-sm text-amber-300">{readiness}</p>
         <p>Estado: <strong>{status}</strong></p>
         <p>Personaje activo: <strong>{active?.toUpperCase() || 'Ninguno'}</strong> · Micrófono: {live?'encendido':'apagado'} · Respuesta: {busy?'procesando':'libre'}</p>
-        <p className="text-sm">Voz provisional de Bob fijada en <strong>Dylan</strong> para esta prueba. Lina permanece Serena. No hay cambio automático de voz.</p>
+        <p className="text-sm">Voz definitiva de Bob fijada en <strong>Dylan</strong> para esta prueba. Lina permanece Serena. No hay cambio automático de voz.</p>
         <p className="text-xs text-slate-400">Solo se activa el debate continuo si dices «Bob y Lina, debatan entre ustedes sobre Historia de amor». Para preguntar algo a uno de ellos, llama a Bob o Lina por su nombre.</p>
         <label className="block text-sm">Final de turno
           <select disabled={live} value={turnMode} onChange={e=>{const next=e.target.value as 'vad'|'manual'|'auto';setTurnMode(next);turnModeRef.current=next;}} className="mt-1 w-full rounded bg-slate-950 p-2">
