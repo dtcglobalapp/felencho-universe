@@ -33,6 +33,17 @@ export default function ThreeWayDesk() {
       currentAudio.current?.pause();
     };
   },[]);
+  const presence=async(who:Persona,action:'LISTENING'|'THINKING'|'SPEAKING'|'IDLE')=>{
+    try {
+      const res=await fetch('/api/studio-three-way-presence',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({target:who,action})
+      });
+      if(!res.ok)throw new Error('Presence bridge HTTP '+res.status);
+    }catch(error) {
+      setStatus('Puente de holograma: '+String(error));
+    }
+  };
   const add=(entry:Entry)=>{
     transcript.current=[...transcript.current,entry].slice(-40);
     setEntries([...transcript.current]);
@@ -57,6 +68,7 @@ export default function ThreeWayDesk() {
     }
   },[audioOn]);
   const speakTo=async(who:Persona,message:string)=>{
+    await presence(who,'THINKING');
     setStatus('Brain local: preparando respuesta de '+(who==='bob'?'Bob':'Lina')+'...');
     const context=transcript.current.filter(x=>x.who===(who==='bob'?'BOB':'LINA')).slice(-4).map(x=>({
       user:message,assistant:x.text
@@ -72,12 +84,13 @@ export default function ThreeWayDesk() {
     setStatus('Generando voz oficial de '+(who==='bob'?'Bob':'Lina')+'...');
     const voiceRes=await fetch('/api/studio-voice-preview',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({persona:who,text:answer.text.slice(0,320)})
+      body:JSON.stringify({persona:who,text:answer.text})
     });
     const voice=await voiceRes.json() as SpeechReply;
     if(!voiceRes.ok||!voice.audio_base64)throw new Error(voice.error||'La voz no está disponible');
     setStatus('Hablando '+(who==='bob'?'Bob':'Lina')+'...');
-    await playback(voice.audio_base64);
+    await presence(who,'SPEAKING');
+    try {await playback(voice.audio_base64)} finally {await presence(who,'IDLE')}
   };
   const submit=async(value:string)=>{
     if(busyRef.current||!ready||!value.trim())return;
@@ -94,6 +107,7 @@ export default function ThreeWayDesk() {
     }catch(err){
       setStatus('Error de turno: '+(err instanceof Error?err.message:'desconocido'));
     } finally {
+      await Promise.allSettled([presence('bob','IDLE'),presence('lina','IDLE')]);
       busyRef.current=false;setBusy(false);
     }
   };
@@ -136,6 +150,7 @@ export default function ThreeWayDesk() {
   const interrupt=()=>{
     currentAudio.current?.pause();
     currentAudio.current=null;
+    void Promise.allSettled([presence('bob','IDLE'),presence('lina','IDLE')]);
     setStatus('Audio pausado. El turno actual puede continuar preparando texto.');
   };
   const controlStyle={border:'1px solid #466384',background:'#18334d',borderRadius:9,color:'#eff8ff',padding:'12px 16px',cursor:'pointer'};
@@ -172,7 +187,7 @@ export default function ThreeWayDesk() {
           <button style={controlStyle} onClick={interrupt}>Silenciar reproducción</button>
           <label style={{display:'flex',gap:6,alignItems:'center'}}><input type="checkbox" checked={audioOn} onChange={e=>setAudioOn(e.target.checked)} disabled={busy}/> Audio activado</label>
         </div>
-        <p style={{fontSize:13,color:'#b9acc4'}}>Micrófono con Whisper local en 3001. Revisa la transcripción y pulsa Enviar. Ningún audio se publica por LiveKit. No uses altavoces duplicados durante una emisión.</p>
+        <p style={{fontSize:13,color:'#b9acc4'}}>Micrófono con Whisper local en 3001. Revisa la transcripción y pulsa Enviar. Solo se envían estados de presencia a las pantallas; ningún audio se publica por LiveKit. No uses altavoces duplicados durante una emisión.</p>
       </section>
     </div>
   </main>
