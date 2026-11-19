@@ -121,7 +121,8 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
       const output=join(dir,'approved-bob.wav');
       await access(python);
       await access(script);
-      await run(python,[script,'--studio-text',text.slice(0,500),'--studio-output',output],110000);
+      if(text.length>500)throw new Error('Bob excedió 500 caracteres; se rechaza el audio en lugar de cortarlo');
+      await run(python,[script,'--studio-text',text,'--studio-output',output],110000);
       const wav=await readFile(output);
       if(wav.length<100)throw new Error('Bob Base devolvió un WAV vacío');
       return {audio:wav.toString('base64'),engine:'Bob Qwen3 Base 1.7B / referencia oficial'};
@@ -168,7 +169,7 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
 export async function GET(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   const backend=await discover();
-  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena para Lina / Dylan para Bob',local_approved_memories:await studioMemoryCount(),requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:process.env.FELENCHO_BOB_BASE_LIVE==='1' ? 'Qwen3-TTS Serena para Lina / Bob Base oficial (opt-in)' : 'Qwen3-TTS Serena para Lina / Dylan para Bob',local_approved_memories:await studioMemoryCount(),requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
