@@ -116,6 +116,27 @@ async function speech(text:string,persona:Persona):Promise<{audio:string;engine:
     if(persona==='bob'){
       // Only the producer-approved reference voice is authorized. Fail closed;
       // NEVER use a different named voice or a macOS fallback for Bob.
+      // Prefer the approved, already-loaded local model. This is an optional
+      // acceleration: if the worker is not started, the original official
+      // offline Base generator remains available. Never substitute voices.
+      if (text.length<=500) {
+        try {
+          const worker=await fetch('http://127.0.0.1:7895/synthesize',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({text}),
+            signal:AbortSignal.timeout(85000),
+            cache:'no-store'
+          });
+          if(worker.ok && worker.headers.get('content-type')?.includes('audio/wav')){
+            const wav=Buffer.from(await worker.arrayBuffer());
+            if(wav.length>100)
+              return {audio:wav.toString('base64'),engine:'Bob Base 1.7B / modelo persistente local'};
+          }
+        } catch {
+          // A missing or busy worker must not prevent using approved offline Base.
+        }
+      }
       const script=join(homedir(),'Documents/felencho-light-integration-lab/tools/voice-library-lab/bob-clone-base.py');
       const output=join(dir,'official-bob.wav');
       await access(script);
