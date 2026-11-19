@@ -14,19 +14,22 @@ import time
 
 MODEL_ID = "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 PROMPT = (
-    "A mature male radio host in his late fifties, with a rich, low baritone "
-    "and warm chest resonance. Natural Latin American Spanish spoken by a "
-    "long-time bilingual New York broadcaster: clear neutral Latin American "
-    "pronunciation, no Castilian ceceo or distincion of z/c before e/i, "
-    "no youthful or theatrical tone. Confident, thoughtful, relaxed but not slow, "
-    "direct onset, no humming, no filler sounds, no exaggerated intonation. "
-    "Natural conversational pacing, articulate consonants and calm authority."
+    "Native US Latino Spanish, Latin American seseo accent, as spoken by a "
+    "mature bilingual Latino radio broadcaster living in New York City. "
+    "Every Spanish z and c before e/i is pronounced like the Spanish letter s "
+    "(seseo), never the Castilian English-th sound. No European Spanish "
+    "accent, no Spain intonation, no ceceo or distincion. The vowels are "
+    "clear, natural Latin American Spanish. Warm, resonant low male baritone "
+    "with the calm authority of a seasoned radio host in his late fifties. "
+    "Natural New York Latino conversational delivery, steady and lively, "
+    "not slow, not youthful, no vocal fry, no grunts, no humming, no filler "
+    "sounds. A confident and respectful podcast co-host, not a narrator."
 )
 SAMPLES = (
-    ("01-presentacion", "Felencho, bienvenidos a Felencho Mundial. Aquí escuchamos, analizamos y conversamos con respeto."),
-    ("02-conversacion", "Lina, tengo una pregunta sobre lo que sucede en nuestra ciudad. Escuchemos primero a Felencho."),
-    ("03-ritmo", "Nueva York no se detiene. Pero una buena conversación también necesita claridad y buen ritmo."),
+    ("01-seseo-latino", "Felencho, desde Nueva York conversamos con cinco vecinos sobre la situación de la ciudad. Gracias por comenzar esta conversación."),
+    ("02-presentacion", "Bienvenidos a Felencho Mundial. Aquí escuchamos, analizamos y conversamos con respeto."),
 )
+
 PACKAGES = ("mlx", "mlx_audio", "soundfile", "huggingface_hub")
 
 
@@ -88,7 +91,7 @@ def main():
     print("Loading VoiceDesign model from local cache...")
     model = load_model(str(model_dir))
     sample_rate = int(getattr(model, "sample_rate", 24000))
-    for name, words in SAMPLES[:1]:  # One short sample first; no batch load on La Bestia.
+    for name, words in SAMPLES[:1]:  # First audition is an accent-specific test.
         start = time.monotonic()
         results = list(model.generate_voice_design(text=words, language="Spanish", instruct=PROMPT))
         if not results:
