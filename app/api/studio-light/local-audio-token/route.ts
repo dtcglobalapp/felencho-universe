@@ -8,8 +8,10 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const origin = request.headers.get("origin");
-  if (host !== "127.0.0.1:3118" ||
-      (origin && origin !== "http://127.0.0.1:3118") ||
+  const localPorts = new Set(["3118", "3120"]);
+  const exactLocalHost = /^127\\.0\\.0\\.1:(3118|3120)$/.test(host);
+  if (!exactLocalHost || !localPorts.has(request.nextUrl.port) ||
+      (origin && origin !== "http://" + host) ||
       request.nextUrl.hostname !== "127.0.0.1") {
     return NextResponse.json({ error: "Solo laboratorio local 3118" }, { status: 403 });
   }
