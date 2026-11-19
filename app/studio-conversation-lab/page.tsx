@@ -52,8 +52,7 @@ export default function StudioConversationLab() {
   const [status,setStatus] = useState('Pulsa Iniciar conversación para permitir el micrófono local.');
   const [bridgeStatus,setBridgeStatus] = useState('Puente: sin comprobar');
   const [brainOnly,setBrainOnly] = useState(false);
-  const bobVoice = 'Dylan' as const; // Legacy API request; actual voice determined server-side, opt-in only.
-  const [bobVoiceLabel,setBobVoiceLabel] = useState('Dylan (provisional)');
+  const bobVoiceLabel = 'Qwen3 Base 1.7B — voz oficial aprobada';
 
   const [turnMode,setTurnMode] = useState<'vad'|'manual'|'auto'>('vad');
   const [debateState,setDebateState] = useState('Mesa preparada: presenta un tema para iniciar el debate.');
@@ -112,7 +111,6 @@ export default function StudioConversationLab() {
     if(!isLocal())return;
     fetch('/api/studio-local-conversation',{cache:'no-store'}).then(r=>r.json()).then((j:{ready?:boolean;brain?:string;tts?:string})=>{
       setReadiness(j.ready?'Motor listo: '+j.brain+' · '+j.tts:'Falta iniciar un servidor Qwen local (Ollama, LM Studio o MLX). Voz macOS disponible.');
-      setBobVoiceLabel(j.tts?.includes('Bob Base oficial')?'Qwen3 Base 1.7B — voz oficial aprobada':'Dylan (provisional)');
     }).catch(()=>setReadiness('No se pudo detectar Qwen local.'));
   },[]);
 
@@ -385,7 +383,7 @@ export default function StudioConversationLab() {
       turnDeadlineRef.current=setTimeout(()=>controller.abort('Tiempo máximo de respuesta de estudio: 105 segundos'),105000);
       const res=cached ? await cached.promise : await fetch('/api/studio-local-conversation',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,bob_voice:bobVoice,include_audio:!brainOnly}),
+        body:JSON.stringify({character_key:who,message:text,conversation_context:turnRef.current[who].slice(-4),studio_transcript:(internal?studioTranscriptRef.current.slice(-12):studioTranscriptRef.current.slice(-12,-1)),autonomous_turn:!!automatic,include_audio:!brainOnly}),
         signal:controller.signal
       });
       const json=await res.json() as {data?:{text?:string;audio_base64?:string;audio_mime?:string;voice_engine?:string;memory_saved?:boolean;brain_ms?:number;tts_ms?:number;research_status?:'online'|'offline'|'not-needed';research_ms?:number;sources?:Array<{title:string;url:string;publisher:string;date?:string}>};error?:string};
@@ -496,7 +494,7 @@ export default function StudioConversationLab() {
         setTimeout(()=>{if(liveRef.current && !busyRef.current && !recorderRef.current) void processRef.current('__restart__');},350);
       }
     }
-  },[signal,brainOnly,bobVoice,ensurePublisher]);
+  },[signal,brainOnly,ensurePublisher]);
   processRef.current=processText;
 
   const saveLyrics=async()=>{
