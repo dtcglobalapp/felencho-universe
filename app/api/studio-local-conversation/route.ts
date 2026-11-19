@@ -155,7 +155,7 @@ async function speech(text:string,persona:Persona,bobVoice:BobVoice):Promise<{au
 export async function GET(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   const backend=await discover();
-  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena para Lina / Ryan para Bob',local_approved_memories:await studioMemoryCount(),requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({ready:!!backend,brain:backend?backend.name+' / '+backend.model:null,tts:'Qwen3-TTS Serena para Lina / Dylan para Bob',local_approved_memories:await studioMemoryCount(),requiresExternalService:false},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
@@ -175,7 +175,7 @@ export async function POST(request:NextRequest){
     const backend=await discover();
     if(!backend)return NextResponse.json({error:'Qwen local no encontrado. Inicia Ollama (11434), LM Studio (1234) o MLX (8080) con un modelo Qwen descargado.'},{status:503});
     const studioLines:StudioLine[]=Array.isArray(body.studio_transcript)?body.studio_transcript.slice(-12).filter((line:unknown):line is StudioLine=>typeof line==='object'&&line!==null&&['Felencho','BOB','LINA'].includes((line as StudioLine).who)&&typeof (line as StudioLine).text==='string'&&(line as StudioLine).text.length<=1200):[];
-    const bobVoice:BobVoice='Ryan'; // Fixed voice identity for Bob across every studio request.
+    const bobVoice:BobVoice='Dylan'; // Producer-approved Qwen3-TTS identity for Bob; do not substitute Ryan.
     const began=Date.now();
     // Only a small public topic query is sent to approved public research APIs.
     // Local memories, original lyrics, and the full studio transcript stay on La Bestia.
