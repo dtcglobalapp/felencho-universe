@@ -77,8 +77,8 @@ export default function StudioLightClient({ character, dev = false }: { characte
 
   const connectSilentAudio = async () => {
     if (monitorConnectingRef.current || stopMonitorRef.current) return;
-    if (window.location.hostname !== "127.0.0.1" || window.location.port !== "3118") {
-      setMonitorStatus("Disponible solamente en 127.0.0.1:3118");
+    if (window.location.hostname !== "127.0.0.1" || !["3118", "3120"].includes(window.location.port)) {
+      setMonitorStatus("Disponible solamente en 127.0.0.1:3118/3120");
       return;
     }
     monitorConnectingRef.current = true;
