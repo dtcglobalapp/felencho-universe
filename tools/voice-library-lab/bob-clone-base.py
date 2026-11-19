@@ -46,9 +46,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--generate", action="store_true")
+    parser.add_argument("--studio-text", type=str, default=None)
+    parser.add_argument("--studio-output", type=str, default=None)
     args = parser.parse_args()
-    if args.check == args.generate:
-        parser.error("Use --check OR --generate")
+    modes = int(args.check) + int(args.generate) + int(args.studio_text is not None)
+    if modes != 1:
+        parser.error("Choose --check, --generate OR --studio-text")
+    if (args.studio_text is None) != (args.studio_output is None):
+        parser.error("--studio-text requires --studio-output and vice versa")
     ref = check_reference()
     print("BOB REFERENCIA APROBADA:", json.dumps(ref))
     print("Modelo:", MODEL_ID)
@@ -70,6 +75,33 @@ def main():
     import numpy as np
     import soundfile as sf
     from mlx_audio.tts.utils import load_model
+
+    if args.studio_text is not None:
+        text = args.studio_text.strip()
+        if not text or len(text) > 500:
+            raise SystemExit("ERROR: Bob studio text must be 1-500 characters.")
+        output = Path(args.studio_output).expanduser().resolve()
+        # The calling route owns a temporary directory under the macOS temp root.
+        # Forbid writing audio anywhere else.
+        from tempfile import gettempdir
+        if not output.is_relative_to(Path(gettempdir()).resolve()) or output.suffix.lower() != ".wav":
+            raise SystemExit("ERROR: output must be a temporary WAV file.")
+        model = load_model(str(MODEL))
+        generated = list(model.generate(text=text, ref_audio=str(REFERENCE),
+                                        ref_text=REFERENCE_TEXT, lang_code="Spanish"))
+        if not generated:
+            raise SystemExit("ERROR: no Bob voice generated.")
+        pieces = []
+        for item in generated:
+            mx.eval(item.audio)
+            piece = np.asarray(item.audio).reshape(-1)
+            if len(piece):
+                pieces.append(piece)
+        if not pieces:
+            raise SystemExit("ERROR: generated Bob voice is empty.")
+        sf.write(str(output), np.concatenate(pieces), int(getattr(model, "sample_rate", 24000)))
+        print("BOB_BASE_APPROVED_REFERENCE_OK", sha256(output))
+        return 0
 
     out = LIB / "auditions" / "bob-base" / time.strftime("%Y%m%d-%H%M%S")
     out.mkdir(parents=True, exist_ok=False)
