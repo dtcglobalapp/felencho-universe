@@ -152,7 +152,7 @@ export async function GET(request:NextRequest){
 export async function POST(request:NextRequest){
   if(!localOnly(request))return NextResponse.json({error:'Solo laboratorio local'},{status:403});
   try{
-    const body=await request.json() as {character_key?:unknown;message?:unknown;conversation_context?:unknown;studio_transcript?:unknown;include_audio?:unknown;bob_voice?:unknown;autonomous_turn?:unknown};
+    const body=await request.json() as {character_key?:unknown;message?:unknown;conversation_context?:unknown;studio_transcript?:unknown;include_audio?:unknown;autonomous_turn?:unknown};
     if(body.character_key!=='bob'&&body.character_key!=='lina')return NextResponse.json({error:'Personaje no valido'},{status:400});
     const persona=body.character_key;
     if(typeof body.message!=='string'||!body.message.trim()||body.message.length>1200)return NextResponse.json({error:'Mensaje no valido'},{status:400});
