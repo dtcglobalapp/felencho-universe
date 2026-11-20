@@ -7,10 +7,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 type Scene = {
   id: string;
   scene_order: number;
@@ -84,6 +80,15 @@ async function generateLinesWithGPT({
     scene.scene_description || scene.scene_content || "Sin descripción.";
 
   try {
+    // No credentials are needed when Next.js collects routes during build.
+    // Preserve the existing fallback behavior if this endpoint is called
+    // without an OpenAI key.
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return fallbackLines(scene, topic);
+    }
+    const openai = new OpenAI({ apiKey });
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.85,

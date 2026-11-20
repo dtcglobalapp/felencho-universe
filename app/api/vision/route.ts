@@ -3,10 +3,6 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -25,6 +21,16 @@ export async function POST(request: Request) {
     const cleanBase64 = imageBase64.includes(",")
       ? imageBase64.split(",")[1]
       : imageBase64;
+
+    // Instantiate only on a real vision request, never while building routes.
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Felencho Vision no está configurado." },
+        { status: 503 }
+      );
+    }
+    const openai = new OpenAI({ apiKey });
 
     const response = await openai.responses.create({
       model: "gpt-5.5",

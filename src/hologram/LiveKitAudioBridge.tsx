@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Room, RoomEvent, Track, type RemoteTrack, type RemoteParticipant } from 'livekit-client';
+import { Room, RoomEvent, Track, type RemoteTrack, type RemoteParticipant, type LocalParticipant } from 'livekit-client';
 import { hologram, type Persona } from './engine';
 
 /**
@@ -153,7 +153,9 @@ export function LiveKitAudioBridge({ persona }: { persona: Persona }) {
     // LiveKit Agents publishes its true state as participant attribute
     // lk.agent.state. Unlike microphone silence, THINKING here reflects the
     // actual agent pipeline (when the deployed worker supports the attribute).
-    const receiveAgentState = (participant: RemoteParticipant) => {
+    const receiveAgentState = (participant: RemoteParticipant | LocalParticipant) => {
+      // Ignore the local participant: only remote worker attributes are authoritative.
+      if (participant === room.localParticipant) return;
       if (participant.identity.startsWith('studio-') || participant.identity.startsWith('display-')) return;
       const state = participant.attributes?.['lk.agent.state'];
       if (state !== 'idle' && state !== 'listening' && state !== 'thinking' && state !== 'speaking') return;

@@ -7,10 +7,6 @@ import {
 } from "@/lib/felenchoIdentityEngine";
 import { splitUserQuestions } from "@/lib/felenchoQuestionParser";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export type BrainCharacterKey = "bob" | "lina" | "felencho_virtual" | "shared";
 
 const CHARACTER_SYSTEM: Record<string, string> = {
@@ -500,6 +496,13 @@ async function askSingleQuestion({
     "Usuario: " + turn.user.slice(0, 1500) + "\n" +
     "Respuesta previa: " + turn.assistant.slice(0, 1500)
   ).join("\n\n");
+
+  // Initialize only when handling a real Brain request, not during Next.js build.
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Felencho Brain: OPENAI_API_KEY no configurada.");
+  }
+  const openai = new OpenAI({ apiKey });
 
   const response = await openai.responses.create({
     model: "gpt-5.5",
